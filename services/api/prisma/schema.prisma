@@ -7,47 +7,115 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Player {
+// Restaurant-centric minimal schema (P0)
+
+enum OrderType {
+  DINE_IN
+  TAKEOUT
+  DELIVERY
+}
+
+enum OrderStatus {
+  OPEN
+  IN_PROGRESS
+  SERVED
+  CLOSED
+  CANCELED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+}
+
+model Restaurant {
   id        String   @id @default(cuid())
-  username  String   @unique
-  locale    String   @default("en")
+  name      String
+  timezone  String   @default("UTC")
+  branches  Branch[]
   createdAt DateTime @default(now())
-  accounts  Account[]
 }
 
-enum AccountType {
-  ASSET
-  LIABILITY
-  EQUITY
-  REVENUE
-  EXPENSE
-}
-
-model Account {
-  id           String       @id @default(cuid())
-  name         String
-  type         AccountType
-  currencyCode String
-  playerId     String?
-  player       Player?      @relation(fields: [playerId], references: [id])
-  ledgerLines  LedgerLine[]
-}
-
-model LedgerEntry {
-  id          String       @id @default(cuid())
-  createdAt   DateTime     @default(now())
-  description String?
-  lines       LedgerLine[]
-}
-
-model LedgerLine {
+model Branch {
   id           String      @id @default(cuid())
-  entryId      String
-  entry        LedgerEntry @relation(fields: [entryId], references: [id])
-  accountId    String
-  account      Account     @relation(fields: [accountId], references: [id])
-  debit        Decimal     @default(0)
-  credit       Decimal     @default(0)
-  currencyCode String
+  restaurantId String
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
+  name         String
+  address      String?
+  hours        String?
+  tables       Table[]
+  menuItems    MenuItem[]
+  orders       Order[]
 }
 
+model Table {
+  id       String @id @default(cuid())
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+  code     String
+  seats    Int
+  status   String @default("AVAILABLE")
+  orders   Order[]
+}
+
+model MenuItem {
+  id        String  @id @default(cuid())
+  branchId  String
+  branch    Branch  @relation(fields: [branchId], references: [id])
+  sku       String  @unique
+  name      String
+  basePrice Decimal @db.Decimal(10,2)
+  active    Boolean @default(true)
+  orderItems OrderItem[]
+}
+
+model Order {
+  id         String       @id @default(cuid())
+  branchId   String
+  branch     Branch       @relation(fields: [branchId], references: [id])
+  tableId    String?
+  table      Table?       @relation(fields: [tableId], references: [id])
+  type       OrderType    @default(DINE_IN)
+  status     OrderStatus  @default(OPEN)
+  openedAt   DateTime     @default(now())
+  closedAt   DateTime?
+  items      OrderItem[]
+  payments   Payment[]
+  taxLines   TaxLine[]
+  tips       Tip[]
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id])
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  qty        Int      @default(1)
+  price      Decimal  @db.Decimal(10,2)
+  notes      String?
+}
+
+model Payment {
+  id       String        @id @default(cuid())
+  orderId  String
+  order    Order         @relation(fields: [orderId], references: [id])
+  method   PaymentMethod
+  amount   Decimal       @db.Decimal(10,2)
+  paidAt   DateTime      @default(now())
+}
+
+model TaxLine {
+  id      String  @id @default(cuid())
+  orderId String
+  order   Order   @relation(fields: [orderId], references: [id])
+  name    String
+  amount  Decimal @db.Decimal(10,2)
+}
+
+model Tip {
+  id      String  @id @default(cuid())
+  orderId String
+  order   Order   @relation(fields: [orderId], references: [id])
+  amount  Decimal @db.Decimal(10,2)
+}

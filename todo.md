@@ -1,4 +1,4 @@
-# 開發計畫 Roadmap（Econ Game）
+# 開發計畫 Roadmap（Restaurant Tycoon）
 
 本文件彙整短/中/長期開發規劃、技術選型、里程碑與驗收標準，並對應容器化開發環境。參考既有專案 maii-bot 的工程慣例（Node、Docker Compose、K8s 清單、ESLint/Prettier），新專案在此基礎上以 TypeScript、Fastify、Prisma、BullMQ 進一步實作。
 
@@ -15,69 +15,67 @@
 
 ---
 
-## 1. 需求輪廓與系統邏輯
-- 兩段式資料層: Redis（快取/佇列）+ PostgreSQL（永久/權威）
-- i18n 與多國生態: 多語（UI/訊息）、多幣別、匯率、各國關稅/稅制、時區/度量單位
-- 真實經濟要素:
-  - 貨幣與匯率: `Currency`, `ExchangeRate (FX)`、中央銀行政策（利率、量化寬鬆）
-  - 商品與資源: `Commodity`（原料/能源/農產/金屬）、`Product`（製成品）
-  - 市場與撮合: `Market`（地區/國家/全球）、訂單簿（限價、市價、撮合引擎）
-  - 生產與供應鏈: `Factory`, `Recipe`（投入/產出/效率/產能）、`Inventory`, `Logistics`（運輸/倉儲/時延/成本）
-  - 政策與稅: 關稅、營業稅、所得稅、補貼、配額、禁令
-  - 金融體系: `Account` 雙分錄帳、`Loan`/`Interest`、`Bond`（可後期）、`Bank`（放款/存款）、信用評等
-  - 風險與衝擊: 黑天鵝事件、供應中斷、天氣、戰爭、疫情（事件模型）
-- 遊戲循環: 玩家/公司建立 → 採購/生產/運輸 → 市場交易 → 擴張/研發 → 政策互動
+## 1. 需求輪廓與系統邏輯（餐飲導向）
+- 分層職能（前/中/後段）：
+  - 前台（FOH）：訂位、帶位、桌位/客數、點餐（內用/外帶/外送）、帳單拆併單、折扣/稅/服務費、收款與小費
+  - 中台（MOH/廚房）：菜單與配方、出餐節點（工位/站點）、Kitchen Display System（KDS）、出餐優先序與叫號、備料/工序
+  - 後台（BOH/供應）：供應商/採購、入庫與驗收、庫存批次與保存期限、報廢/盤點、成本/毛利、補貨規則與交期
+- 技術基礎：Redis（快取/佇列）+ PostgreSQL（權威儲存）
+- i18n 與多國：多語（UI/訊息）、稅別（VAT/GST/營業稅）、貨幣與四捨五入、時區與營業時段
+- 經營循環：餐廳/分店建立 → 設定菜單/價格/配方 → 進貨/備料 → 點餐/製作/出餐 → 結帳/小費 → 日結/盤點/補貨
 
 ---
 
-## 2. 資料模型（初稿）
-- 會計（已腳手架）: `Player`, `Account(AccountType)`, `LedgerEntry`, `LedgerLine`
-- 多幣別/匯率: `Currency { code, symbol, precision }`, `ExchangeRate { base, quote, rate, ts }`
-- 市場與訂單:
-  - `Market { region, commodity/product, currency }`
-  - `Order { side, price, qty, type(limit/market), tif, playerId, marketId }`
-  - `Trade { buyOrderId, sellOrderId, price, qty, ts }`
-  - `OrderBookSnapshot`（可選，快照以利查詢/回測）
-- 商品/配方/產能:
-  - `Commodity`, `Product`, `Recipe { inputs[], outputs[], duration, energy, labor }`
-  - `Factory { location, capacity, efficiency }`
-  - `Inventory { owner, sku, qty, costModel }`
-- 物流/地理:
-  - `Location { country, region, port? }`, `Route { from, to, time, cost }`, `Shipment`
-- 稅制/政策:
-  - `TaxRule { type, rate, scope, effectiveAt }`, `Tariff { from, to, commodity, rate }`, `Subsidy`
-- 金融:
-  - `Loan { principal, rate, schedule }`, `Bank`, `InterestAccrual`
-- 指標與歷史:
-  - `PriceTick`, `MarketMetrics`, `EconomicIndicator`（供需、庫存、產能利用率）
+## 2. 資料模型（餐飲初稿）
+- 相容性（不影響現況）：保留現有 `Player` 作為「老闆/公司」；會計雙分錄 `Account/Ledger*` 沿用
+- 會計與稅：`Account(AccountType)`, `LedgerEntry/Line`, `TaxRule`, `ServiceCharge`, `Tip`
+- 門店/人員/營業：
+  - `Restaurant { name, timezone }`, `Branch { restaurantId, address, hours }`
+  - `Table { branchId, code, seats, status }`, `Reservation { tableId?, guestName, partySize, timeslot }`
+  - `Staff { name, role }`, `Shift { branchId, startsAt, endsAt }`, `StaffAssignment { staffId, shiftId, station? }`
+- 菜單/配方/修飾：
+  - `MenuCategory`, `MenuItem { sku, name, basePrice, active }`, `MenuPrice { menuItemId, timeOfDay, price }`
+  - `ModifierGroup { name, min,max }`, `ModifierOption { name, priceDelta }`
+  - `Recipe { menuItemId, yieldQty }`, `RecipeComponent { recipeId, ingredientId, qty, unit }`
+- 庫存/採購：
+  - `Ingredient { name, unit, perishability, sku? }`, `Vendor { name, leadTimeDays }`
+  - `PurchaseOrder { vendorId, branchId, eta }`, `PurchaseOrderLine { ingredientId, qty, price }`
+  - `GoodsReceipt { poId }`, `InventoryLot { ingredientId, qty, unitCost, receivedAt, expiresAt? }`
+  - `StockMovement { type(purchase/issue/spoilage/transfer), lotId?, ingredientId, qty, ref }`
+  - `ReorderRule { ingredientId, minQty, targetQty, safetyDays }`
+- 點餐/結帳：
+  - `Order { branchId, tableId?, type(dine-in/takeout/delivery), status }`
+  - `OrderItem { orderId, menuItemId, qty, price }`, `OrderModifier { orderItemId, optionId, priceDelta }`
+  - `KitchenTicket { orderId, status, station }`, `TicketItem { menuItemId, qty, notes }`
+  - `Payment { orderId, method(cash/card), amount }`, `TaxLine`, `ServiceCharge`, `Tip`
 
 ---
 
-## 3. 服務與模組
+## 3. 服務與模組（餐飲場景）
 - API（Fastify + Prisma）
-  - REST（可擴展 GraphQL）：玩家、帳戶、交易（雙分錄）、市場查詢、下單、出入庫
-  - 驗證/安全: JWT 或 Session、Rate Limit、Idempotency-Key（下單/轉帳）、權限/配額
-  - i18n 回傳: code-based 錯誤/訊息，前端字典對應
+  - FOH：餐廳/桌位/訂位、建立訂單、加菜/備註/修飾、拆併單、折扣/服務費/小費、結帳
+  - MOH（KDS）：拉單/出餐/退菜、站點/工位佇列、優先序
+  - BOH：供應商/採購單/驗收、庫存批次/報廢/轉移、配方/成本試算、補貨建議
+  - 安全：JWT/Session、Rate Limit、Idempotency-Key（結帳/入庫）、權限（職務/門店）
+  - i18n：code-based 訊息，字典對應（`en/zh`）
 - Worker（BullMQ）
-  - 經濟 Tick：供需演算、價格更新、利息累計、工廠產出、物流推進
-  - 撮合引擎：以佇列驅動撮合，確保順序與一致性；或獨立匹配器（後期）
-  - 外部事件：政策變動/隨機事件注入（可配置機率與影響權重）
-- 快取策略（Redis）
-  - 熱門行情、排行榜、玩家資產總覽快取；TTL + 失效策略
-  - 去抖與頻率限制，避免 cache stampede
+  - 日結：結算銷售、COGS、服務費/小費分攤，關帳憑證寫入 `Ledger*`
+  - 庫存：配方耗用出庫、保鮮期/報廢、盤點差異調整
+  - 採購：補貨規則運算 → 產生建議 PO；交期模擬與到貨扣帳
+  - 成本：配方成本回溯/滾動平均、毛利報表快取
+- 快取（Redis）
+  - KDS 佇列/訂單狀態、熱門品項、門店看板；TTL/失效策略
 
 ---
 
 ## 4. 前端（Next.js, i18n）
-- 語系與在地化: `en`/`zh` 起步，擴充路由、字串、數字/貨幣/時間格式
-- 頁面
-  - 登入/註冊/公司建立
-  - 儀表板：資產負債、現金流、倉儲與產能、當前訂單
-  - 市場：商品清單、深度、成交、下單面板
-  - 生產：配方、工廠、產能排程、耗能/成本
-  - 物流：路線規劃、在途貨物、倉儲
-  - 政策：稅率/關稅展示、國家資訊
-- 可視化：K線、深度圖、Sankey（供應鏈流向）、地圖（物流路徑）
+- 語系：`en/zh` 起步，金額/稅/小費格式化
+- 模組頁面：
+  - FOH POS：桌位/訂位、點餐（修飾/加料）、拆併單、結帳收銀（含小費）
+  - KDS：站點佇列/叫號、出餐/退菜、優先序
+  - 庫存/採購：品項、批次/到期、補貨建議、採購單/驗收
+  - 菜單/配方：品項、修飾、時段價、配方與成本
+  - 儀表板：銷售/毛利、耗用與報廢、補貨 KPI
 
 ---
 
@@ -103,39 +101,28 @@
 
 ## 7. 里程碑與驗收標準
 
-### 里程碑 A（0–4 週）MVP
-- API：玩家/帳戶/雙分錄交易、基本市場查詢、下單（限價單，先撮合簡化）
-- Worker：經濟 tick（庫存衰減/固定成本/利息累計）、簡化價格更新
-- 前端：登入/儀表板/市場列表 + 下單雛形、i18n 切換
-- 資料庫：Prisma schema 覆蓋會計 + 市場最小集合
-- 驗收：
-  - 新玩家建立與基礎帳戶自動建立
-  - 可建立一次完整交易（雙分錄平衡）
-  - 下限價單可成交並生成成交紀錄與帳務
-  - 前端能展示持倉/餘額/最近成交
+### 里程碑 A（0–3 週）餐飲 MVP（優先 P0）
+- DB：Prisma 新增餐飲最小實體（Restaurant/Branch/Table/MenuItem/Order/OrderItem/Payment/TaxLine/Tip）於 `schema=dev`
+- API：POS 最小流程（開單/加菜/結帳）+ KDS 拉單/出餐
+- Worker：日結（Sales/COGS/Tip/ServiceCharge 憑證）
+- 前端：簡易 POS 與 KDS 原型、i18n 切換
+- 驗收：一組內用點餐→出餐→結帳→日結→帳務平衡
 
-### 里程碑 B（1–3 個月）可玩版本
-- 市場：正式撮合引擎（價優、時間優先），撮合隊列化，快照/回放
-- 供應鏈：Recipe/Factory/Inventory/Logistics 基線模型與 UI
-- 多國：Currency/FX、跨國市場、關稅/稅制（基本）
-- 安全/可靠：Rate limit、Idempotency、審計日誌、觀測面板
-- 驗收：
-  - 支援多幣別交易與即時/定時匯率更新
-  - 跨國物流影響交期與成本，關稅計入成本
-  - 撮合吞吐與延遲達到目標（例如 p50<50ms，p99<200ms 在測試數據下）
+### 里程碑 B（3–6 週）庫存與採購
+- DB：Ingredient/Vendor/PO/GoodsReceipt/InventoryLot/StockMovement/Recipe/RecipeComponent
+- API：採購/驗收、出庫（配方耗用/報廢）、補貨建議
+- Worker：保鮮期/報廢、補貨排程、配方成本滾動
+- 前端：庫存/採購/配方管理 UI
+- 驗收：依菜單出貨耗料、到期自動報廢、補貨建議可生成草稿 PO
 
-### 里程碑 C（3–12 個月）規模化
-- 事件溯源 + 快照，歷史查詢/回放
-- 複雜政策/金融工具（貸款、債券、補貼/配額）
-- 大型地圖/多市場互通、動態事件/災害
-- 資料分區與歸檔、性能調優（索引、批處理、CQRS/讀寫分離）
-- 驗收：
-  - 在壓測（同時玩家/訂單數量）下保持穩定
-  - 經濟指標可視化與回測工具可用
+### 里程碑 C（6–12 週）拓展與報表
+- 多分店/時段價/修飾、拆併單
+- 角色/權限、審計日誌、觀測面板
+- 報表：銷售/毛利、庫存周轉、員工績效（基礎）
 
 ---
 
-## 8. 工作分解（可指派的 TODO）
+## 8. 工作分解（可指派的 TODO，已餐飲化）
 
 ### 基礎設置
 - [x] 新增 `.nvmrc`（Node 20）
@@ -143,30 +130,35 @@
  - [x] GitHub Actions：Lint/Build/測試 + Docker build
 - [x] docker-compose dev profile（API/Worker 源碼熱更新）
 
-### 資料庫與模型
-- [ ] 擴充 Prisma：`Currency`, `ExchangeRate`, `Market`, `Order`, `Trade`
-- [ ] 商品/配方/產能：`Commodity`, `Product`, `Recipe`, `Factory`, `Inventory`
-- [ ] 稅制/政策：`TaxRule`, `Tariff`（先覆蓋最小集合）
-- [ ] 指標：`PriceTick`, `MarketMetrics`
+### P0（立即優先，避免阻塞）
+- [ ] Prisma schema（dev schema）新增最小餐飲實體：Restaurant/Branch/Table/MenuItem/Order/OrderItem/Payment/TaxLine/Tip（不移除既有 `Player/Account/*`）
+- [ ] API 路由（最小）：開單 POST /orders、加菜 POST /orders/:id/items、結帳 POST /orders/:id/payments、KDS：/kds/tickets 拉單/出餐
+- [ ] 前端原型：POS（開單/加菜/結帳）與 KDS 清單頁
+- [ ] i18n 文案：新增餐飲相關字串鍵（不破壞既有鍵）
+- [ ] 日結 Worker：聚合銷售/小費/服務費與 COGS，寫入 `Ledger*`
 
-### API
-- [ ] 玩家/帳戶：CRUD、餘額查詢、科目彙總
-- [ ] 交易：下單（限價/市價）、撤單、查詢訂單/成交
-- [ ] 倉儲/生產：入庫/出庫、配方排程
+### 資料庫與模型（餐飲）
+- [ ] Ingredient/Vendor/PO/GoodsReceipt/InventoryLot/StockMovement/Recipe/RecipeComponent
+- [ ] ReorderRule（安全存量/補貨天數）
+- [ ] MenuPrice（時段價）、ModifierGroup/Option（修飾/加料）
+
+### API（餐飲）
+- [ ] POS：桌位/帶位、開單/加菜/拆併單、折扣/服務費、小費、結帳
+- [ ] KDS：站點佇列、出餐/退菜/優先序
+- [ ] 採購/庫存：PO/驗收、出庫（配方耗用/報廢/轉移）
 - [ ] i18n 錯誤碼與前端字典對應
-- [ ] 安全：Rate limit、Idempotency-Key
+- [ ] 安全：Rate limit、Idempotency-Key（結帳/入庫）
 
-### Worker / 經濟引擎
-- [ ] Tick 框架（已雛形）：模組化處理器（利息、庫存、價格、物流）
-- [ ] 撮合：匹配與成交寫入（交易事件化），快照生成
-- [ ] 匯率：定時更新（內建模型或外部來源）、多幣結算
-- [ ] 物流：路徑耗時與成本累計，抵達入庫
+### Worker（餐飲）
+- [ ] 日結：Sales/COGS/ServiceCharge/Tip 憑證
+- [ ] 庫存：保鮮期/報廢、配方耗用出庫、盤點差異
+- [ ] 補貨：規則運算與建議 PO 產生
 
-### 前端
-- [ ] i18n 結構與字典維護流程
-- [ ] 儀表板：資產/倉儲/訂單/行情
-- [ ] 市場：深度/成交/K 線、下單面板
-- [ ] 生產/物流：配置與狀態視圖
+### 前端（餐飲）
+- [ ] POS：桌位/點餐/結帳（MVP）
+- [ ] KDS：出餐佇列（MVP）
+- [ ] 庫存/採購：品項/批次/驗收（V2）
+- [ ] 菜單/配方：時段價/修飾/配方（V2）
 
 ### 觀測與維運
 - [ ] Pino 日誌結構化輸出，請求追蹤 ID
@@ -180,17 +172,17 @@
 ---
 
 ## 9. 風險與緩解
-- 經濟複雜度過高 → 以迭代方式引入（先簡化成本/需求，再加彈性/政策）
-- 撮合與一致性 → 單點序列化（佇列/鎖）、事件驅動、明確事務邊界
-- 性能瓶頸 → 指標監控、索引與查詢優化、批處理與快照
-- i18n 維護成本 → 統一字串鍵與流程、lint 檢查缺漏
+- 模型轉向風險 → 優先以 dev schema 新增餐飲實體，保留舊模型以相容，逐步遷移
+- 結帳/帳務正確性 → 單元測試覆蓋稅/折扣/服務費/小費與雙分錄平衡
+- 庫存複雜度 → 先支持批次/報廢/出庫，後續再加盤點/轉移/多倉
+- i18n 成本 → 統一字串鍵，落入字典維護流程
 
 ---
 
 ## 10. 驗證與上線清單
 - [ ] 可重現本地環境（`docker compose up`）
 - [ ] DB schema 版本化與遷移（Prisma）
-- [ ] 基準場景測試（撮合、tick、下單吞吐）
+- [ ] 基準場景測試（POS 點餐→KDS→結帳→日結；庫存耗用/報廢）
 - [ ] 監控儀表板最小集合到位
 - [ ] 安全掃描（依賴/容器）
 
@@ -198,4 +190,4 @@
 
 ## 附註
 - 現有腳手架：`econ-game/` 已包含 API/Worker/Frontend、Postgres、Redis 與文件
-- 若需要完全比照 maii-bot 的目錄與腳本風格（例如更傾向 JS 而非 TS），可在里程碑 A 內調整開發模板與工具鏈
+- 與現況相容策略：短期在 `schema=dev` 新增/演進餐飲模型，待穩定後再考慮清理歷史模型或改名（例如將 `Player` 更名為 `Owner/Company`）
