@@ -2,7 +2,10 @@ import 'dotenv/config';
 import { Queue, Worker, JobsOptions } from 'bullmq';
 import IORedis from 'ioredis';
 
-const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379');
+const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  // BullMQ requires this to be null when blocking commands are used
+  maxRetriesPerRequest: null,
+});
 const queueName = 'econ-tick';
 const queue = new Queue(queueName, { connection });
 

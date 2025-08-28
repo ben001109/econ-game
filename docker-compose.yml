@@ -94,9 +94,11 @@ services:
   # Development profile: hot-reload API and worker using ts-node-dev
   api-dev:
     profiles: [ "dev" ]
-    image: node:20-bookworm-slim
+    image: node:20-bullseye-slim
     working_dir: /app
-    command: sh -c "npm install && npx prisma generate && npx prisma db push && npm run dev"
+    # install OpenSSL (Prisma engine uses libssl1.1 on bullseye)
+    user: root
+    command: sh -c "apt-get update && apt-get install -y openssl && npm install && npx prisma generate && npx prisma db push && npm run dev"
     environment:
       NODE_ENV: development
       # Use a separate Prisma schema for dev to isolate tables
