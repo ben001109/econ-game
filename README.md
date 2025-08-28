@@ -15,6 +15,22 @@ Prerequisites:
 
 - Docker + Docker Compose
 
+## Setup
+
+Cross-platform setup script (Node 20+):
+
+```
+node scripts/setup.mjs --docker           # build + start containers
+node scripts/setup.mjs --docker --dev     # dev profile (hot reload)
+
+node scripts/setup.mjs --local            # install deps + prisma generate
+node scripts/setup.mjs --local --start-db # start Postgres+Redis via Docker
+node scripts/setup.mjs --local --db-push  # prisma db push (DB must be up)
+
+# auto-pick (prefers docker dev if available)
+node scripts/setup.mjs
+```
+
 Run:
 
 ```bash
@@ -49,6 +65,17 @@ docker compose --profile dev up --build postgres redis api-dev worker-dev fronte
 ```
 
 Alternatively, run API/Worker directly on your host (Node 20) and point to the Compose Postgres/Redis using the provided `.env` files in each service.
+
+### Windows Notes (no Docker)
+
+- Use local installs of Postgres/Redis:
+  - winget: `winget install -e --id PostgreSQL.PostgreSQL` and `winget install -e --id tporadowski.Redis-64`
+  - choco: `choco install postgresql redis-64`
+- Update `.env` to use localhost hosts:
+  - `DATABASE_URL=postgresql://game:gamepass@localhost:5432/game?schema=public`
+  - `REDIS_URL=redis://localhost:6379`
+- Then run local dev: `node scripts/setup.mjs --local`
+- Environment check: `node scripts/doctor.mjs`
 
 ## Lint & Format
 

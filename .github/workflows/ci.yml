@@ -50,6 +50,49 @@ jobs:
         run: |
           npm run build --if-present
 
+  lint-build-windows:
+    name: Lint and Build (Windows ${{ matrix.service }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            dir: services/api
+          - service: worker
+            dir: services/worker
+          - service: frontend
+            dir: services/frontend
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: |
+            services/api/package-lock.json
+            services/worker/package-lock.json
+            services/frontend/package-lock.json
+
+      - name: Install deps
+        run: |
+          if [ -f package-lock.json ]; then npm ci --no-audit --ignore-scripts; else npm install --no-audit --ignore-scripts; fi
+
+      - name: Lint
+        run: |
+          npm run lint --if-present
+
+      - name: Build
+        run: |
+          npm run build --if-present
+
   docker-build:
     name: Docker Build (${{ matrix.service }})
     runs-on: ubuntu-latest
@@ -82,4 +125,3 @@ jobs:
           push: false
           load: true
           tags: econ-game/${{ matrix.service }}:ci
-
