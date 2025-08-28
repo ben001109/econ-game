@@ -22,6 +22,8 @@ jobs:
             dir: services/worker
           - service: frontend
             dir: services/frontend
+          - service: bot
+            dir: services/bot
     defaults:
       run:
         working-directory: ${{ matrix.dir }}
@@ -40,6 +42,10 @@ jobs:
       - name: Discord token not set (worker)
         if: ${{ matrix.service == 'worker' && (env.DISCORD_BOT_TOKEN == '' || env.DISCORD_BOT_TOKEN == null) }}
         run: echo "::notice title=Discord::DISCORD_BOT_TOKEN not set; worker will skip Discord features"
+
+      - name: Discord token not set (bot)
+        if: ${{ matrix.service == 'bot' && (env.DISCORD_BOT_TOKEN == '' || env.DISCORD_BOT_TOKEN == null) }}
+        run: echo "::warning title=Discord::DISCORD_BOT_TOKEN not set; bot cannot start in CI"
 
       - name: Install deps
         run: |
@@ -72,6 +78,8 @@ jobs:
             dir: services/worker
           - service: frontend
             dir: services/frontend
+          - service: bot
+            dir: services/bot
     defaults:
       run:
         working-directory: ${{ matrix.dir }}
@@ -90,6 +98,10 @@ jobs:
       - name: Discord token not set (worker)
         if: ${{ matrix.service == 'worker' && (env.DISCORD_BOT_TOKEN == '' || env.DISCORD_BOT_TOKEN == null) }}
         run: echo "::notice title=Discord::DISCORD_BOT_TOKEN not set; worker will skip Discord features"
+
+      - name: Discord token not set (bot)
+        if: ${{ matrix.service == 'bot' && (env.DISCORD_BOT_TOKEN == '' || env.DISCORD_BOT_TOKEN == null) }}
+        run: echo "::warning title=Discord::DISCORD_BOT_TOKEN not set; bot cannot start in CI"
 
       - name: Install deps
         run: |
@@ -121,6 +133,8 @@ jobs:
             context: services/worker
           - service: frontend
             context: services/frontend
+          - service: bot
+            context: services/bot
     steps:
       - name: Checkout
         uses: actions/checkout@v4

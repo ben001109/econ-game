@@ -114,8 +114,8 @@ async function dockerCompose(args) {
 async function setupDocker(dev) {
   await ensureDocker();
   if (dev) {
-    log('Starting dev profile containers (api-dev, worker-dev, frontend-dev, dbs)...');
-    await dockerCompose(['--profile', 'dev', 'up', '--build', '-d', 'postgres', 'redis', 'api-dev', 'worker-dev', 'frontend-dev', 'adminer', 'redis-commander']);
+    log('Starting dev profile containers (api-dev, worker-dev, frontend-dev, bot-dev, dbs)...');
+    await dockerCompose(['--profile', 'dev', 'up', '--build', '-d', 'postgres', 'redis', 'api-dev', 'worker-dev', 'frontend-dev', 'bot-dev', 'adminer', 'redis-commander']);
   } else {
     log('Building and starting production-like stack...');
     await dockerCompose(['up', '--build', '-d']);

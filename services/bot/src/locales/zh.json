@@ -1,0 +1,7 @@
+{
+  "pong": "Pong！",
+  "error_execute": "指令執行發生錯誤。",
+  "init_success": "玩家初始化成功！",
+  "init_failed": "建立玩家失敗"
+}
+

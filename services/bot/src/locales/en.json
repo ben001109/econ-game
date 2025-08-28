@@ -1,0 +1,7 @@
+{
+  "pong": "Pong!",
+  "error_execute": "Error executing command.",
+  "init_success": "Player created successfully!",
+  "init_failed": "Failed to create player"
+}
+

@@ -60,6 +60,17 @@ services:
       api:
         condition: service_started
 
+  bot:
+    build: ./services/bot
+    env_file:
+      - ./services/bot/.env
+      - ./services/bot/.env.local
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_started
+
   adminer:
     image: adminer:4
     ports:
@@ -137,6 +148,25 @@ services:
       - "3000:3000"
     depends_on:
       api-dev:
+        condition: service_started
+
+  bot-dev:
+    profiles: ["dev"]
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    environment:
+      NODE_ENV: development
+    env_file:
+      - ./services/bot/.env
+      - ./services/bot/.env.local
+    volumes:
+      - ./services/bot:/app
+      - /app/node_modules
+    depends_on:
+      api-dev:
+        condition: service_started
+      redis:
         condition: service_started
 
 volumes:
