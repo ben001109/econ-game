@@ -38,7 +38,7 @@ jobs:
           cache-dependency-path: ${{ matrix.dir }}/package-lock.json
 
       - name: Discord token not set (worker)
-        if: ${{ matrix.service == 'worker' && !secrets.DISCORD_BOT_TOKEN }}
+        if: ${{ matrix.service == 'worker' && (env.DISCORD_BOT_TOKEN == '' || env.DISCORD_BOT_TOKEN == null) }}
         run: echo "::notice title=Discord::DISCORD_BOT_TOKEN not set; worker will skip Discord features"
 
       - name: Install deps
@@ -88,7 +88,7 @@ jobs:
           cache-dependency-path: ${{ matrix.dir }}/package-lock.json
 
       - name: Discord token not set (worker)
-        if: ${{ matrix.service == 'worker' && !secrets.DISCORD_BOT_TOKEN }}
+        if: ${{ matrix.service == 'worker' && (env.DISCORD_BOT_TOKEN == '' || env.DISCORD_BOT_TOKEN == null) }}
         run: echo "::notice title=Discord::DISCORD_BOT_TOKEN not set; worker will skip Discord features"
 
       - name: Install deps
