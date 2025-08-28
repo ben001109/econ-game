@@ -1,11 +1,10 @@
 import 'dotenv/config';
-import { Queue, Worker, QueueScheduler, JobsOptions } from 'bullmq';
+import { Queue, Worker, JobsOptions } from 'bullmq';
 import IORedis from 'ioredis';
 
 const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379');
 const queueName = 'econ-tick';
 const queue = new Queue(queueName, { connection });
-const scheduler = new QueueScheduler(queueName, { connection });
 
 const intervalMs = parseInt(process.env.TICK_INTERVAL_MS || '5000', 10);
 
@@ -45,4 +44,3 @@ ensureRepeatingJob()
     console.error('[econ-worker] failed to schedule tick', e);
     process.exit(1);
   });
-

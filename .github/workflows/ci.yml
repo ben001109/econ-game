@@ -39,6 +39,10 @@ jobs:
         run: |
           if [ -f package-lock.json ]; then npm ci --no-audit --ignore-scripts; else npm install --no-audit --ignore-scripts; fi
 
+      - name: Generate Prisma Client (if script exists)
+        run: |
+          npm run prisma:generate --if-present
+
       - name: Lint
         run: |
           npm run lint --if-present
@@ -78,6 +82,10 @@ jobs:
       - name: Install deps
         run: |
           if [ -f package-lock.json ]; then npm ci --no-audit --ignore-scripts; else npm install --no-audit --ignore-scripts; fi
+
+      - name: Generate Prisma Client (if script exists)
+        run: |
+          npm run prisma:generate --if-present
 
       - name: Lint
         run: |
