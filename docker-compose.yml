@@ -94,11 +94,13 @@ services:
   # Development profile: hot-reload API and worker using ts-node-dev
   api-dev:
     profiles: [ "dev" ]
-    image: node:20-alpine
+    image: node:20-bookworm-slim
     working_dir: /app
     command: sh -c "npm install && npx prisma generate && npx prisma db push && npm run dev"
     environment:
       NODE_ENV: development
+      # Use a separate Prisma schema for dev to isolate tables
+      DATABASE_URL: postgresql://game:gamepass@postgres:5432/game?schema=dev
     env_file:
       - ./services/api/.env
       - ./services/api/.env.local
@@ -116,11 +118,13 @@ services:
 
   worker-dev:
     profiles: [ "dev" ]
-    image: node:20-alpine
+    image: node:20-bookworm-slim
     working_dir: /app
     command: sh -c "npm install && npm run dev"
     environment:
       NODE_ENV: development
+      # Match API dev DB schema for isolation
+      DATABASE_URL: postgresql://game:gamepass@postgres:5432/game?schema=dev
     env_file:
       - ./services/worker/.env
       - ./services/worker/.env.local
@@ -135,7 +139,7 @@ services:
 
   frontend-dev:
     profiles: [ "dev" ]
-    image: node:20-alpine
+    image: node:20-bookworm-slim
     working_dir: /app
     command: sh -c "npm install && npm run dev"
     environment:
@@ -154,7 +158,7 @@ services:
 
   bot-dev:
     profiles: [ "dev" ]
-    image: node:20-alpine
+    image: node:20-bookworm-slim
     working_dir: /app
     command: sh -c "npm install && npm run dev"
     environment:
