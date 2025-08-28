@@ -93,6 +93,21 @@ GitHub Actions runs on push/PR:
 - Node job: installs deps, lints and builds for api/worker/frontend.
 - Docker job: builds images for each service (no push).
 
+## Secrets & Env
+
+- Do not commit secrets. Place sensitive values in `.env.local` per service; these files are git-ignored.
+- Compose overlays service envs: each service loads `.env` then `.env.local` (overrides).
+- Examples are provided as `services/*/.env.example` — copy to `.env.local` and fill values.
+
+Discord Bot Token example (worker):
+
+```
+cp services/worker/.env.example services/worker/.env.local
+echo "DISCORD_BOT_TOKEN=YOUR_NEW_TOKEN" >> services/worker/.env.local
+```
+
+GitHub Actions: store secrets under Repo → Settings → Secrets and variables → Actions, e.g. `DISCORD_BOT_TOKEN`. If a job needs it, inject via `env: DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}`.
+
 ## Tech Overview
 
 - Architecture: modular monolith (API + Worker), evented via Redis/BullMQ. Postgres is source-of-truth; Redis is cache + queue.

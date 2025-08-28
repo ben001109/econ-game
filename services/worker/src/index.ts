@@ -8,6 +8,12 @@ const queue = new Queue(queueName, { connection });
 
 const intervalMs = parseInt(process.env.TICK_INTERVAL_MS || '5000', 10);
 
+// Optional: Discord bot token presence check (no value logged)
+if (!process.env.DISCORD_BOT_TOKEN) {
+  // eslint-disable-next-line no-console
+  console.warn('[env] DISCORD_BOT_TOKEN not set. Discord bot features are disabled.');
+}
+
 async function ensureRepeatingJob() {
   const repeat: JobsOptions['repeat'] = { every: intervalMs };
   await queue.add('tick', {}, { jobId: 'econ:tick', repeat, removeOnComplete: true, removeOnFail: true });

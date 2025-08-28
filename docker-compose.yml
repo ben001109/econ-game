@@ -29,6 +29,7 @@ services:
     build: ./services/api
     env_file:
       - ./services/api/.env
+      - ./services/api/.env.local
     ports:
       - "4000:4000"
     depends_on:
@@ -41,6 +42,7 @@ services:
     build: ./services/worker
     env_file:
       - ./services/worker/.env
+      - ./services/worker/.env.local
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,6 +53,7 @@ services:
     build: ./services/frontend
     env_file:
       - ./services/frontend/.env
+      - ./services/frontend/.env.local
     ports:
       - "3000:3000"
     depends_on:
@@ -85,6 +88,7 @@ services:
       NODE_ENV: development
     env_file:
       - ./services/api/.env
+      - ./services/api/.env.local
     volumes:
       - ./services/api:/app
       # keep container node_modules so host mount doesn't hide it
@@ -106,6 +110,7 @@ services:
       NODE_ENV: development
     env_file:
       - ./services/worker/.env
+      - ./services/worker/.env.local
     volumes:
       - ./services/worker:/app
       - /app/node_modules
@@ -124,6 +129,7 @@ services:
       NODE_ENV: development
     env_file:
       - ./services/frontend/.env
+      - ./services/frontend/.env.local
     volumes:
       - ./services/frontend:/app
       - /app/node_modules
