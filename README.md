@@ -23,6 +23,9 @@ Cross-platform setup script (Node 20+):
 node scripts/setup.mjs --docker           # build + start containers
 node scripts/setup.mjs --docker --dev     # dev profile (hot reload)
 
+# Human-friendly console
+node scripts/console.mjs
+
 node scripts/setup.mjs --local            # install deps + prisma generate
 node scripts/setup.mjs --local --start-db # start Postgres+Redis via Docker
 node scripts/setup.mjs --local --db-push  # prisma db push (DB must be up)
@@ -97,30 +100,21 @@ Services:
 
 You can edit files and rebuild the service image, or use the dev profile for hot reload of API/Worker inside containers.
 
-Dev profile (hot reload with ts-node-dev):
+Dev workflow (recommended: interactive console):
 
 ```bash
 # ensure Node 20 locally if you run tools: see .nvmrc
 nvm use || true
 
-# clean old dev containers automatically, then start dev stack
-scripts/dev-up.sh
+# Open the interactive console to start/stop dev, clean, purge, drop dev schema, logs, etc.
+node scripts/console.mjs
 
-# Equivalent (Node-based setup also cleans dev containers automatically)
+# Alternatively (non-interactive):
+# - Start Docker dev profile without console
 node scripts/setup.mjs --docker --dev
 
-# Services:
-# - api-dev: runs `npm run dev` with Prisma generate + db push
-# - worker-dev: runs `npm run dev`
-# - frontend-dev: runs Next.js dev server
-# - bot-dev: runs Discord bot with hot reload
-
-Cleanup only dev containers (manual):
-
-```bash
-# stop + remove only dev services, keep DB and tools
+# - Only remove dev app containers, keep DB/tools (manual maintenance)
 docker compose rm -s -f api-dev worker-dev frontend-dev bot-dev
-```
 ```
 
 Alternatively, run API/Worker directly on your host (Node 20) and point to the Compose Postgres/Redis using the provided `.env` files in each service.
@@ -163,6 +157,7 @@ Discord Bot Token example (worker):
 ```
 cp services/worker/.env.example services/worker/.env.local
 echo "DISCORD_BOT_TOKEN=YOUR_NEW_TOKEN" >> services/worker/.env.local
+```
 
 Discord Bot service:
 
@@ -171,7 +166,6 @@ cp services/bot/.env.example services/bot/.env.local
 echo "DISCORD_BOT_TOKEN=YOUR_NEW_TOKEN" >> services/bot/.env.local
 # Optional: fast slash-command updates in one guild
 # echo "GUILD_ID=YOUR_DEV_GUILD_ID" >> services/bot/.env.local
-```
 ```
 
 GitHub Actions: store secrets under Repo → Settings → Secrets and variables → Actions, e.g. `DISCORD_BOT_TOKEN`. If a job needs it, inject via `env: DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}`.
