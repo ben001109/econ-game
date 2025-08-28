@@ -1,9 +1,10 @@
 import 'dotenv/config';
-import Fastify from 'fastify';
-import { PrismaClient } from '@prisma/client';
-import { env } from './env.js';
 import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
+import { PrismaClient } from '@prisma/client';
+import Fastify from 'fastify';
+
+import { env } from './env.js';
 
 const prisma = new PrismaClient();
 const app = Fastify({ logger: true });
@@ -48,4 +49,3 @@ try {
   app.log.error(err);
   process.exit(1);
 }
-

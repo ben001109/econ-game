@@ -1,9 +1,11 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+
 import en from '../locales/en/common.json';
 import zh from '../locales/zh/common.json';
 
-const dict: Record<string, any> = { en, zh };
+type LocaleDict = { title: string; heading: string; tagline: string };
+const dict: Record<string, LocaleDict> = { en, zh };
 
 export default function Home() {
   const router = useRouter();
@@ -30,4 +32,3 @@ export default function Home() {
     </>
   );
 }
-
