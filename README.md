@@ -31,7 +31,24 @@ Services:
 
 ## Local Development (iterate API/worker)
 
-You can edit files and rebuild the service image, or run services locally (Node 20) pointing to the Compose Postgres/Redis by using the `.env` values.
+You can edit files and rebuild the service image, or use the dev profile for hot reload of API/Worker inside containers.
+
+Dev profile (hot reload with ts-node-dev):
+
+```bash
+# ensure Node 20 locally if you run tools: see .nvmrc
+nvm use || true
+
+# start only dev API/Worker (avoid port conflicts with prod services)
+docker compose --profile dev up --build postgres redis api-dev worker-dev frontend-dev adminer redis-commander
+
+# Services:
+# - api-dev: runs `npm run dev` with Prisma generate + db push
+# - worker-dev: runs `npm run dev`
+# - frontend-dev: runs Next.js dev server
+```
+
+Alternatively, run API/Worker directly on your host (Node 20) and point to the Compose Postgres/Redis using the provided `.env` files in each service.
 
 ## Tech Overview
 
@@ -44,4 +61,3 @@ You can edit files and rebuild the service image, or run services locally (Node 
 - Implement domain modules (markets, commodities, production chains).
 - Add auth/session, rate limiting, and per-locale pricing/tax models.
 - Introduce event sourcing and snapshotting for audit/history at scale.
-

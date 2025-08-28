@@ -138,10 +138,10 @@
 ## 8. 工作分解（可指派的 TODO）
 
 ### 基礎設置
-- [ ] 新增 `.nvmrc`（Node 20）
+- [x] 新增 `.nvmrc`（Node 20）
 - [ ] 新增 ESLint/Prettier（TS 設定），對齊 maii-bot 風格
 - [ ] GitHub Actions：Lint/Build/測試 + Docker build
-- [ ] docker-compose dev profile（API/Worker 源碼熱更新）
+- [x] docker-compose dev profile（API/Worker 源碼熱更新）
 
 ### 資料庫與模型
 - [ ] 擴充 Prisma：`Currency`, `ExchangeRate`, `Market`, `Order`, `Trade`
@@ -199,4 +199,3 @@
 ## 附註
 - 現有腳手架：`econ-game/` 已包含 API/Worker/Frontend、Postgres、Redis 與文件
 - 若需要完全比照 maii-bot 的目錄與腳本風格（例如更傾向 JS 而非 TS），可在里程碑 A 內調整開發模板與工具鏈
-
