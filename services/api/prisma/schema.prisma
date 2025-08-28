@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  locale    String   @default("en")
+  createdAt DateTime @default(now())
+  accounts  Account[]
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+model Account {
+  id           String       @id @default(cuid())
+  name         String
+  type         AccountType
+  currencyCode String
+  playerId     String?
+  player       Player?      @relation(fields: [playerId], references: [id])
+  ledgerLines  LedgerLine[]
+}
+
+model LedgerEntry {
+  id          String       @id @default(cuid())
+  createdAt   DateTime     @default(now())
+  description String?
+  lines       LedgerLine[]
+}
+
+model LedgerLine {
+  id           String      @id @default(cuid())
+  entryId      String
+  entry        LedgerEntry @relation(fields: [entryId], references: [id])
+  accountId    String
+  account      Account     @relation(fields: [accountId], references: [id])
+  debit        Decimal     @default(0)
+  credit       Decimal     @default(0)
+  currencyCode String
+}
+
