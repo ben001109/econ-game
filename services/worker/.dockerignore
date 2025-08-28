@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log
+Dockerfile*
+.dockerignore
+dist
+coverage
+.git
+.gitignore
+.env
+*.log
+**/.turbo
+**/.cache
+**/node_modules
