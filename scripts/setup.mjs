@@ -114,6 +114,15 @@ async function dockerCompose(args) {
 async function setupDocker(dev) {
   await ensureDocker();
   if (dev) {
+    log('Cleaning previous dev containers (api-dev, worker-dev, frontend-dev, bot-dev)...');
+    // Remove only dev service containers; keep DB/aux services intact
+    try {
+      await dockerCompose(['rm', '-s', '-f', 'api-dev', 'worker-dev', 'frontend-dev', 'bot-dev']);
+    } catch (e) {
+      // Ignore if nothing to remove
+      warn('No existing dev containers to remove or cleanup failed; continuing.');
+    }
+
     log('Starting dev profile containers (api-dev, worker-dev, frontend-dev, bot-dev, dbs)...');
     await dockerCompose(['--profile', 'dev', 'up', '--build', '-d', 'postgres', 'redis', 'api-dev', 'worker-dev', 'frontend-dev', 'bot-dev', 'adminer', 'redis-commander']);
   } else {

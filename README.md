@@ -103,14 +103,24 @@ Dev profile (hot reload with ts-node-dev):
 # ensure Node 20 locally if you run tools: see .nvmrc
 nvm use || true
 
-# start only dev API/Worker/Bot (avoid port conflicts with prod services)
-docker compose --profile dev up --build postgres redis api-dev worker-dev frontend-dev bot-dev adminer redis-commander
+# clean old dev containers automatically, then start dev stack
+scripts/dev-up.sh
+
+# Equivalent (Node-based setup also cleans dev containers automatically)
+node scripts/setup.mjs --docker --dev
 
 # Services:
 # - api-dev: runs `npm run dev` with Prisma generate + db push
 # - worker-dev: runs `npm run dev`
 # - frontend-dev: runs Next.js dev server
 # - bot-dev: runs Discord bot with hot reload
+
+Cleanup only dev containers (manual):
+
+```bash
+# stop + remove only dev services, keep DB and tools
+docker compose rm -s -f api-dev worker-dev frontend-dev bot-dev
+```
 ```
 
 Alternatively, run API/Worker directly on your host (Node 20) and point to the Compose Postgres/Redis using the provided `.env` files in each service.

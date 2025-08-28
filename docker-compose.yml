@@ -25,6 +25,7 @@ services:
 
   api:
     build: ./services/api
+    profiles: [ "prod" ]
     env_file:
       - ./services/api/.env
       - ./services/api/.env.local
@@ -38,6 +39,7 @@ services:
 
   worker:
     build: ./services/worker
+    profiles: [ "prod" ]
     env_file:
       - ./services/worker/.env
       - ./services/worker/.env.local
@@ -49,6 +51,7 @@ services:
 
   frontend:
     build: ./services/frontend
+    profiles: [ "prod" ]
     env_file:
       - ./services/frontend/.env
       - ./services/frontend/.env.local
@@ -60,6 +63,7 @@ services:
 
   bot:
     build: ./services/bot
+    profiles: [ "prod" ]
     env_file:
       #- ./services/bot/.env
       - ./services/bot/.env.local
