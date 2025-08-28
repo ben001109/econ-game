@@ -139,8 +139,8 @@
 
 ### 基礎設置
 - [x] 新增 `.nvmrc`（Node 20）
-- [ ] 新增 ESLint/Prettier（TS 設定），對齊 maii-bot 風格
-- [ ] GitHub Actions：Lint/Build/測試 + Docker build
+ - [x] 新增 ESLint/Prettier（TS 設定），對齊 maii-bot 風格
+ - [x] GitHub Actions：Lint/Build/測試 + Docker build
 - [x] docker-compose dev profile（API/Worker 源碼熱更新）
 
 ### 資料庫與模型

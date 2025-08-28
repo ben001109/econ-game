@@ -50,6 +50,22 @@ docker compose --profile dev up --build postgres redis api-dev worker-dev fronte
 
 Alternatively, run API/Worker directly on your host (Node 20) and point to the Compose Postgres/Redis using the provided `.env` files in each service.
 
+## Lint & Format
+
+Each service has lint/format scripts:
+
+```bash
+cd services/api && npm run lint && npm run format
+cd services/worker && npm run lint && npm run format
+cd services/frontend && npm run lint && npm run format
+```
+
+## CI
+
+GitHub Actions runs on push/PR:
+- Node job: installs deps, lints and builds for api/worker/frontend.
+- Docker job: builds images for each service (no push).
+
 ## Tech Overview
 
 - Architecture: modular monolith (API + Worker), evented via Redis/BullMQ. Postgres is source-of-truth; Redis is cache + queue.

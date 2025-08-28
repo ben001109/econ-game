@@ -1,0 +1,10 @@
+node_modules
+dist
+.next
+coverage
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+**/generated
+services/**/prisma/generated
+

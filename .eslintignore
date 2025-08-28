@@ -1,0 +1,13 @@
+node_modules
+dist
+.next
+coverage
+**/*.d.ts
+**/build
+**/.cache
+**/.turbo
+**/.vercel
+**/.vscode
+**/generated
+services/**/prisma/generated
+
