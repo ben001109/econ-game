@@ -1,0 +1,21 @@
+FROM oven/bun:1.1-alpine
+WORKDIR /app
+
+# Install dependencies
+COPY package.json ./
+RUN bun install
+
+# Copy source and prisma schema
+COPY tsconfig.json ./
+COPY prisma ./prisma
+COPY src ./src
+
+# Generate Prisma Client in container
+RUN bunx prisma generate
+
+ENV NODE_ENV=production
+EXPOSE 4000
+
+# Run with Bun; will also ensure db schema via package script
+CMD ["bun", "run", "bun:start"]
+

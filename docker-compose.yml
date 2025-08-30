@@ -193,6 +193,77 @@ services:
       redis:
         condition: service_started
 
+  # Bun profile: run services with Bun-based images
+  api-bun:
+    profiles: [ "bun" ]
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile.bun
+    command: sh -c "bun run bun:start | tee -a /logs/api-bun.log"
+    env_file:
+      - ./services/api/.env
+      - ./services/api/.env.local
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./logs:/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  worker-bun:
+    profiles: [ "bun" ]
+    build:
+      context: ./services/worker
+      dockerfile: Dockerfile.bun
+    command: sh -c "bun run bun:start | tee -a /logs/worker-bun.log"
+    env_file:
+      - ./services/worker/.env
+      - ./services/worker/.env.local
+    volumes:
+      - ./logs:/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  frontend-bun:
+    profiles: [ "bun" ]
+    build:
+      context: ./services/frontend
+      dockerfile: Dockerfile.bun
+    command: sh -c "bunx next start -p 3000 | tee -a /logs/frontend-bun.log"
+    env_file:
+      - ./services/frontend/.env
+      - ./services/frontend/.env.local
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./logs:/logs
+    depends_on:
+      api-bun:
+        condition: service_started
+
+  bot-bun:
+    profiles: [ "bun" ]
+    build:
+      context: ./services/bot
+      dockerfile: Dockerfile.bun
+    command: sh -c "bun run bun:start | tee -a /logs/bot-bun.log"
+    env_file:
+      # - ./services/bot/.env
+      - ./services/bot/.env.local
+    volumes:
+      - ./logs:/logs
+    depends_on:
+      api-bun:
+        condition: service_started
+      redis:
+        condition: service_started
+
 volumes:
   db-data:
   redis-data:

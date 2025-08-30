@@ -1,0 +1,14 @@
+FROM oven/bun:1.1-alpine
+WORKDIR /app
+
+COPY package.json ./
+RUN bun install
+
+COPY tsconfig.json ./
+COPY src ./src
+
+ENV NODE_ENV=production
+EXPOSE 4001
+
+CMD ["bun", "run", "bun:start"]
+

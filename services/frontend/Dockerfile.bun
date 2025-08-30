@@ -1,0 +1,18 @@
+FROM oven/bun:1.1-alpine
+WORKDIR /app
+
+COPY package.json ./
+RUN bun install
+
+COPY tsconfig.json ./
+COPY next.config.mjs ./
+COPY pages ./pages
+COPY locales ./locales
+
+# Build Next.js with Bun
+RUN bunx next build
+
+ENV NODE_ENV=production
+EXPOSE 3000
+CMD ["bunx", "next", "start", "-p", "3000"]
+

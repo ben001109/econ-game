@@ -1,0 +1,35 @@
+{
+  "_comment": "Template egg for Econ Game Frontend (Next.js) with Bun",
+  "meta": { "version": "PTDL_v2", "update_url": null },
+  "exported_at": "2025-08-30T00:00:00+00:00",
+  "name": "Econ Frontend (Bun)",
+  "author": "",
+  "uuid": "00000000-0000-4000-a000-000000000004",
+  "description": "Next.js frontend built and run with Bun.",
+  "features": null,
+  "docker_images": {
+    "Bun Latest": "ghcr.io/parkervcp/yolks:bun_latest",
+    "Bun Canary": "ghcr.io/parkervcp/yolks:bun_canary"
+  },
+  "file_denylist": [],
+  "startup": "cd {{WORK_DIR}} && if [ -f package.json ]; then bun install --production; fi; bun run bun:build && bun run {{START_CMD}}",
+  "config": { "files": "{}", "startup": "{}", "logs": "{}", "stop": "^^C" },
+  "scripts": {
+    "installation": {
+      "script": "#!/bin/bash\napt update\napt install -y git curl jq file unzip make gcc g++ python3 python-is-python3 libtool\nmkdir -p /mnt/server\ncd /mnt/server\n\nif [ \"${USER_UPLOAD}\" == \"true\" ] || [ \"${USER_UPLOAD}\" == \"1\" ]; then\n    echo 'User will upload files. Skipping git clone.'\n    exit 0\nfi\n\nif [[ -z \"${GIT_ADDRESS}\" ]]; then\n    echo 'No GIT_ADDRESS provided, nothing to clone.'\n    exit 0\nfi\n\nif [[ ${GIT_ADDRESS} != *.git ]]; then GIT_ADDRESS=${GIT_ADDRESS}.git; fi\n\nif [ -n \"${USERNAME}\" ] && [ -n \"${ACCESS_TOKEN}\" ]; then\n  GIT_ADDRESS=\"https://${USERNAME}:${ACCESS_TOKEN}@$(echo -e ${GIT_ADDRESS} | cut -d/ -f3-)\"\nfi\n\necho 'Cloning repository...'\nif [ -z ${BRANCH} ]; then\n  git clone ${GIT_ADDRESS} .\nelse\n  git clone --single-branch --branch ${BRANCH} ${GIT_ADDRESS} .\nfi\n\necho 'Done.'\n",
+      "container": "ghcr.io/parkervcp/installers:debian",
+      "entrypoint": "bash"
+    }
+  },
+  "variables": [
+    { "name": "Git Repository Address", "description": "Optional: clone repo on install", "env_variable": "GIT_ADDRESS", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "nullable|string", "field_type": "text" },
+    { "name": "Git Branch", "description": "Branch to clone", "env_variable": "BRANCH", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "nullable|string", "field_type": "text" },
+    { "name": "Git Username", "description": "Username for private repo", "env_variable": "USERNAME", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "nullable|string", "field_type": "text" },
+    { "name": "Git Access Token", "description": "Token for private repo", "env_variable": "ACCESS_TOKEN", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "nullable|string", "field_type": "text" },
+    { "name": "User Uploaded Files", "description": "Skip cloning if user uploads files (1=true)", "env_variable": "USER_UPLOAD", "default_value": "0", "user_viewable": true, "user_editable": true, "rules": "required|boolean", "field_type": "text" },
+    { "name": "Work Dir", "description": "Relative path to Frontend folder", "env_variable": "WORK_DIR", "default_value": ".", "user_viewable": true, "user_editable": true, "rules": "required|string", "field_type": "text" },
+    { "name": "Start Cmd", "description": "package.json script to run", "env_variable": "START_CMD", "default_value": "bun:start", "user_viewable": true, "user_editable": true, "rules": "required|string", "field_type": "text" },
+    { "name": "Port", "description": "HTTP port", "env_variable": "PORT", "default_value": "3000", "user_viewable": true, "user_editable": true, "rules": "required|numeric", "field_type": "text" }
+  ]
+}
+

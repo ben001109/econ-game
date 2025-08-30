@@ -181,3 +181,36 @@ GitHub Actions: store secrets under Repo → Settings → Secrets and variables 
 - Implement domain modules (markets, commodities, production chains).
 - Add auth/session, rate limiting, and per-locale pricing/tax models.
 - Introduce event sourcing and snapshotting for audit/history at scale.
+
+## Bun + Pterodactyl
+
+You can run services with Bun (lighter, faster cold starts) and deploy on Pterodactyl using a Bun yolk image.
+
+- Added Bun scripts per service:
+  - API: `bun:setup`, `bun:dev`, `bun:start`
+  - Worker: `bun:dev`, `bun:start`
+  - Bot: `bun:dev`, `bun:start`
+  - Frontend: `bun:dev`, `bun:build`, `bun:start`
+
+Local with Bun:
+
+```bash
+cd services/api && bun install && bun run bun:start
+cd services/worker && bun install && bun run bun:start
+cd services/bot && bun install && bun run bun:start
+cd services/frontend && bun install && bun run bun:build && bun run bun:start
+```
+
+Pterodactyl (recommended gist):
+
+- Image: choose a Bun yolk (e.g. a `bun` image from pterodactyl/yolks). Set your env vars (e.g. `DATABASE_URL`, `REDIS_URL`, `DISCORD_BOT_TOKEN`, `PORT`).
+- Installer: Git clone this repo into the server directory (or upload) and run `bun install` on first boot.
+- Startup command examples (per service directory):
+  - API: `bun install --production && bun run bun:start`
+  - Worker: `bun install --production && bun run bun:start`
+  - Bot: `bun install --production && bun run bun:start`
+  - Frontend: `bun install --production && bun run bun:build && bun run bun:start`
+
+Notes:
+- API will auto-run Prisma generate + db push via `bun:setup` before starting.
+- Ensure Postgres/Redis are reachable from your Pterodactyl node; set correct URLs in env.
