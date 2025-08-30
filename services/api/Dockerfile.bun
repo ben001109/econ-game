@@ -11,6 +11,7 @@ COPY prisma ./prisma
 COPY src ./src
 
 # Generate Prisma Client in container
+RUN apk add --no-cache openssl1.1-compat || apk add --no-cache openssl
 RUN bunx prisma generate
 
 ENV NODE_ENV=production
@@ -18,4 +19,3 @@ EXPOSE 4000
 
 # Run with Bun; will also ensure db schema via package script
 CMD ["bun", "run", "bun:start"]
-

@@ -2,6 +2,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+RUN apk add --no-cache openssl1.1-compat || apk add --no-cache openssl
 COPY tsconfig.json ./
 COPY prisma ./prisma
 COPY src ./src
@@ -13,10 +14,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi
+RUN apk add --no-cache openssl1.1-compat || apk add --no-cache openssl
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
 EXPOSE 4000
 CMD ["sh", "-c", "npx prisma db push && node dist/index.js"]
-
