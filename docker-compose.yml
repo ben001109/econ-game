@@ -26,11 +26,14 @@ services:
   api:
     build: ./services/api
     profiles: [ "prod" ]
+    command: sh -c "npx prisma db push && node dist/index.js | tee -a /logs/api.log"
     env_file:
       - ./services/api/.env
       - ./services/api/.env.local
     ports:
       - "4000:4000"
+    volumes:
+      - ./logs:/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -40,9 +43,12 @@ services:
   worker:
     build: ./services/worker
     profiles: [ "prod" ]
+    command: sh -c "node dist/index.js | tee -a /logs/worker.log"
     env_file:
       - ./services/worker/.env
       - ./services/worker/.env.local
+    volumes:
+      - ./logs:/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,11 +58,14 @@ services:
   frontend:
     build: ./services/frontend
     profiles: [ "prod" ]
+    command: sh -c "npm run start | tee -a /logs/frontend.log"
     env_file:
       - ./services/frontend/.env
       - ./services/frontend/.env.local
     ports:
       - "3000:3000"
+    volumes:
+      - ./logs:/logs
     depends_on:
       api:
         condition: service_started
@@ -64,9 +73,12 @@ services:
   bot:
     build: ./services/bot
     profiles: [ "prod" ]
+    command: sh -c "node dist/index.js | tee -a /logs/bot.log"
     env_file:
       #- ./services/bot/.env
       - ./services/bot/.env.local
+    volumes:
+      - ./logs:/logs
     depends_on:
       api:
         condition: service_started
@@ -98,7 +110,7 @@ services:
     working_dir: /app
     # install OpenSSL (Prisma engine uses libssl1.1 on bullseye)
     user: root
-    command: sh -c "apt-get update && apt-get install -y openssl && npm install && npx prisma generate && npx prisma db push && npm run dev"
+    command: sh -c "apt-get update && apt-get install -y openssl && npm install && npx prisma generate && npx prisma db push && (npm run dev | tee -a /logs/api-dev.log)"
     environment:
       NODE_ENV: development
       # Use a separate Prisma schema for dev to isolate tables
@@ -110,6 +122,7 @@ services:
       - ./services/api:/app
       # keep container node_modules so host mount doesn't hide it
       - /app/node_modules
+      - ./logs:/logs
     ports:
       - "4000:4000"
     depends_on:
@@ -122,7 +135,7 @@ services:
     profiles: [ "dev" ]
     image: node:20-bookworm-slim
     working_dir: /app
-    command: sh -c "npm install && npm run dev"
+    command: sh -c "npm install && (npm run dev | tee -a /logs/worker-dev.log)"
     environment:
       NODE_ENV: development
       # Match API dev DB schema for isolation
@@ -133,6 +146,7 @@ services:
     volumes:
       - ./services/worker:/app
       - /app/node_modules
+      - ./logs:/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -143,7 +157,7 @@ services:
     profiles: [ "dev" ]
     image: node:20-bookworm-slim
     working_dir: /app
-    command: sh -c "npm install && npm run dev"
+    command: sh -c "npm install && (npm run dev | tee -a /logs/frontend-dev.log)"
     environment:
       NODE_ENV: development
     env_file:
@@ -152,6 +166,7 @@ services:
     volumes:
       - ./services/frontend:/app
       - /app/node_modules
+      - ./logs:/logs
     ports:
       - "3000:3000"
     depends_on:
@@ -162,7 +177,7 @@ services:
     profiles: [ "dev" ]
     image: node:20-bookworm-slim
     working_dir: /app
-    command: sh -c "npm install && npm run dev"
+    command: sh -c "npm install && (npm run dev | tee -a /logs/bot-dev.log)"
     environment:
       NODE_ENV: development
     env_file:
@@ -171,6 +186,7 @@ services:
     volumes:
       - ./services/bot:/app
       - /app/node_modules
+      - ./logs:/logs
     depends_on:
       api-dev:
         condition: service_started

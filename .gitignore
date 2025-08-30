@@ -19,3 +19,6 @@ dist
 # DB
 postgres-data
 redis-data
+
+# Logs
+logs

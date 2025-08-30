@@ -1,7 +1,6 @@
 {
   "pong": "Pong！",
   "error_execute": "指令執行發生錯誤。",
-  "init_success": "玩家初始化成功！",
-  "init_failed": "建立玩家失敗"
+  "init_success": "Demo 餐廳資料初始化成功！",
+  "init_failed": "初始化 Demo 餐廳資料失敗"
 }
-
