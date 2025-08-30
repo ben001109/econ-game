@@ -34,6 +34,11 @@ const I18N = {
     menu_12: 'Start Prod',
     menu_13: 'Stop Prod',
     menu_14: 'Change Language',
+    menu_15: 'Quick Restart Dev',
+    menu_16: 'Quick Restart Prod',
+    menu_17: 'Quick Restart Dev + Tail',
+    menu_18: 'Quick Restart Prod + Tail',
+    select_prod_start: 'Select prod apps to start (empty = all prod apps):',
     select: 'Select: ',
     clean_first: 'Clean previous dev containers first?',
     start_db: 'Start DB services (postgres, redis)?',
@@ -65,6 +70,7 @@ const I18N = {
     tail_select: 'Select services to tail (space separated indices):',
     tail_enter: 'Enter indices (e.g., 1 2 5), empty for dev apps: ',
     tailing: 'Tailing: ',
+    tail_quit_hint: "Press 'q' to quit tail",
     error_prefix: 'Error:',
     lang_prompt: 'Choose language: [1] English, [2] 繁體中文 (default based on locale): ',
     lang_changed: 'Language changed to',
@@ -85,6 +91,11 @@ const I18N = {
     menu_12: '啟動正式服務',
     menu_13: '停止正式服務',
     menu_14: '切換語言',
+    menu_15: '快速重啟（開發服務）',
+    menu_16: '快速重啟（正式服務）',
+    menu_17: '快速重啟（開發）並追蹤',
+    menu_18: '快速重啟（正式）並追蹤',
+    select_prod_start: '選擇要啟動的正式服務（空白＝全部）：',
     select: '請選擇：',
     clean_first: '啟動前先清除舊的 dev 容器？',
     start_db: '要一併啟動資料庫服務（postgres、redis）嗎？',
@@ -116,6 +127,7 @@ const I18N = {
     tail_select: '選擇要追蹤的服務（以空白分隔）：',
     tail_enter: '輸入編號（例如 1 2 5），空白＝dev 服務：',
     tailing: '追蹤：',
+    tail_quit_hint: "按 'q' 退出追蹤",
     error_prefix: '錯誤：',
     lang_prompt: '選擇語言：[1] English, [2] 繁體中文（依環境預設）：',
     lang_changed: '語言已切換為',
@@ -173,6 +185,38 @@ async function dockerCompose(args) {
   } catch (e) {
     throw e;
   }
+}
+
+function followLogs(services) {
+  return new Promise((resolve) => {
+    const child = spawn('docker', ['compose', 'logs', '-f', ...services], {
+      stdio: ['pipe', 'inherit', 'inherit'],
+    });
+
+    const onKey = (buf) => {
+      const s = buf.toString();
+      if (s === 'q' || s === 'Q') {
+        child.kill('SIGINT');
+      }
+    };
+
+    const stdin = process.stdin;
+    const hadRaw = stdin.isTTY && stdin.isRaw;
+    if (stdin.isTTY) stdin.setRawMode(true);
+    stdin.resume();
+    stdin.on('data', onKey);
+
+    child.on('close', () => {
+      stdin.off('data', onKey);
+      if (stdin.isTTY) stdin.setRawMode(Boolean(hadRaw));
+      resolve();
+    });
+    child.on('error', () => {
+      stdin.off('data', onKey);
+      if (stdin.isTTY) stdin.setRawMode(Boolean(hadRaw));
+      resolve();
+    });
+  });
 }
 
 function rlPrompt(query) {
@@ -361,9 +405,8 @@ async function tailLogs() {
     chosen = idx.map((i) => opts[i]);
   }
   console.log('[console]', t('tailing') + chosen.join(' '));
-  try {
-    await dockerCompose(['logs', '-f', ...chosen]);
-  } catch {}
+  console.log(`[console] ${t('tail_quit_hint')}`);
+  await followLogs(chosen);
 }
 
 async function restartServices() {
@@ -376,6 +419,52 @@ async function restartServices() {
     chosen = idx.map((i) => all[i]);
   }
   await dockerCompose(['restart', ...chosen]);
+}
+
+async function restartDevQuick() {
+  // Quick restart selected dev apps by forcing recreate (no extra prompts)
+  console.log(t('select_dev_start'));
+  printIndexed(services.dev);
+  const devSel = await rlPrompt(t('indices'));
+  const chosenDev = pickByIndex(services.dev, devSel, services.dev);
+  const flags = ['--profile', 'dev', 'up', '-d', '--force-recreate'];
+  console.log('[console]', t('starting_cmd_prefix') + [...flags, ...chosenDev].join(' '));
+  await dockerCompose([...flags, ...chosenDev]);
+}
+
+async function restartProdQuick() {
+  // Quick restart selected prod apps by forcing recreate (no extra prompts)
+  console.log(t('select_prod_start'));
+  printIndexed(services.prod);
+  const sel = await rlPrompt(t('indices'));
+  const chosen = pickByIndex(services.prod, sel, services.prod);
+  const flags = ['--profile', 'prod', 'up', '-d', '--force-recreate'];
+  console.log('[console]', t('starting_cmd_prefix') + [...flags, ...chosen].join(' '));
+  await dockerCompose([...flags, ...chosen]);
+}
+
+async function restartDevQuickTail() {
+  console.log(t('select_dev_start'));
+  printIndexed(services.dev);
+  const sel = await rlPrompt(t('indices'));
+  const chosen = pickByIndex(services.dev, sel, services.dev);
+  const flags = ['--profile', 'dev', 'up', '-d', '--force-recreate'];
+  console.log('[console]', t('starting_cmd_prefix') + [...flags, ...chosen].join(' '));
+  await dockerCompose([...flags, ...chosen]);
+  console.log(`[console] ${t('tail_quit_hint')}`);
+  await followLogs(chosen);
+}
+
+async function restartProdQuickTail() {
+  console.log(t('select_prod_start'));
+  printIndexed(services.prod);
+  const sel = await rlPrompt(t('indices'));
+  const chosen = pickByIndex(services.prod, sel, services.prod);
+  const flags = ['--profile', 'prod', 'up', '-d', '--force-recreate'];
+  console.log('[console]', t('starting_cmd_prefix') + [...flags, ...chosen].join(' '));
+  await dockerCompose([...flags, ...chosen]);
+  console.log(`[console] ${t('tail_quit_hint')}`);
+  await followLogs(chosen);
 }
 
 async function buildService() {
@@ -432,6 +521,10 @@ async function printMenu() {
   console.log(`12) ${t('menu_12')}`);
   console.log(`13) ${t('menu_13')}`);
   console.log(`14) ${t('menu_14')}`);
+  console.log(`15) ${t('menu_15')}`);
+  console.log(`16) ${t('menu_16')}`);
+  console.log(`17) ${t('menu_17')}`);
+  console.log(`18) ${t('menu_18')}`);
   console.log('0) Quit');
 }
 
@@ -458,6 +551,10 @@ async function main() {
       else if (ans === '12') await startProd();
       else if (ans === '13') await stopProd();
       else if (ans === '14') await changeLanguage();
+      else if (ans === '15') await restartDevQuick();
+      else if (ans === '16') await restartProdQuick();
+      else if (ans === '17') await restartDevQuickTail();
+      else if (ans === '18') await restartProdQuickTail();
       else if (ans === '0') break;
     } catch (e) {
       console.error('[console]', t('error_prefix'), e.message || e);
