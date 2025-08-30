@@ -2,6 +2,7 @@ import 'dotenv/config';
 import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
 import { PrismaClient, PaymentMethod, OrderStatus, OrderType } from '@prisma/client';
+import { z } from 'zod';
 import Fastify from 'fastify';
 
 import { env } from './env.js';
@@ -54,64 +55,82 @@ app.get('/menus', async (_req, reply) => {
 });
 
 // Create order
-app.post<{ Body: { branchId: string; tableId?: string; type?: 'dine-in' | 'takeout' | 'delivery' } }>(
-  '/orders',
-  async (req, reply) => {
-    const { branchId, tableId, type = 'dine-in' } = req.body;
-    const order = await prisma.order.create({
-      data: {
-        branchId,
-        tableId: tableId || null,
-        type: type === 'takeout' ? OrderType.TAKEOUT : type === 'delivery' ? OrderType.DELIVERY : OrderType.DINE_IN,
-      },
-    });
-    return reply.status(201).send(order);
+const OrderCreateBody = z.object({
+  branchId: z.string().min(1),
+  tableId: z.string().min(1).optional(),
+  type: z.enum(['dine-in', 'takeout', 'delivery']).optional(),
+});
+
+app.post('/orders', async (req, reply) => {
+  const parsed = OrderCreateBody.safeParse((req as any).body ?? {});
+  if (!parsed.success) {
+    return reply.status(400).send({ code: 'BAD_REQUEST', issues: parsed.error.issues });
   }
-);
+  const { branchId, tableId, type = 'dine-in' } = parsed.data;
+  const order = await prisma.order.create({
+    data: {
+      branchId,
+      tableId: tableId || null,
+      type: type === 'takeout' ? OrderType.TAKEOUT : type === 'delivery' ? OrderType.DELIVERY : OrderType.DINE_IN,
+    },
+  });
+  return reply.status(201).send(order);
+});
 
 // Add item to order
-app.post<{ Params: { id: string }; Body: { menuItemId: string; qty?: number; priceOverride?: number; notes?: string } }>(
-  '/orders/:id/items',
-  async (req, reply) => {
-    const { id } = req.params;
-    const { menuItemId, qty = 1, priceOverride, notes } = req.body;
-    const menuItem = await prisma.menuItem.findUnique({ where: { id: menuItemId } });
-    if (!menuItem) return reply.status(404).send({ code: 'MENU_ITEM_NOT_FOUND' });
-    const price = priceOverride ?? Number(menuItem.basePrice);
-    const item = await prisma.orderItem.create({ data: { orderId: id, menuItemId, qty, price, notes } });
-    return reply.status(201).send(item);
-  }
-);
+const OrderItemBody = z.object({
+  menuItemId: z.string().min(1),
+  qty: z.number().int().positive().optional(),
+  priceOverride: z.number().positive().optional(),
+  notes: z.string().optional(),
+});
+
+app.post<{ Params: { id: string } }>('/orders/:id/items', async (req, reply) => {
+  const { id } = req.params;
+  const parsed = OrderItemBody.safeParse((req as any).body ?? {});
+  if (!parsed.success) return reply.status(400).send({ code: 'BAD_REQUEST', issues: parsed.error.issues });
+  const { menuItemId, qty = 1, priceOverride, notes } = parsed.data;
+  const menuItem = await prisma.menuItem.findUnique({ where: { id: menuItemId } });
+  if (!menuItem) return reply.status(404).send({ code: 'MENU_ITEM_NOT_FOUND' });
+  const price = priceOverride ?? Number(menuItem.basePrice);
+  const item = await prisma.orderItem.create({ data: { orderId: id, menuItemId, qty, price, notes } });
+  return reply.status(201).send(item);
+});
 
 // Add payment (optionally tax lines and tip)
-app.post<{
-  Params: { id: string };
-  Body: {
-    method: 'cash' | 'card';
-    amount: number;
-    taxLines?: { name: string; amount: number }[];
-    tip?: number;
-    close?: boolean;
-  };
-}>(
-  '/orders/:id/payments',
-  async (req, reply) => {
-    const { id } = req.params;
-    const { method, amount, taxLines = [], tip, close } = req.body;
-    const pm = method === 'card' ? PaymentMethod.CARD : PaymentMethod.CASH;
-    const payment = await prisma.payment.create({ data: { orderId: id, method: pm, amount } });
-    if (taxLines.length) {
-      await prisma.taxLine.createMany({ data: taxLines.map((t) => ({ orderId: id, name: t.name, amount: t.amount })) });
-    }
-    if (typeof tip === 'number' && !Number.isNaN(tip)) {
-      await prisma.tip.create({ data: { orderId: id, amount: tip } });
-    }
-    if (close) {
-      await prisma.order.update({ where: { id }, data: { status: OrderStatus.CLOSED, closedAt: new Date() } });
-    }
-    return reply.status(201).send(payment);
+const PaymentBody = z.object({
+  method: z.enum(['cash', 'card']),
+  amount: z.number().positive(),
+  taxLines: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        amount: z.number(),
+      })
+    )
+    .optional(),
+  tip: z.number().optional(),
+  close: z.boolean().optional(),
+});
+
+app.post<{ Params: { id: string } }>('/orders/:id/payments', async (req, reply) => {
+  const { id } = req.params;
+  const parsed = PaymentBody.safeParse((req as any).body ?? {});
+  if (!parsed.success) return reply.status(400).send({ code: 'BAD_REQUEST', issues: parsed.error.issues });
+  const { method, amount, taxLines = [], tip, close } = parsed.data;
+  const pm = method === 'card' ? PaymentMethod.CARD : PaymentMethod.CASH;
+  const payment = await prisma.payment.create({ data: { orderId: id, method: pm, amount } });
+  if (taxLines.length) {
+    await prisma.taxLine.createMany({ data: taxLines.map((t) => ({ orderId: id, name: t.name, amount: t.amount })) });
   }
-);
+  if (typeof tip === 'number' && !Number.isNaN(tip)) {
+    await prisma.tip.create({ data: { orderId: id, amount: tip } });
+  }
+  if (close) {
+    await prisma.order.update({ where: { id }, data: { status: OrderStatus.CLOSED, closedAt: new Date() } });
+  }
+  return reply.status(201).send(payment);
+});
 
 // Fetch order
 app.get<{ Params: { id: string } }>('/orders/:id', async (req, reply) => {
