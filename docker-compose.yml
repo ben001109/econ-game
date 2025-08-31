@@ -110,7 +110,15 @@ services:
     working_dir: /app
     # install OpenSSL (Prisma engine uses libssl1.1 on bullseye)
     user: root
-    command: sh -c "apt-get update && apt-get install -y openssl && npm install && npx prisma generate && npx prisma db push && (npm run dev | tee -a /logs/api-dev.log)"
+    command: >
+      sh -c "export DEBIAN_FRONTEND=noninteractive
+      && apt-get update -o Acquire::Retries=3
+      && apt-get install -y --no-install-recommends openssl ca-certificates
+      && update-ca-certificates
+      && npm install
+      && npx prisma generate
+      && npx prisma db push
+      && (npm run dev | tee -a /logs/api-dev.log)"
     environment:
       NODE_ENV: development
       # Use a separate Prisma schema for dev to isolate tables

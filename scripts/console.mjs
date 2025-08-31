@@ -14,15 +14,15 @@ const services = {
   aux: ['adminer', 'redis-commander'],
   db: ['postgres', 'redis'],
   prod: ['api', 'worker', 'frontend', 'bot'],
+  bun: ['api-bun', 'worker-bun', 'frontend-bun', 'bot-bun'],
 };
 
 // --- i18n ---------------------------------------------------------------
 const I18N = {
   en: {
     menu_header: '=== Econ Game Console ===',
-    menu_1: 'Start Dev',
-    menu_2: 'Stop Dev',
-    // consolidated clean submenu
+    // consolidated service + clean submenus
+    menu_services: 'Services (start/stop/restart/rebuild)',
     menu_clean: 'Clean (consolidated options)',
     menu_6: 'Status (compose ps)',
     menu_7: 'Tail Logs',
@@ -75,6 +75,19 @@ const I18N = {
     error_prefix: 'Error:',
     lang_prompt: 'Choose language: [1] English, [2] 繁體中文 (default based on locale): ',
     lang_changed: 'Language changed to',
+    // Services submenu
+    services_header: '=== Service Ops ===',
+    services_opt_1: 'Start',
+    services_opt_2: 'Stop',
+    services_opt_3: 'Restart',
+    services_opt_4: 'Rebuild',
+    services_opt_5: 'Quick Restart (Dev)',
+    services_opt_6: 'Quick Restart (Prod)',
+    services_select: 'Choose (1-6, 0=back): ',
+    services_scope: 'Scope: [1] Dev, [2] Prod, [3] Bun, [4] Pick dev services [1]: ',
+    // Build flags
+    build_no_cache: 'Rebuild without cache?',
+    build_pull_base: 'Pull base images before build?',
     // Clean submenu
     clean_header: '=== Clean Menu ===',
     clean_opt_1: 'Purge Dev Only (remove dev containers + drop dev schema)',
@@ -92,9 +105,8 @@ const I18N = {
   },
   zh: {
     menu_header: '=== 經濟遊戲 控制台 ===',
-    menu_1: '啟動開發服務',
-    menu_2: '停止開發服務',
-    // consolidated clean submenu
+    // consolidated service + clean submenus
+    menu_services: '服務操作（開啟/關閉/重啟/重建）',
     menu_clean: '清理（整合所有清理選項）',
     menu_6: '查看狀態 (compose ps)',
     menu_7: '追蹤日誌',
@@ -147,6 +159,19 @@ const I18N = {
     error_prefix: '錯誤：',
     lang_prompt: '選擇語言：[1] English, [2] 繁體中文（依環境預設）：',
     lang_changed: '語言已切換為',
+    // Services submenu
+    services_header: '=== 服務操作 ===',
+    services_opt_1: '啟動',
+    services_opt_2: '停止',
+    services_opt_3: '重啟',
+    services_opt_4: '重建',
+    services_opt_5: '快速重啟（開發）',
+    services_opt_6: '快速重啟（正式）',
+    services_select: '請選擇（1-6，0 返回）：',
+    services_scope: '操作範圍：[1] 開發、[2] 正式、[3] Bun、[4] 自選（Dev） [1]：',
+    // Build flags
+    build_no_cache: '重建時不使用快取？',
+    build_pull_base: '重建前先拉取基底映像？',
     // Clean submenu
     clean_header: '=== 清理選單 ===',
     clean_opt_1: '只清開發（移除 dev 容器 + 丟棄 dev schema）',
@@ -428,9 +453,13 @@ async function purgeAll(mode) {
   // Ensure images are removed
   if (mode >= 4) {
     try {
-      // Remove project-tagged images like <project>-<service>:<tag>
-      const out = await runCapture('docker', ['image', 'ls', '-q', '--filter', `reference=${project}-*`]);
-      const imgs = out.split('\n').map((s) => s.trim()).filter(Boolean);
+      // Remove images labeled to this compose project
+      const labeled = await runCapture('docker', ['image', 'ls', '-q', '--filter', `label=com.docker.compose.project=${project}`]);
+      const byLabel = labeled.split('\n').map((s) => s.trim()).filter(Boolean);
+      // Also attempt by name pattern <project>-<service>
+      const ref = await runCapture('docker', ['image', 'ls', '-q', '--filter', `reference=${project}-*`]);
+      const byRef = ref.split('\n').map((s) => s.trim()).filter(Boolean);
+      const imgs = Array.from(new Set([...byLabel, ...byRef]));
       if (imgs.length) await sh('docker', ['image', 'rm', '-f', ...imgs]);
     } catch {}
     try {
@@ -503,6 +532,14 @@ async function stopProd() {
   await dockerCompose(['rm', '-s', '-f', ...services.prod]);
 }
 
+async function startBun() {
+  await dockerCompose(['--profile', 'bun', 'up', '-d', ...services.db, ...services.bun, ...services.aux]);
+}
+
+async function stopBun() {
+  await dockerCompose(['rm', '-s', '-f', ...services.bun]);
+}
+
 async function status() {
   await dockerCompose(['ps']);
 }
@@ -523,7 +560,7 @@ async function tailLogs() {
 }
 
 async function restartServices() {
-  const all = [...services.dev, ...services.prod];
+  const all = [...services.dev, ...services.prod, ...services.bun];
   all.forEach((s, i) => console.log(`  [${i + 1}] ${s}`));
   const sel = (await rlPrompt(LANG === 'zh' ? '要重啟哪些服務（輸入編號，空白＝dev）：' : 'Restart which (indices, empty for dev apps): ')).trim();
   let chosen = services.dev;
@@ -580,16 +617,63 @@ async function restartProdQuickTail() {
   await followLogs(chosen);
 }
 
+async function servicesMenu() {
+  console.log(`\n${t('services_header')}`);
+  console.log(`1) ${t('services_opt_1')}`);
+  console.log(`2) ${t('services_opt_2')}`);
+  console.log(`3) ${t('services_opt_3')}`);
+  console.log(`4) ${t('services_opt_4')}`);
+  console.log(`5) ${t('services_opt_5')}`);
+  console.log(`6) ${t('services_opt_6')}`);
+  console.log('0) Back');
+  const choice = (await rlPrompt(t('services_select'))).trim();
+  if (!choice || choice === '0') return;
+  if (choice === '3') {
+    await restartServices();
+    return;
+  }
+  if (choice === '5') {
+    await restartDevQuick();
+    return;
+  }
+  if (choice === '6') {
+    await restartProdQuick();
+    return;
+  }
+  const scope = (await rlPrompt(t('services_scope'))).trim();
+  const isProd = scope === '2';
+  const isBun = scope === '3';
+  const isPick = scope === '4';
+  if (choice === '1') {
+    if (isProd) await startProd();
+    else if (isBun) await startBun();
+    else if (isPick) await startDev(); // startDev already allows picking dev services and extras
+    else await startDev();
+  } else if (choice === '2') {
+    if (isProd) await stopProd();
+    else if (isBun) await stopBun();
+    else if (isPick) await stopDev(); // stopDev allows picking dev services + extras
+    else await stopDev();
+  } else if (choice === '4') {
+    await buildService();
+  }
+}
+
 async function buildService() {
-  const all = [...services.prod, ...services.dev];
+  const all = [...services.prod, ...services.dev, ...services.bun];
   all.forEach((s, i) => console.log(`  [${i + 1}] ${s}`));
-  const sel = (await rlPrompt(LANG === 'zh' ? '要 build 哪些服務（輸入編號，空白＝全部）：' : 'Build which (indices, empty for all prod+dev): ')).trim();
+  const sel = (await rlPrompt(LANG === 'zh' ? '要 build/重建 哪些服務（輸入編號，空白＝全部）：' : 'Build/Rebuild which (indices, empty for all prod+dev): ')).trim();
   let chosen = all;
   if (sel) {
     const idx = sel.split(/\s+/).map((x) => Number(x) - 1).filter((i) => i >= 0 && i < all.length);
     chosen = idx.map((i) => all[i]);
   }
-  await dockerCompose(['build', ...chosen]);
+  const noCache = await confirm(t('build_no_cache'));
+  const pullBase = await confirm(t('build_pull_base'));
+  const args = ['build'];
+  if (noCache) args.push('--no-cache');
+  if (pullBase) args.push('--pull');
+  await dockerCompose([...args, ...chosen]);
 }
 
 async function cleanMenu() {
@@ -648,22 +732,17 @@ async function openUrls() {
 
 async function printMenu() {
   console.log(`\n${t('menu_header')}`);
-  console.log(`1) ${t('menu_1')}`); // Start Dev
-  console.log(`2) ${t('menu_2')}`); // Stop Dev
-  console.log(`3) ${t('menu_clean')}`); // Clean submenu
-  console.log(`4) ${t('menu_6')}`); // Status
-  console.log(`5) ${t('menu_7')}`); // Tail Logs
-  console.log(`6) ${t('menu_8')}`); // Restart Services
-  console.log(`7) ${t('menu_9')}`); // Build Services
-  console.log(`8) ${t('menu_10')}`); // Exec Shell
-  console.log(`9) ${t('menu_11')}`); // Open URLs
-  console.log(`10) ${t('menu_12')}`); // Start Prod
-  console.log(`11) ${t('menu_13')}`); // Stop Prod
-  console.log(`12) ${t('menu_14')}`); // Change Language
-  console.log(`13) ${t('menu_15')}`); // Quick Restart Dev
-  console.log(`14) ${t('menu_16')}`); // Quick Restart Prod
-  console.log(`15) ${t('menu_17')}`); // Quick Restart Dev + Tail
-  console.log(`16) ${t('menu_18')}`); // Quick Restart Prod + Tail
+  console.log(`1) ${t('menu_services')}`); // Services submenu
+  console.log(`2) ${t('menu_clean')}`); // Clean submenu
+  console.log(`3) ${t('menu_6')}`); // Status
+  console.log(`4) ${t('menu_7')}`); // Tail Logs
+  console.log(`5) ${t('menu_10')}`); // Exec Shell (repurposed index to keep essentials high)
+  console.log(`6) ${t('menu_11')}`); // Open URLs
+  console.log(`7) ${t('menu_14')}`); // Change Language
+  console.log(`8) ${t('menu_15')}`); // Quick Restart Dev
+  console.log(`9) ${t('menu_16')}`); // Quick Restart Prod
+  console.log(`10) ${t('menu_17')}`); // Quick Restart Dev + Tail
+  console.log(`11) ${t('menu_18')}`); // Quick Restart Prod + Tail
   console.log('0) Quit');
 }
 
@@ -676,22 +755,17 @@ async function main() {
     await printMenu();
     const ans = (await rlPrompt(t('select'))).trim();
     try {
-      if (ans === '1') await startDev();
-      else if (ans === '2') await stopDev();
-      else if (ans === '3') await cleanMenu();
-      else if (ans === '4') await status();
-      else if (ans === '5') await tailLogs();
-      else if (ans === '6') await restartServices();
-      else if (ans === '7') await buildService();
-      else if (ans === '8') await execShell();
-      else if (ans === '9') await openUrls();
-      else if (ans === '10') await startProd();
-      else if (ans === '11') await stopProd();
-      else if (ans === '12') await changeLanguage();
-      else if (ans === '13') await restartDevQuick();
-      else if (ans === '14') await restartProdQuick();
-      else if (ans === '15') await restartDevQuickTail();
-      else if (ans === '16') await restartProdQuickTail();
+      if (ans === '1') await servicesMenu();
+      else if (ans === '2') await cleanMenu();
+      else if (ans === '3') await status();
+      else if (ans === '4') await tailLogs();
+      else if (ans === '5') await execShell();
+      else if (ans === '6') await openUrls();
+      else if (ans === '7') await changeLanguage();
+      else if (ans === '8') await restartDevQuick();
+      else if (ans === '9') await restartProdQuick();
+      else if (ans === '10') await restartDevQuickTail();
+      else if (ans === '11') await restartProdQuickTail();
       else if (ans === '0') break;
     } catch (e) {
       console.error('[console]', t('error_prefix'), e.message || e);
