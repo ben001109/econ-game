@@ -4,8 +4,8 @@
 
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { resolve, join } from 'node:path';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { resolve, join, basename } from 'node:path';
+import { existsSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
 
 const root = resolve(process.cwd());
 const CONFIG_PATH = join(root, '.econ-console.json');
@@ -82,7 +82,13 @@ const I18N = {
     clean_opt_3: 'Full Clean: containers + volumes (down -v)',
     clean_opt_4: 'Full Clean: containers + volumes + images (local)',
     clean_opt_5: 'Full Clean: containers + volumes + images (all)',
-    clean_select: 'Choose (1-5, 0=back): ',
+    clean_opt_6: 'Docker System Prune (global: images/containers/networks/volumes)',
+    clean_opt_7: 'Clear ./logs folder (local host files)',
+    clean_select: 'Choose (1-7, 0=back): ',
+    system_prune_confirm: 'Prune ALL Docker resources on this machine? (global)',
+    clear_logs_confirm: 'Delete all files under ./logs on host?',
+    logs_cleared: 'Logs folder cleared.',
+    logs_missing: 'Logs folder not found; nothing to do.',
   },
   zh: {
     menu_header: '=== 經濟遊戲 控制台 ===',
@@ -148,7 +154,13 @@ const I18N = {
     clean_opt_3: '真全清：容器 + 卷（down -v）',
     clean_opt_4: '真全清：容器 + 卷 + 映像（local）',
     clean_opt_5: '真全清：容器 + 卷 + 映像（all）',
-    clean_select: '請選擇（1-5，0 返回）：',
+    clean_opt_6: 'Docker 系統清理（全域：映像/容器/網路/卷）',
+    clean_opt_7: '清空本機 logs 資料夾（./logs）',
+    clean_select: '請選擇（1-7，0 返回）：',
+    system_prune_confirm: '這會清理此機器上所有 Docker 資源（全域）。是否繼續？',
+    clear_logs_confirm: '要刪除 ./logs 內所有檔案嗎？',
+    logs_cleared: '已清空 logs 資料夾。',
+    logs_missing: '找不到 logs 資料夾，無需處理。',
   },
 };
 
@@ -178,6 +190,10 @@ function t(key) {
   return pack[key] || I18N.en[key] || key;
 }
 
+function getProjectName() {
+  return process.env.COMPOSE_PROJECT_NAME || basename(root);
+}
+
 async function changeLanguage() {
   const ans = (await rlPrompt(t('lang_prompt'))).trim();
   let chosen = LANG;
@@ -194,6 +210,18 @@ function sh(cmd, args, opts = {}) {
     const child = spawn(cmd, args, { stdio: 'inherit', shell: false, ...opts });
     child.on('error', reject);
     child.on('close', (code) => (code === 0 ? resolveP() : reject(new Error(`${cmd} ${args.join(' ')} -> ${code}`))));
+  });
+}
+
+function runCapture(cmd, args, opts = {}) {
+  return new Promise((resolveP, reject) => {
+    const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: false, ...opts });
+    let out = '';
+    let err = '';
+    child.stdout.on('data', (d) => (out += d.toString()));
+    child.stderr.on('data', (d) => (err += d.toString()));
+    child.on('error', reject);
+    child.on('close', (code) => (code === 0 ? resolveP(out) : reject(new Error(err || `${cmd} ${args.join(' ')} -> ${code}`))));
   });
 }
 
@@ -384,6 +412,46 @@ async function purgeAll(mode) {
   if (mode === 4) args.push('--rmi', 'local');
   if (mode === 5) args.push('--rmi', 'all');
   await dockerCompose(args);
+
+  // Extra cleanup to ensure nothing leftover
+  const project = getProjectName();
+
+  // Ensure project volumes (with compose labels) are removed
+  if (mode >= 3) {
+    try {
+      const volOut = await runCapture('docker', ['volume', 'ls', '-q', '--filter', `label=com.docker.compose.project=${project}`]);
+      const vols = volOut.split('\n').map((s) => s.trim()).filter(Boolean);
+      if (vols.length) await sh('docker', ['volume', 'rm', '-f', ...vols]);
+    } catch {}
+  }
+
+  // Ensure images are removed
+  if (mode >= 4) {
+    try {
+      // Remove project-tagged images like <project>-<service>:<tag>
+      const out = await runCapture('docker', ['image', 'ls', '-q', '--filter', `reference=${project}-*`]);
+      const imgs = out.split('\n').map((s) => s.trim()).filter(Boolean);
+      if (imgs.length) await sh('docker', ['image', 'rm', '-f', ...imgs]);
+    } catch {}
+    try {
+      // Clear dangling images left from builds
+      await sh('docker', ['image', 'prune', '-f']);
+    } catch {}
+  }
+
+  if (mode === 5) {
+    // Additionally remove base images used by compose services (from compose file image: entries)
+    try {
+      const yml = readFileSync(join(root, 'docker-compose.yml'), 'utf8');
+      const images = [];
+      for (const line of yml.split(/\r?\n/)) {
+        const m = line.match(/^\s*image:\s*"?([^"#]+)\s*"?/);
+        if (m && m[1]) images.push(m[1].trim());
+      }
+      const uniq = Array.from(new Set(images));
+      if (uniq.length) await sh('docker', ['image', 'rm', '-f', ...uniq]);
+    } catch {}
+  }
 }
 
 async function purgeDevOnly() {
@@ -400,6 +468,31 @@ async function purgeDevOnly() {
     console.log('[console]', t('failed_drop_schema'));
   }
   console.log('[console]', t('dev_purge_complete'));
+}
+
+async function systemPrune() {
+  const yes = await confirm(t('system_prune_confirm'));
+  if (!yes) return;
+  try {
+    await sh('docker', ['system', 'prune', '-a', '-f', '--volumes']);
+  } catch {}
+}
+
+async function clearLogs() {
+  const yes = await confirm(t('clear_logs_confirm'));
+  if (!yes) return;
+  const logsPath = join(root, 'logs');
+  if (!existsSync(logsPath)) {
+    console.log('[console]', t('logs_missing'));
+    return;
+  }
+  try {
+    rmSync(logsPath, { recursive: true, force: true });
+    mkdirSync(logsPath, { recursive: true });
+    console.log('[console]', t('logs_cleared'));
+  } catch (e) {
+    console.error('[console]', t('error_prefix'), e.message || e);
+  }
 }
 
 async function startProd() {
@@ -506,6 +599,8 @@ async function cleanMenu() {
   console.log(`3) ${t('clean_opt_3')}`);
   console.log(`4) ${t('clean_opt_4')}`);
   console.log(`5) ${t('clean_opt_5')}`);
+  console.log(`6) ${t('clean_opt_6')}`);
+  console.log(`7) ${t('clean_opt_7')}`);
   console.log('0) Back');
   const sel = (await rlPrompt(t('clean_select'))).trim();
   if (sel === '1') {
@@ -518,6 +613,10 @@ async function cleanMenu() {
     await purgeAll(4);
   } else if (sel === '5') {
     await purgeAll(5);
+  } else if (sel === '6') {
+    await systemPrune();
+  } else if (sel === '7') {
+    await clearLogs();
   }
 }
 
