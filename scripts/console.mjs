@@ -24,7 +24,7 @@ const I18N = {
     menu_2: 'Stop Dev',
     menu_3: 'Drop Dev DB Schema',
     menu_4: 'Purge Dev Only (remove dev containers + drop dev schema)',
-    menu_5: 'Full Purge (ALL, down -v)',
+    menu_5: 'Full Purge (containers/volumes/images options)',
     menu_6: 'Status (compose ps)',
     menu_7: 'Tail Logs',
     menu_8: 'Restart Services',
@@ -61,8 +61,10 @@ const I18N = {
     failed_drop_schema: 'Failed to drop schema dev (it may not exist).',
     dev_purge_complete: 'Dev purge complete.',
     opening: 'Opening',
-    purge_all_confirm: 'Purge ALL (down -v) and remove data volumes?',
-    remove_images_question: 'Also remove images? (none/local/all) [none]: ',
+    purge_all_confirm: 'Proceed to Full Purge?',
+    purge_all_mode_header: 'Full Clean Options:',
+    purge_all_volumes: 'Remove volumes? [1] No, [2] Yes (-v) [2]: ',
+    purge_all_images: 'Remove images? [1] none, [2] local, [3] all [1]: ',
     purge_dev_only_intro: 'Purge Dev Only: remove dev containers + drop dev schema (keeps named volumes).',
     proceed_question: 'Proceed?',
     exec_which: 'Exec shell into which (index): ',
@@ -81,7 +83,7 @@ const I18N = {
     menu_2: '停止開發服務',
     menu_3: '丟棄 Dev 資料表 (schema=dev)',
     menu_4: '只清開發（移除 dev 容器 + 丟棄 dev schema）',
-    menu_5: '真全清（全部 down -v）',
+    menu_5: '真全清（容器/卷/映像 可選）',
     menu_6: '查看狀態 (compose ps)',
     menu_7: '追蹤日誌',
     menu_8: '重啟服務',
@@ -118,8 +120,10 @@ const I18N = {
     failed_drop_schema: '丟棄 dev schema 失敗（可能不存在）。',
     dev_purge_complete: '開發環境清理完成。',
     opening: '開啟',
-    purge_all_confirm: '真全清（down -v）並刪除資料卷？',
-    remove_images_question: '同時刪除映像？（none/local/all）[none]：',
+    purge_all_confirm: '要執行真全清嗎？',
+    purge_all_mode_header: '全清選項：',
+    purge_all_volumes: '是否刪除 volumes？[1] 否、[2] 是 (-v) [2]：',
+    purge_all_images: '是否刪除映像？[1] 不刪、[2] local、[3] all [1]：',
     purge_dev_only_intro: '只清開發：移除 dev 容器 + 丟棄 dev schema（保留命名卷）。',
     proceed_question: '是否繼續？',
     exec_which: '要進入哪一個容器（輸入編號）：',
@@ -360,8 +364,18 @@ async function dropDevSchema() {
 async function purgeAll() {
   const yes = await confirm(t('purge_all_confirm'));
   if (!yes) return;
-  const rmi = (await rlPrompt(t('remove_images_question'))).trim();
-  const args = ['down', '-v', '--remove-orphans'];
+  console.log(t('purge_all_mode_header'));
+  // Volumes option (default: remove)
+  const volSel = (await rlPrompt(t('purge_all_volumes'))).trim();
+  const withVolumes = volSel === '' ? true : volSel === '2';
+  // Images option (default: none)
+  const imgSel = (await rlPrompt(t('purge_all_images'))).trim();
+  let rmi = 'none';
+  if (imgSel === '2') rmi = 'local';
+  else if (imgSel === '3') rmi = 'all';
+
+  const args = ['down', '--remove-orphans'];
+  if (withVolumes) args.push('-v');
   if (rmi === 'local' || rmi === 'all') args.push('--rmi', rmi);
   await dockerCompose(args);
 }
