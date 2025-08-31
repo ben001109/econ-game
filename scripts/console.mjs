@@ -22,9 +22,8 @@ const I18N = {
     menu_header: '=== Econ Game Console ===',
     menu_1: 'Start Dev',
     menu_2: 'Stop Dev',
-    menu_3: 'Drop Dev DB Schema',
-    menu_4: 'Purge Dev Only (remove dev containers + drop dev schema)',
-    menu_5: 'Full Purge (containers/volumes/images options)',
+    // consolidated clean submenu
+    menu_clean: 'Clean (consolidated options)',
     menu_6: 'Status (compose ps)',
     menu_7: 'Tail Logs',
     menu_8: 'Restart Services',
@@ -76,14 +75,21 @@ const I18N = {
     error_prefix: 'Error:',
     lang_prompt: 'Choose language: [1] English, [2] 繁體中文 (default based on locale): ',
     lang_changed: 'Language changed to',
+    // Clean submenu
+    clean_header: '=== Clean Menu ===',
+    clean_opt_1: 'Purge Dev Only (remove dev containers + drop dev schema)',
+    clean_opt_2: 'Full Clean: containers only (compose down)',
+    clean_opt_3: 'Full Clean: containers + volumes (down -v)',
+    clean_opt_4: 'Full Clean: containers + volumes + images (local)',
+    clean_opt_5: 'Full Clean: containers + volumes + images (all)',
+    clean_select: 'Choose (1-5, 0=back): ',
   },
   zh: {
     menu_header: '=== 經濟遊戲 控制台 ===',
     menu_1: '啟動開發服務',
     menu_2: '停止開發服務',
-    menu_3: '丟棄 Dev 資料表 (schema=dev)',
-    menu_4: '只清開發（移除 dev 容器 + 丟棄 dev schema）',
-    menu_5: '真全清（容器/卷/映像 可選）',
+    // consolidated clean submenu
+    menu_clean: '清理（整合所有清理選項）',
     menu_6: '查看狀態 (compose ps)',
     menu_7: '追蹤日誌',
     menu_8: '重啟服務',
@@ -135,6 +141,14 @@ const I18N = {
     error_prefix: '錯誤：',
     lang_prompt: '選擇語言：[1] English, [2] 繁體中文（依環境預設）：',
     lang_changed: '語言已切換為',
+    // Clean submenu
+    clean_header: '=== 清理選單 ===',
+    clean_opt_1: '只清開發（移除 dev 容器 + 丟棄 dev schema）',
+    clean_opt_2: '真全清：僅容器（compose down）',
+    clean_opt_3: '真全清：容器 + 卷（down -v）',
+    clean_opt_4: '真全清：容器 + 卷 + 映像（local）',
+    clean_opt_5: '真全清：容器 + 卷 + 映像（all）',
+    clean_select: '請選擇（1-5，0 返回）：',
   },
 };
 
@@ -361,22 +375,14 @@ async function dropDevSchema() {
   }
 }
 
-async function purgeAll() {
-  const yes = await confirm(t('purge_all_confirm'));
+async function purgeAll(mode) {
+  // mode: 2=down, 3=down -v, 4=down -v --rmi local, 5=down -v --rmi all
+  const yes = await confirm(t('proceed_question'));
   if (!yes) return;
-  console.log(t('purge_all_mode_header'));
-  // Volumes option (default: remove)
-  const volSel = (await rlPrompt(t('purge_all_volumes'))).trim();
-  const withVolumes = volSel === '' ? true : volSel === '2';
-  // Images option (default: none)
-  const imgSel = (await rlPrompt(t('purge_all_images'))).trim();
-  let rmi = 'none';
-  if (imgSel === '2') rmi = 'local';
-  else if (imgSel === '3') rmi = 'all';
-
   const args = ['down', '--remove-orphans'];
-  if (withVolumes) args.push('-v');
-  if (rmi === 'local' || rmi === 'all') args.push('--rmi', rmi);
+  if (mode >= 3) args.push('-v');
+  if (mode === 4) args.push('--rmi', 'local');
+  if (mode === 5) args.push('--rmi', 'all');
   await dockerCompose(args);
 }
 
@@ -493,6 +499,28 @@ async function buildService() {
   await dockerCompose(['build', ...chosen]);
 }
 
+async function cleanMenu() {
+  console.log(`\n${t('clean_header')}`);
+  console.log(`1) ${t('clean_opt_1')}`);
+  console.log(`2) ${t('clean_opt_2')}`);
+  console.log(`3) ${t('clean_opt_3')}`);
+  console.log(`4) ${t('clean_opt_4')}`);
+  console.log(`5) ${t('clean_opt_5')}`);
+  console.log('0) Back');
+  const sel = (await rlPrompt(t('clean_select'))).trim();
+  if (sel === '1') {
+    await purgeDevOnly();
+  } else if (sel === '2') {
+    await purgeAll(2);
+  } else if (sel === '3') {
+    await purgeAll(3);
+  } else if (sel === '4') {
+    await purgeAll(4);
+  } else if (sel === '5') {
+    await purgeAll(5);
+  }
+}
+
 async function execShell() {
   const all = [...services.dev, ...services.prod, ...services.db, ...services.aux];
   all.forEach((s, i) => console.log(`  [${i + 1}] ${s}`));
@@ -521,24 +549,22 @@ async function openUrls() {
 
 async function printMenu() {
   console.log(`\n${t('menu_header')}`);
-  console.log(`1) ${t('menu_1')}`);
-  console.log(`2) ${t('menu_2')}`);
-  console.log(`3) ${t('menu_3')}`);
-  console.log(`4) ${t('menu_4')}`);
-  console.log(`5) ${t('menu_5')}`);
-  console.log(`6) ${t('menu_6')}`);
-  console.log(`7) ${t('menu_7')}`);
-  console.log(`8) ${t('menu_8')}`);
-  console.log(`9) ${t('menu_9')}`);
-  console.log(`10) ${t('menu_10')}`);
-  console.log(`11) ${t('menu_11')}`);
-  console.log(`12) ${t('menu_12')}`);
-  console.log(`13) ${t('menu_13')}`);
-  console.log(`14) ${t('menu_14')}`);
-  console.log(`15) ${t('menu_15')}`);
-  console.log(`16) ${t('menu_16')}`);
-  console.log(`17) ${t('menu_17')}`);
-  console.log(`18) ${t('menu_18')}`);
+  console.log(`1) ${t('menu_1')}`); // Start Dev
+  console.log(`2) ${t('menu_2')}`); // Stop Dev
+  console.log(`3) ${t('menu_clean')}`); // Clean submenu
+  console.log(`4) ${t('menu_6')}`); // Status
+  console.log(`5) ${t('menu_7')}`); // Tail Logs
+  console.log(`6) ${t('menu_8')}`); // Restart Services
+  console.log(`7) ${t('menu_9')}`); // Build Services
+  console.log(`8) ${t('menu_10')}`); // Exec Shell
+  console.log(`9) ${t('menu_11')}`); // Open URLs
+  console.log(`10) ${t('menu_12')}`); // Start Prod
+  console.log(`11) ${t('menu_13')}`); // Stop Prod
+  console.log(`12) ${t('menu_14')}`); // Change Language
+  console.log(`13) ${t('menu_15')}`); // Quick Restart Dev
+  console.log(`14) ${t('menu_16')}`); // Quick Restart Prod
+  console.log(`15) ${t('menu_17')}`); // Quick Restart Dev + Tail
+  console.log(`16) ${t('menu_18')}`); // Quick Restart Prod + Tail
   console.log('0) Quit');
 }
 
@@ -553,22 +579,20 @@ async function main() {
     try {
       if (ans === '1') await startDev();
       else if (ans === '2') await stopDev();
-      else if (ans === '3') await dropDevSchema();
-      else if (ans === '4') await purgeDevOnly();
-      else if (ans === '5') await purgeAll();
-      else if (ans === '6') await status();
-      else if (ans === '7') await tailLogs();
-      else if (ans === '8') await restartServices();
-      else if (ans === '9') await buildService();
-      else if (ans === '10') await execShell();
-      else if (ans === '11') await openUrls();
-      else if (ans === '12') await startProd();
-      else if (ans === '13') await stopProd();
-      else if (ans === '14') await changeLanguage();
-      else if (ans === '15') await restartDevQuick();
-      else if (ans === '16') await restartProdQuick();
-      else if (ans === '17') await restartDevQuickTail();
-      else if (ans === '18') await restartProdQuickTail();
+      else if (ans === '3') await cleanMenu();
+      else if (ans === '4') await status();
+      else if (ans === '5') await tailLogs();
+      else if (ans === '6') await restartServices();
+      else if (ans === '7') await buildService();
+      else if (ans === '8') await execShell();
+      else if (ans === '9') await openUrls();
+      else if (ans === '10') await startProd();
+      else if (ans === '11') await stopProd();
+      else if (ans === '12') await changeLanguage();
+      else if (ans === '13') await restartDevQuick();
+      else if (ans === '14') await restartProdQuick();
+      else if (ans === '15') await restartDevQuickTail();
+      else if (ans === '16') await restartProdQuickTail();
       else if (ans === '0') break;
     } catch (e) {
       console.error('[console]', t('error_prefix'), e.message || e);
