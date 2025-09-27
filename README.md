@@ -1,4 +1,7 @@
-{{ wakatimeDoubleCategoryBar "💾 Languages:" wakatimeData.Languages "💼 Projects:" wakatimeData.Projects 5 }}
+<img
+  src="https://github-readme-stats.hackclub.dev/api/wakatime?username=813&api_domain=hackatime.hackclub.com&&custom_title=Hackatime+Stats&layout=compact&cache_seconds=0&langs_count=8&theme=transparent"
+  alt="Ben001109 WakaTime Activity"
+/>
 # Econ Game (Containerized Scaffold)
 
 A starter monorepo for a tycoon/management game with a real-world-like economic system. Includes:
