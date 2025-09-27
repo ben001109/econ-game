@@ -75,6 +75,9 @@ const I18N = {
     error_prefix: 'Error:',
     lang_prompt: 'Choose language: [1] English, [2] 繁體中文 (default based on locale): ',
     lang_changed: 'Language changed to',
+    // DB removal prompts
+    db_also_remove_containers: 'Also remove DB containers (postgres/redis/adminer/redis-commander)?',
+    db_also_remove_volumes: 'Also remove DB named volumes (-v)?',
     // Services submenu
     services_header: '=== Service Ops ===',
     services_opt_1: 'Start',
@@ -159,6 +162,9 @@ const I18N = {
     error_prefix: '錯誤：',
     lang_prompt: '選擇語言：[1] English, [2] 繁體中文（依環境預設）：',
     lang_changed: '語言已切換為',
+    // DB removal prompts
+    db_also_remove_containers: '是否同時移除資料庫與工具容器（postgres/redis/adminer/redis-commander）？',
+    db_also_remove_volumes: '是否同時刪除資料庫命名卷（-v）？',
     // Services submenu
     services_header: '=== 服務操作 ===',
     services_opt_1: '啟動',
@@ -413,7 +419,12 @@ async function stopDev() {
   }
 
   if (alsoDb) {
-    try { await dockerCompose(['rm', '-s', '-f', ...services.db, ...services.aux]); } catch {}
+    let dbArgs = ['rm', '-s', '-f'];
+    try {
+      const rmDbVol = await confirm(t('db_also_remove_volumes'));
+      if (rmDbVol) dbArgs.push('-v');
+    } catch {}
+    try { await dockerCompose([...dbArgs, ...services.db, ...services.aux]); } catch {}
   }
 }
 
@@ -425,6 +436,14 @@ async function dropDevSchema() {
     await dockerCompose(['exec', '-T', 'postgres', 'psql', '-U', 'game', '-d', 'game', '-c', "DROP SCHEMA IF EXISTS dev CASCADE;"]);
   } catch {
     console.log('[console]', t('failed_drop_schema'));
+  }
+  // Optionally remove DB containers and volumes
+  const rmDb = await confirm(t('db_also_remove_containers'));
+  if (rmDb) {
+    const rmDbVol = await confirm(t('db_also_remove_volumes'));
+    const args = ['rm', '-s', '-f'];
+    if (rmDbVol) args.push('-v');
+    try { await dockerCompose([...args, ...services.db, ...services.aux]); } catch {}
   }
 }
 
@@ -440,6 +459,13 @@ async function purgeAll(mode) {
 
   // Extra cleanup to ensure nothing leftover
   const project = getProjectName();
+
+  // Ensure any leftover containers with compose project label are removed
+  try {
+    const contOut = await runCapture('docker', ['ps', '-a', '-q', '--filter', `label=com.docker.compose.project=${project}`]);
+    const conts = contOut.split('\n').map((s) => s.trim()).filter(Boolean);
+    if (conts.length) await sh('docker', ['rm', '-f', ...conts]);
+  } catch {}
 
   // Ensure project volumes (with compose labels) are removed
   if (mode >= 3) {
@@ -495,6 +521,14 @@ async function purgeDevOnly() {
     await dockerCompose(['exec', '-T', 'postgres', 'psql', '-U', 'game', '-d', 'game', '-c', "DROP SCHEMA IF EXISTS dev CASCADE;"]);
   } catch {
     console.log('[console]', t('failed_drop_schema'));
+  }
+  // Optionally remove DB containers and volumes
+  const rmDb = await confirm(t('db_also_remove_containers'));
+  if (rmDb) {
+    const rmDbVol = await confirm(t('db_also_remove_volumes'));
+    const args = ['rm', '-s', '-f'];
+    if (rmDbVol) args.push('-v');
+    try { await dockerCompose([...args, ...services.db, ...services.aux]); } catch {}
   }
   console.log('[console]', t('dev_purge_complete'));
 }

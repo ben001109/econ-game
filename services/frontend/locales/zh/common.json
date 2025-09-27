@@ -1,6 +1,14 @@
 {
   "title": "經濟模擬遊戲",
   "heading": "經濟模擬遊戲",
-  "tagline": "真實經濟系統的經營沙盒"
+  "tagline": "真實經濟系統的經營沙盒",
+  "pos.title": "收銀 POS",
+  "pos.create": "建立",
+  "pos.setupDemo": "建立示範資料",
+  "pos.payClose": "付款並結帳",
+  "pos.branch": "分店",
+  "pos.table": "桌位",
+  "kds.title": "廚房顯示 KDS",
+  "kds.start": "開始",
+  "kds.serve": "出餐"
 }
-

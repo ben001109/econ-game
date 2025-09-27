@@ -131,10 +131,10 @@
 - [x] docker-compose dev profile（API/Worker 源碼熱更新）
 
 ### P0（立即優先，避免阻塞）
-- [ ] Prisma schema（dev schema）新增最小餐飲實體：Restaurant/Branch/Table/MenuItem/Order/OrderItem/Payment/TaxLine/Tip（不移除既有 `Player/Account/*`）
-- [ ] API 路由（最小）：開單 POST /orders、加菜 POST /orders/:id/items、結帳 POST /orders/:id/payments、KDS：/kds/tickets 拉單/出餐
-- [ ] 前端原型：POS（開單/加菜/結帳）與 KDS 清單頁
-- [ ] i18n 文案：新增餐飲相關字串鍵（不破壞既有鍵）
+- [x] Prisma schema（dev schema）新增最小餐飲實體：Restaurant/Branch/Table/MenuItem/Order/OrderItem/Payment/TaxLine/Tip（不移除既有 `Player/Account/*`）
+- [x] API 路由（最小）：開單 POST /orders、加菜 POST /orders/:id/items、結帳 POST /orders/:id/payments、KDS：/kds/tickets 拉單/出餐
+- [x] 前端原型：POS（開單/加菜/結帳）與 KDS 清單頁
+- [x] i18n 文案：新增餐飲相關字串鍵（POS/KDS 初稿，不破壞既有鍵）
 - [ ] 日結 Worker：聚合銷售/小費/服務費與 COGS，寫入 `Ledger*`
 
 ### 資料庫與模型（餐飲）
@@ -185,6 +185,9 @@
 - [ ] 基準場景測試（POS 點餐→KDS→結帳→日結；庫存耗用/報廢）
 - [ ] 監控儀表板最小集合到位
 - [ ] 安全掃描（依賴/容器）
+
+補充：
+- [x] API `/bootstrap` 端點：一鍵建立示範餐廳/門店/桌位與菜單，便於 POS/KDS 測試
 
 ---
 
