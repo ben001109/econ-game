@@ -1,3 +1,4 @@
+{{ wakatimeDoubleCategoryBar "💾 Languages:" wakatimeData.Languages "💼 Projects:" wakatimeData.Projects 5 }}
 # Econ Game (Containerized Scaffold)
 
 A starter monorepo for a tycoon/management game with a real-world-like economic system. Includes:
