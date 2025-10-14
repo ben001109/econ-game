@@ -1,14 +1,17 @@
 import 'dotenv/config';
+import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
 import { PrismaClient, PaymentMethod, OrderStatus, OrderType } from '@prisma/client';
-import { z } from 'zod';
 import Fastify from 'fastify';
+import { z } from 'zod';
 
 import { env } from './env.js';
 
 const prisma = new PrismaClient();
 const app = Fastify({ logger: true });
+
+await app.register(cors, { origin: true });
 
 await app.register(swagger, {
   openapi: {
@@ -18,6 +21,15 @@ await app.register(swagger, {
 await app.register(swaggerUI, { routePrefix: '/docs' });
 
 app.get('/health', async () => ({ status: 'ok' }));
+
+// Basic browse endpoints to help frontend avoid manual IDs
+app.get('/restaurants', async (_req, reply) => {
+  const restaurants = await prisma.restaurant.findMany({
+    include: { branches: { include: { tables: true } } },
+    orderBy: { createdAt: 'asc' },
+  });
+  return reply.send(restaurants);
+});
 
 // Bootstrap sample data for quick-start dev
 app.post('/bootstrap', async (_req, reply) => {
@@ -62,7 +74,7 @@ const OrderCreateBody = z.object({
 });
 
 app.post('/orders', async (req, reply) => {
-  const parsed = OrderCreateBody.safeParse((req as any).body ?? {});
+  const parsed = OrderCreateBody.safeParse(req.body ?? {});
   if (!parsed.success) {
     return reply.status(400).send({ code: 'BAD_REQUEST', issues: parsed.error.issues });
   }
@@ -87,7 +99,7 @@ const OrderItemBody = z.object({
 
 app.post<{ Params: { id: string } }>('/orders/:id/items', async (req, reply) => {
   const { id } = req.params;
-  const parsed = OrderItemBody.safeParse((req as any).body ?? {});
+  const parsed = OrderItemBody.safeParse(req.body ?? {});
   if (!parsed.success) return reply.status(400).send({ code: 'BAD_REQUEST', issues: parsed.error.issues });
   const { menuItemId, qty = 1, priceOverride, notes } = parsed.data;
   const menuItem = await prisma.menuItem.findUnique({ where: { id: menuItemId } });
@@ -115,7 +127,7 @@ const PaymentBody = z.object({
 
 app.post<{ Params: { id: string } }>('/orders/:id/payments', async (req, reply) => {
   const { id } = req.params;
-  const parsed = PaymentBody.safeParse((req as any).body ?? {});
+  const parsed = PaymentBody.safeParse(req.body ?? {});
   if (!parsed.success) return reply.status(400).send({ code: 'BAD_REQUEST', issues: parsed.error.issues });
   const { method, amount, taxLines = [], tip, close } = parsed.data;
   const pm = method === 'card' ? PaymentMethod.CARD : PaymentMethod.CASH;
@@ -140,6 +152,44 @@ app.get<{ Params: { id: string } }>('/orders/:id', async (req, reply) => {
   });
   if (!order) return reply.status(404).send({ code: 'ORDER_NOT_FOUND' });
   return reply.send(order);
+});
+
+// KDS: list active tickets (orders not closed/canceled)
+app.get('/kds/tickets', async (_req, reply) => {
+  const tickets = await prisma.order.findMany({
+    where: { NOT: [{ status: OrderStatus.CLOSED }, { status: OrderStatus.CANCELED }] },
+    orderBy: { openedAt: 'asc' },
+    include: { items: { include: { menuItem: true } } },
+  });
+  return reply.send(tickets);
+});
+
+// KDS: start ticket (mark IN_PROGRESS)
+app.post<{ Params: { id: string } }>('/kds/tickets/:id/start', async (req, reply) => {
+  const { id } = req.params;
+  try {
+    const updated = await prisma.order.update({
+      where: { id },
+      data: { status: OrderStatus.IN_PROGRESS },
+    });
+    return reply.send(updated);
+  } catch {
+    return reply.status(404).send({ code: 'TICKET_NOT_FOUND' });
+  }
+});
+
+// KDS: serve ticket (mark SERVED)
+app.post<{ Params: { id: string } }>('/kds/tickets/:id/serve', async (req, reply) => {
+  const { id } = req.params;
+  try {
+    const updated = await prisma.order.update({
+      where: { id },
+      data: { status: OrderStatus.SERVED },
+    });
+    return reply.send(updated);
+  } catch {
+    return reply.status(404).send({ code: 'TICKET_NOT_FOUND' });
+  }
 });
 
 try {

@@ -1,6 +1,14 @@
 {
   "title": "Econ Game",
   "heading": "Econ Game",
-  "tagline": "A realistic economy tycoon sandbox"
+  "tagline": "A realistic economy tycoon sandbox",
+  "pos.title": "POS",
+  "pos.create": "Create",
+  "pos.setupDemo": "Setup Demo",
+  "pos.payClose": "Pay + Close",
+  "pos.branch": "Branch",
+  "pos.table": "Table",
+  "kds.title": "KDS",
+  "kds.start": "Start",
+  "kds.serve": "Serve"
 }
-
