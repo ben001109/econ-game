@@ -17,9 +17,22 @@ APT_UPDATED=0
 AUTO_INSTALL="${AUTO_INSTALL:-1}"
 INSTALL_PORTAINER=0
 PORTAINER_EDITION="${PORTAINER_EDITION:-}"
+VERBOSE_SELECTED=0
+if [[ -n "${VERBOSE+x}" ]]; then
+  VERBOSE_SELECTED=1
+fi
+VERBOSE="${VERBOSE:-0}"
+NODE_REQUIRED_VERSION=""
+NVM_NOT_FOUND_WARNED=0
 
 log() {
   printf '%s\n' "$1"
+}
+
+log_verbose() {
+  if [[ "$VERBOSE" == "1" ]]; then
+    printf '[verbose] %s\n' "$1"
+  fi
 }
 
 warn() {
@@ -271,6 +284,17 @@ auto_install_dependency() {
       install_docker_compose_packages || return 1
       ;;
     node|npm)
+      local desired="${NODE_REQUIRED_VERSION:-}"
+      if [[ -z "$desired" ]]; then
+        if desired="$(read_nvmrc_version 2>/dev/null)"; then
+          :
+        else
+          desired=""
+        fi
+      fi
+      if [[ -n "$desired" ]] && ensure_node_with_nvm "$desired"; then
+        return 0
+      fi
       install_node_packages || return 1
       ;;
     git|curl)
@@ -284,23 +308,58 @@ auto_install_dependency() {
   return 0
 }
 
+prompt_verbose_choice() {
+  if [[ "$VERBOSE_SELECTED" == "1" ]]; then
+    return 0
+  fi
+  if [[ ! -t 0 ]]; then
+    VERBOSE_SELECTED=1
+    return 0
+  fi
+  printf 'Enable verbose mode? [y/N]: ' >&2
+  local answer=""
+  read -r answer || answer=""
+  case "${answer,,}" in
+    y|yes|1)
+      VERBOSE=1
+      ;;
+    n|no|0|"")
+      VERBOSE=0
+      ;;
+    *)
+      warn "Unknown selection '${answer}'. Keeping verbose mode disabled."
+      ;;
+  esac
+  VERBOSE_SELECTED=1
+}
+
+enable_verbose_tracing() {
+  if [[ "$VERBOSE" == "1" ]]; then
+    log "Verbose mode enabled."
+    set -x
+  fi
+}
+
 choose_portainer_edition() {
   local selection="${PORTAINER_EDITION,,}"
   if [[ -z "$selection" ]]; then
     if [[ -t 0 ]]; then
-      printf 'Install Portainer Community Edition (ce) or Business Edition (be)? [ce/be]: ' >&2
+      printf '%s\n' 'Select Portainer edition' >&2
+      printf '%s\n' '  1) Portainer Community Edition (CE)' >&2
+      printf '%s\n' '  2) Portainer Business Edition (BE)' >&2
+      printf 'Enter choice [1]: ' >&2
       read -r selection || selection=""
       selection="${selection,,}"
     fi
   fi
   if [[ -z "$selection" ]]; then
-    selection="ce"
+    selection="1"
   fi
   case "$selection" in
-    ce|community)
+    1|ce|community)
       PORTAINER_EDITION="ce"
       ;;
-    be|business|ee)
+    2|be|business|ee)
       PORTAINER_EDITION="be"
       ;;
     *)
@@ -403,15 +462,90 @@ docker_compose() {
   "${DOCKER_COMPOSE[@]}" "$@"
 }
 
-read_nvmrc() {
+read_nvmrc_version() {
   local nvmrc="${ROOT}/.nvmrc"
   if [[ ! -f "$nvmrc" ]]; then
     return 1
   fi
   local raw
-  raw="$(<"$nvmrc")"
+  raw="$(tr -d ' \t\r\n' <"$nvmrc")"
   raw="${raw#"v"}"
-  printf '%s' "${raw%%.*}"
+  if [[ -z "$raw" ]]; then
+    return 1
+  fi
+  printf '%s' "$raw"
+}
+
+read_nvmrc() {
+  local version
+  if ! version="$(read_nvmrc_version)"; then
+    return 1
+  fi
+  printf '%s' "${version%%.*}"
+}
+
+extract_major_version() {
+  local version="$1"
+  version="${version#v}"
+  if [[ "$version" =~ ^([0-9]+) ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  return 1
+}
+
+load_nvm() {
+  if command -v nvm >/dev/null 2>&1; then
+    return 0
+  fi
+  local candidates=()
+  if [[ -n "${NVM_DIR:-}" ]]; then
+    candidates+=("$NVM_DIR")
+  fi
+  candidates+=("$HOME/.nvm" "/usr/local/nvm" "/usr/share/nvm")
+  local candidate=""
+  for candidate in "${candidates[@]}"; do
+    if [[ -s "${candidate}/nvm.sh" ]]; then
+      export NVM_DIR="$candidate"
+      # shellcheck disable=SC1090
+      . "${candidate}/nvm.sh"
+      if command -v nvm >/dev/null 2>&1; then
+        return 0
+      fi
+    fi
+  done
+  return 1
+}
+
+ensure_node_with_nvm() {
+  local version="$1"
+  if [[ -z "$version" ]]; then
+    return 1
+  fi
+  if ! load_nvm; then
+    if ((NVM_NOT_FOUND_WARNED == 0)); then
+      warn "nvm not detected; install nvm (https://github.com/nvm-sh/nvm) to manage Node.js versions."
+      NVM_NOT_FOUND_WARNED=1
+    fi
+    return 1
+  fi
+  if ! nvm ls "$version" >/dev/null 2>&1; then
+    log "Installing Node.js ${version} via nvm..."
+    if ! nvm install "$version"; then
+      warn "nvm install ${version} failed."
+      return 1
+    fi
+  fi
+  log "Switching to Node.js ${version} via nvm..."
+  if ! nvm use "$version" >/dev/null 2>&1; then
+    warn "nvm use ${version} failed."
+    return 1
+  fi
+  hash -r 2>/dev/null || true
+  local resolved_version
+  resolved_version="$(node --version 2>/dev/null || printf '%s' "$version")"
+  log "Node.js active: ${resolved_version}"
+  return 0
 }
 
 get_node_major() {
@@ -460,28 +594,42 @@ setup_local() {
   local db_push="$2"
   local start_db="$3"
 
-  local required_node=""
-  if required_node="$(read_nvmrc)"; then
-    :
-  else
-    required_node="20"
+  local required_node_spec="20"
+  local nvmrc_spec=""
+  if nvmrc_spec="$(read_nvmrc_version 2>/dev/null)"; then
+    required_node_spec="$nvmrc_spec"
+  fi
+  NODE_REQUIRED_VERSION="$required_node_spec"
+
+  local required_node_major=""
+  if ! required_node_major="$(extract_major_version "$required_node_spec")"; then
+    required_node_major=""
+  fi
+
+  local node_via_nvm=0
+  if ensure_node_with_nvm "$required_node_spec"; then
+    node_via_nvm=1
   fi
 
   local current_node=""
   if current_node="$(get_node_major)"; then
-    if [[ "$current_node" -lt "$required_node" ]]; then
-      warn "Node ${required_node}+ recommended (found $(node --version))."
-      warn "Use nvm: 'nvm use' then rerun if available."
+    if [[ -n "$required_node_major" && "$current_node" -lt "$required_node_major" ]]; then
+      warn "Node ${required_node_major}+ recommended (found $(node --version))."
+      warn "Run 'nvm install ${required_node_spec}' then rerun."
     fi
   else
-    if auto_install_dependency node && current_node="$(get_node_major)"; then
-      log "Installed Node.js via ${PKG_MANAGER}."
-      if [[ "$current_node" -lt "$required_node" ]]; then
-        warn "Node ${required_node}+ recommended (found $(node --version))."
-        warn "Use nvm: 'nvm use' then rerun if available."
+    if ((node_via_nvm == 0)); then
+      if auto_install_dependency node && current_node="$(get_node_major)"; then
+        log "Installed Node.js via ${PKG_MANAGER}."
+        if [[ -n "$required_node_major" && "$current_node" -lt "$required_node_major" ]]; then
+          warn "Node ${required_node_major}+ recommended (found $(node --version))."
+          warn "Run 'nvm install ${required_node_spec}' then rerun."
+        fi
+      else
+        warn "Node is not installed or not in PATH. Some steps may fail."
       fi
     else
-      warn "Node is not installed or not in PATH. Some steps may fail."
+      warn "Node is not installed or not in PATH even after attempting nvm setup. Some steps may fail."
     fi
   fi
 
@@ -545,7 +693,8 @@ Options:
   --portainer         Deploy Portainer (select edition interactively)
   --portainer=ce      Deploy Portainer Community Edition
   --portainer=be      Deploy Portainer Business Edition
-  --verbose           Reserved (no-op)
+  --verbose           Enable verbose mode (trace commands)
+  --no-verbose        Disable verbose mode and interactive prompt
   -h, --help          Show this help
 
 Examples:
@@ -591,6 +740,14 @@ main() {
       --auto-install)
         AUTO_INSTALL=1
         ;;
+      --verbose)
+        VERBOSE=1
+        VERBOSE_SELECTED=1
+        ;;
+      --no-verbose|--quiet)
+        VERBOSE=0
+        VERBOSE_SELECTED=1
+        ;;
       --portainer)
         INSTALL_PORTAINER=1
         PORTAINER_EDITION=""
@@ -609,8 +766,6 @@ main() {
         ;;
       --mode=*)
         mode="${1#*=}"
-        ;;
-      --verbose)
         ;;
       -h|--help)
         print_help
@@ -636,6 +791,12 @@ main() {
       mode="local"
     fi
   fi
+
+  if [[ "$VERBOSE_SELECTED" != "1" ]]; then
+    prompt_verbose_choice
+  fi
+
+  enable_verbose_tracing
 
   initialize_platform
 
