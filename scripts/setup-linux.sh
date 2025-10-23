@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# Linux setup helper for econ-game
-# Mirrors the behaviour of scripts/setup.mjs for common workflows:
-#   ./scripts/setup-linux.sh --docker [--dev]
-#   ./scripts/setup-linux.sh --local [--start-db] [--db-push] [--skip-install]
+# Interactive Linux setup helper for econ-game
+# Mirrors the behaviour of scripts/setup.mjs through guided prompts.
 
 set -euo pipefail
 
@@ -22,6 +20,11 @@ if [[ -n "${VERBOSE+x}" ]]; then
   VERBOSE_SELECTED=1
 fi
 VERBOSE="${VERBOSE:-0}"
+MODE=""
+DEV="0"
+DB_PUSH="0"
+START_DB="0"
+SKIP_INSTALL="0"
 NODE_REQUIRED_VERSION=""
 NVM_NOT_FOUND_WARNED=0
 
@@ -179,6 +182,53 @@ install_basic_packages() {
   install_packages "$@"
 }
 
+download_to_file() {
+  local url="$1"
+  local dest="$2"
+  local attempted=0
+  if command_exists curl; then
+    attempted=1
+    if curl -fsSL "$url" -o "$dest"; then
+      return 0
+    fi
+    warn "curl failed to download ${url}."
+  fi
+  if command_exists wget; then
+    attempted=1
+    if wget -qO "$dest" "$url"; then
+      return 0
+    fi
+    warn "wget failed to download ${url}."
+  fi
+  if ((attempted == 0)); then
+    warn "Neither curl nor wget is available; cannot download ${url}."
+  else
+    warn "Unable to download ${url} with available tools."
+  fi
+  return 1
+}
+
+install_docker_via_convenience_script() {
+  local tmp=""
+  tmp="$(mktemp)" || tmp=""
+  if [[ -z "$tmp" ]]; then
+    warn "mktemp failed; cannot stage Docker installation script."
+    return 1
+  fi
+  if ! download_to_file "https://get.docker.com" "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if ! run_with_sudo sh "$tmp"; then
+    warn "Docker convenience script exited with an error."
+    rm -f "$tmp"
+    return 1
+  fi
+  rm -f "$tmp"
+  post_install_docker
+  return 0
+}
+
 post_install_docker() {
   if command_exists systemctl; then
     if ! run_with_sudo systemctl enable --now docker >/dev/null 2>&1; then
@@ -188,14 +238,17 @@ post_install_docker() {
 }
 
 install_docker_packages() {
+  log "Installing Docker using the official Docker convenience script..."
+  if install_docker_via_convenience_script; then
+    return 0
+  fi
+  warn "Docker convenience script did not complete successfully."
   case "$PKG_MANAGER" in
     apt)
-      if install_packages docker.io docker-compose-plugin; then
-        post_install_docker
-        return 0
-      fi
+      warn "Skipping apt-based Docker packages to honor the non-APT installation requirement."
       ;;
     dnf|yum)
+      warn "Retrying Docker installation via ${PKG_MANAGER} packages..."
       if install_packages docker docker-compose; then
         post_install_docker
         return 0
@@ -207,12 +260,14 @@ install_docker_packages() {
       fi
       ;;
     pacman)
+      warn "Retrying Docker installation via pacman..."
       if install_packages docker docker-compose; then
         post_install_docker
         return 0
       fi
       ;;
     zypper)
+      warn "Retrying Docker installation via zypper..."
       if install_packages docker docker-compose; then
         post_install_docker
         return 0
@@ -271,11 +326,35 @@ auto_install_dependency() {
   if [[ "$AUTO_INSTALL" != "1" ]]; then
     return 1
   fi
-  if [[ -z "$PKG_MANAGER" ]]; then
+  local requires_pkg_manager=1
+  case "$dep" in
+    docker)
+      requires_pkg_manager=0
+      ;;
+    *)
+      requires_pkg_manager=1
+      ;;
+  esac
+  if ((requires_pkg_manager == 1)) && [[ -z "$PKG_MANAGER" ]]; then
     warn "Cannot auto-install ${dep}; no supported package manager detected."
     return 1
   fi
-  log "Attempting to install missing dependency '${dep}' via ${PKG_MANAGER}..."
+  local strategy=""
+  case "$dep" in
+    docker)
+      strategy="the official Docker convenience script"
+      ;;
+    *)
+      if [[ -n "$PKG_MANAGER" ]]; then
+        strategy="$PKG_MANAGER"
+      fi
+      ;;
+  esac
+  if [[ -n "$strategy" ]]; then
+    log "Attempting to install missing dependency '${dep}' via ${strategy}..."
+  else
+    log "Attempting to install missing dependency '${dep}'..."
+  fi
   case "$dep" in
     docker)
       install_docker_packages || return 1
@@ -333,6 +412,137 @@ prompt_verbose_choice() {
   VERBOSE_SELECTED=1
 }
 
+prompt_docker_options() {
+  DEV="1"
+  if [[ ! -t 0 ]]; then
+    return 0
+  fi
+  printf 'Include developer containers (api-dev, worker-dev, frontend-dev, bot-dev)? [Y/n]: ' >&2
+  local answer=""
+  read -r answer || answer=""
+  case "${answer,,}" in
+    n|no|0)
+      DEV="0"
+      ;;
+    *)
+      DEV="1"
+      ;;
+  esac
+}
+
+prompt_local_options() {
+  SKIP_INSTALL="0"
+  DB_PUSH="0"
+  START_DB="0"
+  if [[ ! -t 0 ]]; then
+    return 0
+  fi
+  printf 'Skip Node.js package installation (npm install)? [y/N]: ' >&2
+  local answer=""
+  read -r answer || answer=""
+  case "${answer,,}" in
+    y|yes|1)
+      SKIP_INSTALL="1"
+      ;;
+  esac
+  printf 'Start databases after setup? [y/N]: ' >&2
+  answer=""
+  read -r answer || answer=""
+  case "${answer,,}" in
+    y|yes|1)
+      START_DB="1"
+      ;;
+  esac
+  printf 'Push database migrations/data after setup? [y/N]: ' >&2
+  answer=""
+  read -r answer || answer=""
+  case "${answer,,}" in
+    y|yes|1)
+      DB_PUSH="1"
+      ;;
+  esac
+}
+
+prompt_portainer_selection() {
+  INSTALL_PORTAINER=0
+  PORTAINER_EDITION=""
+  if [[ ! -t 0 ]]; then
+    return 0
+  fi
+  printf 'Deploy Portainer? [y/N]: ' >&2
+  local answer=""
+  read -r answer || answer=""
+  case "${answer,,}" in
+    y|yes|1)
+      INSTALL_PORTAINER=1
+      ;;
+    *)
+      INSTALL_PORTAINER=0
+      return 0
+      ;;
+  esac
+  printf '%s\n' 'Select Portainer edition:' >&2
+  printf '%s\n' '  1) Portainer Community Edition (CE)' >&2
+  printf '%s\n' '  2) Portainer Enterprise Edition (EE)' >&2
+  printf 'Enter choice [1]: ' >&2
+  local selection=""
+  read -r selection || selection=""
+  selection="${selection,,}"
+  case "$selection" in
+    2|ee|enterprise|be|business)
+      PORTAINER_EDITION="ee"
+      ;;
+    ""|1|ce|community)
+      PORTAINER_EDITION="ce"
+      ;;
+    *)
+      warn "Unknown Portainer edition '${selection}', defaulting to Community Edition."
+      PORTAINER_EDITION="ce"
+      ;;
+  esac
+}
+
+prompt_mode_selection() {
+  if [[ -n "$MODE" ]]; then
+    return 0
+  fi
+  if [[ ! -t 0 ]]; then
+    if command_exists docker; then
+      MODE="docker"
+      DEV="1"
+    else
+      MODE="local"
+    fi
+    return 0
+  fi
+  printf '%s\n' 'Select setup workflow:' >&2
+  printf '%s\n' '  1) Docker (Docker Compose stack for services)' >&2
+  printf '%s\n' '  2) Local (install Node.js dependencies locally)' >&2
+  printf 'Enter choice [1]: ' >&2
+  local selection=""
+  read -r selection || selection=""
+  selection="${selection,,}"
+  case "$selection" in
+    2|local|l)
+      MODE="local"
+      ;;
+    ""|1|docker|d)
+      MODE="docker"
+      ;;
+    *)
+      warn "Unknown selection '${selection}'. Defaulting to Docker workflow."
+      MODE="docker"
+      ;;
+  esac
+  if [[ "$MODE" == "docker" ]]; then
+    prompt_docker_options
+  else
+    prompt_local_options
+  fi
+  prompt_portainer_selection
+  return 0
+}
+
 enable_verbose_tracing() {
   if [[ "$VERBOSE" == "1" ]]; then
     log "Verbose mode enabled."
@@ -346,7 +556,7 @@ choose_portainer_edition() {
     if [[ -t 0 ]]; then
       printf '%s\n' 'Select Portainer edition' >&2
       printf '%s\n' '  1) Portainer Community Edition (CE)' >&2
-      printf '%s\n' '  2) Portainer Business Edition (BE)' >&2
+      printf '%s\n' '  2) Portainer Enterprise Edition (EE)' >&2
       printf 'Enter choice [1]: ' >&2
       read -r selection || selection=""
       selection="${selection,,}"
@@ -359,8 +569,8 @@ choose_portainer_edition() {
     1|ce|community)
       PORTAINER_EDITION="ce"
       ;;
-    2|be|business|ee)
-      PORTAINER_EDITION="be"
+    2|ee|enterprise|be|business)
+      PORTAINER_EDITION="ee"
       ;;
     *)
       warn "Unknown Portainer edition '${selection}', defaulting to Community Edition."
@@ -385,9 +595,9 @@ install_portainer() {
   local image=""
   local label=""
   case "$edition" in
-    be)
+    ee|be)
       image="portainer/portainer-ee:latest"
-      label="Business Edition"
+      label="Enterprise Edition"
       ;;
     *)
       image="portainer/portainer-ce:latest"
@@ -395,7 +605,14 @@ install_portainer() {
       ;;
   esac
 
-  log "Deploying Portainer ${label}..."
+  log "Deploying Portainer ${label} via Docker image '${image}'..."
+
+  if ! docker image inspect "$image" >/dev/null 2>&1; then
+    log_verbose "Pulling Portainer image ${image}."
+    if ! docker pull "$image" >/dev/null 2>&1; then
+      warn "Pre-pull of ${image} failed; Docker will retry during container creation."
+    fi
+  fi
 
   if docker ps -a --format '{{.Names}}' | grep -Fxq 'portainer'; then
     warn "A container named 'portainer' already exists. Skipping Portainer deployment."
@@ -420,8 +637,8 @@ install_portainer() {
   fi
 
   log "Portainer ${label} is running on https://localhost:9443 (or your host IP)."
-  if [[ "$edition" == "be" ]]; then
-    warn "Portainer Business Edition requires a valid license after first login."
+  if [[ "$edition" == "ee" || "$edition" == "be" ]]; then
+    warn "Portainer Enterprise Edition requires a valid license after first login."
   fi
 }
 
@@ -677,119 +894,11 @@ setup_local() {
   log "- Frontend: cd services/frontend && npm run dev"
 }
 
-print_help() {
-  cat <<'EOF'
-econ-game Linux setup
-
-Options:
-  --docker            Build and start Docker stack
-  --docker --dev      Use dev profile (hot reload api/worker/frontend)
-  --local             Install Node deps and generate Prisma
-  --local --start-db  Start Postgres+Redis with Docker (for local dev)
-  --local --db-push   Run Prisma db push (DB must be reachable)
-  --skip-install      Skip npm install steps (local mode)
-  --no-auto-install   Disable automatic package installation
-  --auto-install      Re-enable automatic package installation (default)
-  --portainer         Deploy Portainer (select edition interactively)
-  --portainer=ce      Deploy Portainer Community Edition
-  --portainer=be      Deploy Portainer Business Edition
-  --verbose           Enable verbose mode (trace commands)
-  --no-verbose        Disable verbose mode and interactive prompt
-  -h, --help          Show this help
-
-Examples:
-  ./scripts/setup-linux.sh --docker
-  ./scripts/setup-linux.sh --docker --dev
-  ./scripts/setup-linux.sh --local --start-db
-  ./scripts/setup-linux.sh --local --db-push
-EOF
-}
-
 main() {
   require_in_repo
 
-  local mode=""
-  local dev="0"
-  local db_push="0"
-  local start_db="0"
-  local skip_install="0"
-
-  while (($# > 0)); do
-    case "$1" in
-      --docker)
-        mode="docker"
-        ;;
-      --local)
-        mode="local"
-        ;;
-      --dev)
-        dev="1"
-        ;;
-      --db-push)
-        db_push="1"
-        ;;
-      --start-db)
-        start_db="1"
-        ;;
-      --skip-install)
-        skip_install="1"
-        ;;
-      --no-auto-install)
-        AUTO_INSTALL=0
-        ;;
-      --auto-install)
-        AUTO_INSTALL=1
-        ;;
-      --verbose)
-        VERBOSE=1
-        VERBOSE_SELECTED=1
-        ;;
-      --no-verbose|--quiet)
-        VERBOSE=0
-        VERBOSE_SELECTED=1
-        ;;
-      --portainer)
-        INSTALL_PORTAINER=1
-        PORTAINER_EDITION=""
-        ;;
-      --portainer=*)
-        INSTALL_PORTAINER=1
-        PORTAINER_EDITION="${1#*=}"
-        ;;
-      --portainer-ce)
-        INSTALL_PORTAINER=1
-        PORTAINER_EDITION="ce"
-        ;;
-      --portainer-be)
-        INSTALL_PORTAINER=1
-        PORTAINER_EDITION="be"
-        ;;
-      --mode=*)
-        mode="${1#*=}"
-        ;;
-      -h|--help)
-        print_help
-        exit 0
-        ;;
-      --install-db)
-        fail "--install-db is only supported on Windows. See README for guidance."
-        ;;
-      *)
-        fail "Unknown option: $1"
-        ;;
-    esac
-    shift
-  done
-
-  if [[ -z "$mode" ]]; then
-    if command_exists docker; then
-      log "No mode specified. Detected Docker; using --docker --dev."
-      mode="docker"
-      dev="1"
-    else
-      log "No mode specified. Docker not found; using --local."
-      mode="local"
-    fi
+  if (($# > 0)); then
+    fail "This script is interactive. Run it without command-line arguments."
   fi
 
   if [[ "$VERBOSE_SELECTED" != "1" ]]; then
@@ -800,15 +909,17 @@ main() {
 
   initialize_platform
 
-  case "$mode" in
+  prompt_mode_selection
+
+  case "$MODE" in
     docker)
-      setup_docker "$dev"
+      setup_docker "$DEV"
       ;;
     local)
-      setup_local "$skip_install" "$db_push" "$start_db"
+      setup_local "$SKIP_INSTALL" "$DB_PUSH" "$START_DB"
       ;;
     *)
-      fail "Unknown mode: $mode"
+      fail "Unknown mode: ${MODE:-unset}"
       ;;
   esac
 
