@@ -27,6 +27,8 @@ START_DB="0"
 SKIP_INSTALL="0"
 NODE_REQUIRED_VERSION=""
 NVM_NOT_FOUND_WARNED=0
+SUMMARY_MESSAGES=()
+PRIVATE_IP=""
 
 log() {
   printf '%s\n' "$1"
@@ -36,6 +38,10 @@ log_verbose() {
   if [[ "$VERBOSE" == "1" ]]; then
     printf '[verbose] %s\n' "$1"
   fi
+}
+
+log_section() {
+  printf '\n== %s ==\n' "$1"
 }
 
 warn() {
@@ -51,6 +57,21 @@ fail() {
 
 command_exists() {
   command -v "$1" >/dev/null 2>&1
+}
+
+add_summary_line() {
+  SUMMARY_MESSAGES+=("$1")
+}
+
+print_summary() {
+  if ((${#SUMMARY_MESSAGES[@]} == 0)); then
+    return 0
+  fi
+  printf '\n== Setup Summary ==\n'
+  local entry=""
+  for entry in "${SUMMARY_MESSAGES[@]}"; do
+    printf ' - %s\n' "$entry"
+  done
 }
 
 run_with_sudo() {
@@ -102,6 +123,20 @@ detect_pkg_manager() {
   fi
 }
 
+detect_private_ip() {
+  local candidate=""
+  if command_exists hostname; then
+    candidate="$(hostname -I 2>/dev/null | tr ' ' '\n' | awk '/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ && $0 !~ /^127\./ {print; exit}')"
+  fi
+  if [[ -z "$candidate" ]] && command_exists ip; then
+    candidate="$(ip -4 addr show scope global 2>/dev/null | awk '/inet / {sub(/\/.*/, \"\", $2); if ($2 !~ /^127\./) {print $2; exit}}')"
+  fi
+  if [[ -z "$candidate" ]] && command_exists ifconfig; then
+    candidate="$(ifconfig 2>/dev/null | awk '/inet / && $2 !~ /^127\./ {print $2; exit}')"
+  fi
+  PRIVATE_IP="$candidate"
+}
+
 initialize_platform() {
   detect_os
   detect_pkg_manager
@@ -115,6 +150,7 @@ initialize_platform() {
   if [[ "$AUTO_INSTALL" != "1" ]]; then
     log "Automatic dependency installation disabled (--no-auto-install)."
   fi
+  detect_private_ip
 }
 
 apt_update_if_needed() {
@@ -428,6 +464,11 @@ prompt_docker_options() {
       DEV="1"
       ;;
   esac
+  if [[ "$DEV" == "1" ]]; then
+    log "Docker dev profile: enabled (hot reload services)."
+  else
+    log "Docker dev profile: disabled (production-like stack)."
+  fi
 }
 
 prompt_local_options() {
@@ -461,6 +502,9 @@ prompt_local_options() {
       DB_PUSH="1"
       ;;
   esac
+  log "Local npm install: $([[ "$SKIP_INSTALL" == "1" ]] && printf 'skipped' || printf 'will run')."
+  log "Start local databases: $([[ "$START_DB" == "1" ]] && printf 'yes' || printf 'no')."
+  log "Run Prisma db push: $([[ "$DB_PUSH" == "1" ]] && printf 'yes' || printf 'no')."
 }
 
 prompt_portainer_selection() {
@@ -478,9 +522,12 @@ prompt_portainer_selection() {
       ;;
     *)
       INSTALL_PORTAINER=0
-      return 0
       ;;
   esac
+  if [[ "$INSTALL_PORTAINER" != "1" ]]; then
+    log "Portainer deployment skipped."
+    return 0
+  fi
   printf '%s\n' 'Select Portainer edition:' >&2
   printf '%s\n' '  1) Portainer Community Edition (CE)' >&2
   printf '%s\n' '  2) Portainer Enterprise Edition (EE)' >&2
@@ -500,6 +547,15 @@ prompt_portainer_selection() {
       PORTAINER_EDITION="ce"
       ;;
   esac
+  if [[ "$INSTALL_PORTAINER" == "1" ]]; then
+    local label="Community Edition"
+    if [[ "$PORTAINER_EDITION" == "ee" ]]; then
+      label="Enterprise Edition"
+    fi
+    log "Portainer deployment selected (${label})."
+  else
+    log "Portainer deployment skipped."
+  fi
 }
 
 prompt_mode_selection() {
@@ -510,8 +566,10 @@ prompt_mode_selection() {
     if command_exists docker; then
       MODE="docker"
       DEV="1"
+      log "Non-interactive mode: auto-selected Docker workflow (dev profile)."
     else
       MODE="local"
+      log "Non-interactive mode: auto-selected Local workflow."
     fi
     return 0
   fi
@@ -534,6 +592,7 @@ prompt_mode_selection() {
       MODE="docker"
       ;;
   esac
+  log "Selected workflow: ${MODE}."
   if [[ "$MODE" == "docker" ]]; then
     prompt_docker_options
   else
@@ -541,6 +600,72 @@ prompt_mode_selection() {
   fi
   prompt_portainer_selection
   return 0
+}
+
+format_local_and_lan() {
+  local scheme="$1"
+  local port="$2"
+  local path="${3:-}"
+  local local_url="${scheme}://localhost"
+  if [[ -n "$port" ]]; then
+    local_url+=":${port}"
+  fi
+  local_url+="$path"
+  if [[ -n "$PRIVATE_IP" ]]; then
+    local lan_url="${scheme}://${PRIVATE_IP}"
+    if [[ -n "$port" ]]; then
+      lan_url+=":${port}"
+    fi
+    lan_url+="$path"
+    printf '%s (LAN %s)' "$local_url" "$lan_url"
+  else
+    printf '%s' "$local_url"
+  fi
+}
+
+record_docker_summary() {
+  local dev_flag="$1"
+  if [[ "$dev_flag" == "1" ]]; then
+    add_summary_line "Docker dev profile running (api-dev, worker-dev, frontend-dev, bot-dev)."
+  else
+    add_summary_line "Docker stack running with production profile containers."
+  fi
+  add_summary_line "Frontend: $(format_local_and_lan http 3000)"
+  add_summary_line "API (REST): $(format_local_and_lan http 4000)"
+  add_summary_line "Adminer (Postgres UI): $(format_local_and_lan http 8080)"
+  add_summary_line "Redis Commander: $(format_local_and_lan http 8081)"
+  add_summary_line "Postgres: postgres://game:gamepass@localhost:5432/game"
+  if [[ -n "$PRIVATE_IP" ]]; then
+    add_summary_line "Postgres from LAN: postgres://game:gamepass@${PRIVATE_IP}:5432/game"
+  fi
+  add_summary_line "Redis: redis://localhost:6379"
+  add_summary_line "Inspect containers with: docker compose ps"
+  if [[ "$dev_flag" == "1" ]]; then
+    add_summary_line "Follow logs with: docker compose --profile dev logs -f"
+  else
+    add_summary_line "Follow logs with: docker compose logs -f"
+  fi
+}
+
+record_local_summary() {
+  local skip_install="$1"
+  local db_push="$2"
+  local start_db="$3"
+  add_summary_line "Local development ready in services/."
+  add_summary_line "API: cd services/api && npm run dev"
+  add_summary_line "Worker: cd services/worker && npm run dev"
+  add_summary_line "Frontend: cd services/frontend && npm run dev"
+  if [[ "$start_db" == "1" ]]; then
+    add_summary_line "Postgres & Redis started via docker compose up -d postgres redis"
+  else
+    add_summary_line "Remember to start Postgres & Redis (docker compose up -d postgres redis)."
+  fi
+  if [[ "$skip_install" == "1" ]]; then
+    add_summary_line "npm install skipped; run npm install in each service before dev."
+  fi
+  if [[ "$db_push" == "1" ]]; then
+    add_summary_line "Prisma schema pushed to database."
+  fi
 }
 
 enable_verbose_tracing() {
@@ -640,6 +765,11 @@ install_portainer() {
   if [[ "$edition" == "ee" || "$edition" == "be" ]]; then
     warn "Portainer Enterprise Edition requires a valid license after first login."
   fi
+  local portainer_endpoint="https://localhost:9443"
+  if [[ -n "$PRIVATE_IP" ]]; then
+    portainer_endpoint+=" (LAN https://${PRIVATE_IP}:9443)"
+  fi
+  add_summary_line "Portainer ${label}: ${portainer_endpoint}"
 }
 
 ensure_docker() {
@@ -777,6 +907,7 @@ get_node_major() {
 
 setup_docker() {
   local dev="$1"
+  log_section "Docker Workflow"
   ensure_docker
   if [[ "$dev" == "1" ]]; then
     log "Cleaning previous dev containers (api-dev, worker-dev, frontend-dev, bot-dev)..."
@@ -790,6 +921,7 @@ setup_docker() {
     docker_compose up --build -d
   fi
   log "Docker setup complete."
+  record_docker_summary "$dev"
 }
 
 install_package_deps() {
@@ -810,6 +942,7 @@ setup_local() {
   local skip_install="$1"
   local db_push="$2"
   local start_db="$3"
+  log_section "Local Workflow"
 
   local required_node_spec="20"
   local nvmrc_spec=""
@@ -892,6 +1025,7 @@ setup_local() {
   log "- API:      cd services/api && npm run dev"
   log "- Worker:   cd services/worker && npm run dev"
   log "- Frontend: cd services/frontend && npm run dev"
+  record_local_summary "$skip_install" "$db_push" "$start_db"
 }
 
 main() {
@@ -926,6 +1060,7 @@ main() {
   if [[ "$INSTALL_PORTAINER" == "1" ]]; then
     install_portainer
   fi
+  print_summary
 }
 
 main "$@"
