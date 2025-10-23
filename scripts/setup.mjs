@@ -47,8 +47,18 @@ function parseArgs(argv) {
 }
 
 async function commandExists(cmd) {
-  const shell = process.platform === 'win32' ? 'where' : 'command';
-  const args = process.platform === 'win32' ? [cmd] : ['-v', cmd];
+  // Use OS-native utilities that are real executables; `command -v` is a shell builtin.
+  const shell = process.platform === 'win32' ? 'where' : 'sh';
+  if (process.platform === 'win32') {
+    try {
+      await run(shell, [cmd], { stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  const quoted = cmd.replace(/"/g, '\\"');
+  const args = ['-c', `command -v "${quoted}" >/dev/null 2>&1`];
   try {
     await run(shell, args, { stdio: 'ignore' });
     return true;
