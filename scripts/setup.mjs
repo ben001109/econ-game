@@ -1,18 +1,31 @@
 #!/usr/bin/env node
-// Cross-platform setup script for econ-game
-// Usage examples:
-//   node scripts/setup.mjs --docker
-//   node scripts/setup.mjs --docker --dev
-//   node scripts/setup.mjs --local
-//   node scripts/setup.mjs --local --db-push
-//   node scripts/setup.mjs --local --start-db
+// Interactive cross-platform setup script for econ-game
+// Run without arguments: `node scripts/setup.mjs`
 
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { createInterface } from 'node:readline/promises';
+import { stdin as input, stdout as output } from 'node:process';
 
 const root = resolve(process.cwd());
 const servicesDir = join(root, 'services');
+
+let rl = null;
+
+function ensureInterface() {
+  if (!rl) {
+    rl = createInterface({ input, output });
+  }
+  return rl;
+}
+
+function closeInterface() {
+  if (rl) {
+    rl.close();
+    rl = null;
+  }
+}
 
 function log(msg) {
   process.stdout.write(`${msg}\n`);
@@ -23,27 +36,71 @@ function warn(msg) {
 }
 
 function fail(msg, code = 1) {
+  closeInterface();
   process.stderr.write(`[error] ${msg}\n`);
   process.exit(code);
 }
 
-function parseArgs(argv) {
-  const args = { mode: null, dev: false, dbPush: false, startDb: false, skipInstall: false, verbose: false, installDb: false };
-  for (const a of argv.slice(2)) {
-    if (a === '--docker') args.mode = 'docker';
-    else if (a === '--local') args.mode = 'local';
-    else if (a === '--dev') args.dev = true;
-    else if (a === '--db-push') args.dbPush = true;
-    else if (a === '--start-db') args.startDb = true;
-    else if (a === '--install-db') args.installDb = true;
-    else if (a === '--skip-install') args.skipInstall = true;
-    else if (a === '--verbose') args.verbose = true;
-    else if (a.startsWith('--mode=')) args.mode = a.split('=')[1];
-    else if (a === '-m') {
-      // next item is the mode (not implemented for brevity)
-    }
+async function askQuestion(prompt, defaultValue = '') {
+  if (!process.stdin.isTTY) {
+    return defaultValue ?? '';
   }
-  return args;
+  const iface = ensureInterface();
+  return iface.question(prompt);
+}
+
+async function askYesNo(question, defaultYes = true) {
+  if (!process.stdin.isTTY) {
+    return defaultYes;
+  }
+  const suffix = defaultYes ? ' [Y/n]: ' : ' [y/N]: ';
+  const answer = (await askQuestion(`${question}${suffix}`, '')).trim().toLowerCase();
+  if (!answer) {
+    return defaultYes;
+  }
+  if (['y', 'yes', '1'].includes(answer)) {
+    return true;
+  }
+  if (['n', 'no', '0'].includes(answer)) {
+    return false;
+  }
+  warn(`Unknown selection '${answer}'. Using default (${defaultYes ? 'yes' : 'no'}).`);
+  return defaultYes;
+}
+
+async function askChoice(question, choices, defaultValue) {
+  if (!process.stdin.isTTY) {
+    return defaultValue;
+  }
+  log(question);
+  choices.forEach((choice, idx) => {
+    log(`  ${idx + 1}) ${choice.label}`);
+  });
+  const defaultIndex = choices.findIndex((choice) => choice.value === defaultValue);
+  const fallbackIndex = defaultIndex >= 0 ? defaultIndex : 0;
+  const prompt = `Enter choice [${fallbackIndex + 1}]: `;
+  const raw = (await askQuestion(prompt, '')).trim().toLowerCase();
+  if (!raw) {
+    return choices[fallbackIndex].value;
+  }
+  const numeric = Number.parseInt(raw, 10);
+  if (Number.isFinite(numeric) && numeric >= 1 && numeric <= choices.length) {
+    return choices[numeric - 1].value;
+  }
+  const match = choices.find((choice) => {
+    if (choice.value.toLowerCase() === raw) {
+      return true;
+    }
+    if (choice.aliases) {
+      return choice.aliases.map((alias) => alias.toLowerCase()).includes(raw);
+    }
+    return false;
+  });
+  if (match) {
+    return match.value;
+  }
+  warn(`Unknown selection '${raw}'. Using default.`);
+  return choices[fallbackIndex].value;
 }
 
 async function commandExists(cmd) {
@@ -201,53 +258,76 @@ async function setupLocal({ skipInstall, dbPush, startDb }) {
   log('- Frontend: cd services/frontend && npm run dev');
 }
 
-function printHelp() {
-  log(`econ-game setup
+async function gatherSelections() {
+  const state = {
+    mode: '',
+    dockerDev: true,
+    localSkipInstall: false,
+    localDbPush: false,
+    localStartDb: false,
+  };
 
-Options:
-  --docker            Build and start Docker stack
-  --docker --dev      Use dev profile (hot reload api/worker/frontend)
-  --local             Install Node deps and generate Prisma
-  --local --start-db  Start Postgres+Redis with Docker (for local dev)
-  --local --db-push   Run Prisma db push (DB must be reachable)
-  --install-db        (Windows) Attempt to guide DB installation
-  --skip-install      Skip npm install steps (local mode)
-  --verbose           Reserved (no-op)
+  const hasDocker = await commandExists('docker');
 
-Examples:
-  node scripts/setup.mjs --docker
-  node scripts/setup.mjs --docker --dev
-  node scripts/setup.mjs --local --start-db
-  node scripts/setup.mjs --local --db-push
-`);
+  if (!process.stdin.isTTY) {
+    if (hasDocker) {
+      log('Non-interactive mode: auto-selected Docker workflow (dev profile).');
+      state.mode = 'docker';
+      state.dockerDev = true;
+    } else {
+      log('Non-interactive mode: auto-selected Local workflow.');
+      state.mode = 'local';
+    }
+    return state;
+  }
+
+  const defaultMode = hasDocker ? 'docker' : 'local';
+  const mode = await askChoice(
+    'Select setup workflow:',
+    [
+      { value: 'docker', label: 'Docker (Docker Compose stack for services)', aliases: ['d', 'docker'] },
+      { value: 'local', label: 'Local (install Node.js dependencies locally)', aliases: ['l', 'local'] },
+    ],
+    defaultMode,
+  );
+  state.mode = mode;
+  log(`Selected workflow: ${mode}.`);
+
+  if (mode === 'docker') {
+    state.dockerDev = await askYesNo('Include developer containers (api-dev, worker-dev, frontend-dev, bot-dev)?', true);
+    log(`Docker dev profile: ${state.dockerDev ? 'enabled' : 'disabled'}.`);
+  } else {
+    state.localSkipInstall = await askYesNo('Skip Node.js package installation (npm install)?', false);
+    state.localStartDb = await askYesNo('Start databases after setup?', false);
+    state.localDbPush = await askYesNo('Push Prisma schema to DB after setup?', false);
+    log(`npm install: ${state.localSkipInstall ? 'skipped' : 'will run'}.`);
+    log(`Start local databases: ${state.localStartDb ? 'yes' : 'no'}.`);
+    log(`Prisma db push: ${state.localDbPush ? 'yes' : 'no'}.`);
+  }
+
+  return state;
 }
 
 async function main() {
   requireInRepo();
-  const args = parseArgs(process.argv);
-  if (args.installDb && process.platform === 'win32') {
-    printWindowsDbSetupHelp();
-    return;
-  }
-  // Auto-pick mode if not provided: prefer Docker dev if available
-  if (!args.mode) {
-    const hasDocker = await commandExists('docker');
-    if (hasDocker) {
-      log('No mode specified. Detected Docker; using --docker --dev.');
-      args.mode = 'docker';
-      args.dev = true;
-    } else {
-      log('No mode specified. Docker not found; using --local.');
-      args.mode = 'local';
-    }
+
+  if (process.argv.length > 2) {
+    fail('This script is interactive. Run without command-line arguments.');
   }
 
-  if (args.mode === 'docker') {
-    await setupDocker(!!args.dev);
-  } else if (args.mode === 'local') {
-    await setupLocal({ skipInstall: args.skipInstall, dbPush: args.dbPush, startDb: args.startDb });
+  const selections = await gatherSelections();
+  closeInterface();
+
+  if (selections.mode === 'docker') {
+    await setupDocker(!!selections.dockerDev);
+  } else if (selections.mode === 'local') {
+    await setupLocal({
+      skipInstall: selections.localSkipInstall,
+      dbPush: selections.localDbPush,
+      startDb: selections.localStartDb,
+    });
   } else {
-    fail(`Unknown mode: ${args.mode}`);
+    fail(`Unknown mode: ${selections.mode}`);
   }
 }
 
