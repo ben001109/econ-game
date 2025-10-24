@@ -19,26 +19,35 @@ const services = {
 
 const ENV_GROUPS = [
   {
+    name: 'api',
     dir: join(root, 'services', 'api'),
     files: ['.env', '.env.local'],
     example: '.env.example',
   },
   {
+    name: 'worker',
     dir: join(root, 'services', 'worker'),
     files: ['.env', '.env.local'],
     example: '.env.example',
+    requiresDiscordToken: true,
+    tokenKey: 'DISCORD_BOT_TOKEN',
   },
   {
+    name: 'frontend',
     dir: join(root, 'services', 'frontend'),
     files: ['.env', '.env.local'],
     example: '.env.example',
   },
   {
+    name: 'bot',
     dir: join(root, 'services', 'bot'),
     files: ['.env.local'],
     example: '.env.example',
+    requiresDiscordToken: true,
+    tokenKey: 'DISCORD_BOT_TOKEN',
   },
 ];
+const ENV_GROUP_MAP = new Map(ENV_GROUPS.map((g) => [g.name, g]));
 
 // --- i18n ---------------------------------------------------------------
 const I18N = {
@@ -244,9 +253,12 @@ function t(key) {
   return pack[key] || I18N.en[key] || key;
 }
 
-function ensureEnvFiles() {
+function ensureEnvFiles(names) {
+  const targetGroups = Array.isArray(names) && names.length
+    ? ENV_GROUPS.filter((group) => names.includes(group.name))
+    : ENV_GROUPS;
   const created = [];
-  for (const group of ENV_GROUPS) {
+  for (const group of targetGroups) {
     const absFiles = group.files.map((name) => join(group.dir, name));
     if (!absFiles.length) continue;
     const existing = absFiles.filter((p) => existsSync(p));
@@ -277,6 +289,134 @@ function ensureEnvFiles() {
   }
   if (created.length) {
     console.log('[console] Ensured env files:', created.join(', '));
+  }
+}
+
+function getEnvGroupNameForService(service) {
+  if (!service) return null;
+  if (/^api(-|$)/.test(service)) return 'api';
+  if (/^bot(-|$)/.test(service)) return 'bot';
+  if (/^worker(-|$)/.test(service)) return 'worker';
+  if (/^frontend(-|$)/.test(service)) return 'frontend';
+  return null;
+}
+
+async function ensureEnvForServices(serviceNames, options = {}) {
+  if (!Array.isArray(serviceNames) || !serviceNames.length) return;
+  const groups = new Set();
+  for (const svc of serviceNames) {
+    const name = getEnvGroupNameForService(svc);
+    if (name && ENV_GROUP_MAP.has(name)) groups.add(name);
+  }
+  if (!groups.size) return;
+  const groupNames = [...groups];
+  ensureEnvFiles(groupNames);
+  if (options.promptTokens) {
+    const needToken = groupNames.filter((name) => {
+      const group = ENV_GROUP_MAP.get(name);
+      return group && group.requiresDiscordToken;
+    });
+    if (needToken.length) await configureDiscordTokenInteractive(needToken);
+  }
+}
+
+function getEnvFilePathForGroup(group) {
+  if (!group || !Array.isArray(group.files)) return null;
+  const order = [];
+  const local = group.files.find((name) => name.endsWith('.env.local'));
+  if (local) order.push(local);
+  for (const name of group.files) {
+    if (!order.includes(name)) order.push(name);
+  }
+  for (const name of order) {
+    const abs = join(group.dir, name);
+    if (existsSync(abs)) return abs;
+  }
+  if (order.length) return join(group.dir, order[0]);
+  return null;
+}
+
+function getEnvValue(contents, key) {
+  if (!contents) return '';
+  const lines = contents.split(/\r?\n/);
+  for (const raw of lines) {
+    if (!raw || raw.trim().startsWith('#')) continue;
+    if (raw.startsWith(`${key}=`)) return raw.slice(key.length + 1);
+  }
+  return '';
+}
+
+function upsertEnvValue(contents, key, value) {
+  const lines = contents ? contents.split(/\r?\n/) : [];
+  let found = false;
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    if (!raw || raw.trim().startsWith('#')) continue;
+    if (raw.startsWith(`${key}=`)) {
+      lines[i] = `${key}=${value}`;
+      found = true;
+      break;
+    }
+  }
+  if (!found) lines.push(`${key}=${value}`);
+  let out = lines.join('\n');
+  if (!out.endsWith('\n')) out += '\n';
+  return out;
+}
+
+async function configureDiscordTokenInteractive(groupNames) {
+  const unique = Array.from(new Set(groupNames)).filter(Boolean);
+  if (!unique.length) return;
+  ensureEnvFiles(unique);
+  const groups = unique
+    .map((name) => ENV_GROUP_MAP.get(name))
+    .filter((group) => group && group.requiresDiscordToken);
+  if (!groups.length) return;
+  const key = groups.find((g) => g.tokenKey)?.tokenKey || 'DISCORD_BOT_TOKEN';
+  const files = [];
+  for (const group of groups) {
+    const envPath = getEnvFilePathForGroup(group);
+    if (!envPath) continue;
+    let contents = '';
+    try {
+      contents = readFileSync(envPath, 'utf8');
+    } catch {}
+    const currentValue = getEnvValue(contents, key).trim();
+    files.push({ group, envPath, contents, currentValue });
+  }
+  if (!files.length) return;
+  let current = files.find((f) => f.currentValue)?.currentValue || '';
+  for (;;) {
+    const prompt = current
+      ? 'Discord bot token (leave blank to keep existing): '
+      : 'Discord bot token (required): ';
+    const ans = (await rlPrompt(prompt)).trim();
+    if (!ans && !current) {
+      console.log('[console] A Discord bot token is required for the bot service.');
+      continue;
+    }
+    const value = ans || current;
+    if (!value) return;
+    const needsUpdate = files.some((file) => file.currentValue !== value);
+    if (!needsUpdate) return;
+    const updatedPaths = [];
+    for (const file of files) {
+      const updated = upsertEnvValue(file.contents, key, value);
+      if (updated !== file.contents) {
+        try {
+          writeFileSync(file.envPath, updated);
+          updatedPaths.push(relative(root, file.envPath));
+        } catch (e) {
+          console.error('[console]', t('error_prefix'), e.message || e);
+        }
+      }
+      file.contents = updated;
+      file.currentValue = value;
+    }
+    if (updatedPaths.length) {
+      console.log('[console] Updated DISCORD_BOT_TOKEN in:', updatedPaths.join(', '));
+    }
+    return;
   }
 }
 
@@ -443,6 +583,7 @@ async function startDev() {
   svcList.push(...chosenDev);
   if (includeAux) svcList.push(...services.aux);
 
+  await ensureEnvForServices(svcList, { promptTokens: true });
   console.log('[console]', t('starting_cmd_prefix') + [...flags, ...extraFlags, ...svcList].join(' '));
   await dockerCompose([...flags, ...extraFlags, ...svcList]);
 
@@ -618,6 +759,7 @@ async function clearLogs() {
 }
 
 async function startProd() {
+  await ensureEnvForServices([...services.prod], { promptTokens: true });
   await dockerCompose(['--profile', 'prod', 'up', '-d', ...services.db, ...services.prod, ...services.aux]);
 }
 
@@ -626,6 +768,7 @@ async function stopProd() {
 }
 
 async function startBun() {
+  await ensureEnvForServices([...services.bun], { promptTokens: true });
   await dockerCompose(['--profile', 'bun', 'up', '-d', ...services.db, ...services.bun, ...services.aux]);
 }
 
@@ -661,6 +804,7 @@ async function restartServices() {
     const idx = sel.split(/\s+/).map((x) => Number(x) - 1).filter((i) => i >= 0 && i < all.length);
     chosen = idx.map((i) => all[i]);
   }
+  await ensureEnvForServices(chosen, { promptTokens: true });
   await dockerCompose(['restart', ...chosen]);
 }
 
@@ -671,6 +815,7 @@ async function restartDevQuick() {
   const devSel = await rlPrompt(t('indices'));
   const chosenDev = pickByIndex(services.dev, devSel, services.dev);
   const flags = ['--profile', 'dev', 'up', '-d', '--force-recreate'];
+  await ensureEnvForServices(chosenDev, { promptTokens: true });
   console.log('[console]', t('starting_cmd_prefix') + [...flags, ...chosenDev].join(' '));
   await dockerCompose([...flags, ...chosenDev]);
 }
@@ -682,6 +827,7 @@ async function restartProdQuick() {
   const sel = await rlPrompt(t('indices'));
   const chosen = pickByIndex(services.prod, sel, services.prod);
   const flags = ['--profile', 'prod', 'up', '-d', '--force-recreate'];
+  await ensureEnvForServices(chosen, { promptTokens: true });
   console.log('[console]', t('starting_cmd_prefix') + [...flags, ...chosen].join(' '));
   await dockerCompose([...flags, ...chosen]);
 }
@@ -692,6 +838,7 @@ async function restartDevQuickTail() {
   const sel = await rlPrompt(t('indices'));
   const chosen = pickByIndex(services.dev, sel, services.dev);
   const flags = ['--profile', 'dev', 'up', '-d', '--force-recreate'];
+  await ensureEnvForServices(chosen, { promptTokens: true });
   console.log('[console]', t('starting_cmd_prefix') + [...flags, ...chosen].join(' '));
   await dockerCompose([...flags, ...chosen]);
   console.log(`[console] ${t('tail_quit_hint')}`);
@@ -704,6 +851,7 @@ async function restartProdQuickTail() {
   const sel = await rlPrompt(t('indices'));
   const chosen = pickByIndex(services.prod, sel, services.prod);
   const flags = ['--profile', 'prod', 'up', '-d', '--force-recreate'];
+  await ensureEnvForServices(chosen, { promptTokens: true });
   console.log('[console]', t('starting_cmd_prefix') + [...flags, ...chosen].join(' '));
   await dockerCompose([...flags, ...chosen]);
   console.log(`[console] ${t('tail_quit_hint')}`);
@@ -761,6 +909,7 @@ async function buildService() {
     const idx = sel.split(/\s+/).map((x) => Number(x) - 1).filter((i) => i >= 0 && i < all.length);
     chosen = idx.map((i) => all[i]);
   }
+  await ensureEnvForServices(chosen, { promptTokens: true });
   const noCache = await confirm(t('build_no_cache'));
   const pullBase = await confirm(t('build_pull_base'));
   const args = ['build'];
