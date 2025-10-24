@@ -4,7 +4,7 @@
 
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { resolve, join, basename } from 'node:path';
+import { resolve, join, basename, relative } from 'node:path';
 import { existsSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
 
 const root = resolve(process.cwd());
@@ -16,6 +16,29 @@ const services = {
   prod: ['api', 'worker', 'frontend', 'bot'],
   bun: ['api-bun', 'worker-bun', 'frontend-bun', 'bot-bun'],
 };
+
+const ENV_GROUPS = [
+  {
+    dir: join(root, 'services', 'api'),
+    files: ['.env', '.env.local'],
+    example: '.env.example',
+  },
+  {
+    dir: join(root, 'services', 'worker'),
+    files: ['.env', '.env.local'],
+    example: '.env.example',
+  },
+  {
+    dir: join(root, 'services', 'frontend'),
+    files: ['.env', '.env.local'],
+    example: '.env.example',
+  },
+  {
+    dir: join(root, 'services', 'bot'),
+    files: ['.env.local'],
+    example: '.env.example',
+  },
+];
 
 // --- i18n ---------------------------------------------------------------
 const I18N = {
@@ -219,6 +242,42 @@ let LANG = CONFIG.lang;
 function t(key) {
   const pack = I18N[LANG] || I18N.en;
   return pack[key] || I18N.en[key] || key;
+}
+
+function ensureEnvFiles() {
+  const created = [];
+  for (const group of ENV_GROUPS) {
+    const absFiles = group.files.map((name) => join(group.dir, name));
+    if (!absFiles.length) continue;
+    const existing = absFiles.filter((p) => existsSync(p));
+    let primary = existing[0];
+    if (!primary) {
+      const examplePath = group.example ? join(group.dir, group.example) : null;
+      let seed = '# Auto-generated env file\n';
+      if (examplePath && existsSync(examplePath)) {
+        try {
+          seed = readFileSync(examplePath, 'utf8');
+        } catch {}
+      }
+      try {
+        writeFileSync(absFiles[0], seed);
+        primary = absFiles[0];
+        created.push(relative(root, absFiles[0]));
+      } catch {}
+    }
+    if (!primary) continue;
+    for (const abs of absFiles) {
+      if (existsSync(abs)) continue;
+      const stub = `# Auto-generated stub by console.mjs\n# Actual values in ${basename(primary)}\n`;
+      try {
+        writeFileSync(abs, stub);
+        created.push(relative(root, abs));
+      } catch {}
+    }
+  }
+  if (created.length) {
+    console.log('[console] Ensured env files:', created.join(', '));
+  }
 }
 
 function getProjectName() {
@@ -785,6 +844,7 @@ async function main() {
     console.error('[console] Please run from repo root (missing docker-compose.yml).');
     process.exit(1);
   }
+  ensureEnvFiles();
   for (;;) {
     await printMenu();
     const ans = (await rlPrompt(t('select'))).trim();
