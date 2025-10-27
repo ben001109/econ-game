@@ -13,6 +13,9 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV NEW_RELIC_NO_CONFIG_FILE=true
+ENV NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true
+ENV NEW_RELIC_LOG=stdout
 COPY package.json package-lock.json* ./
 RUN npm set progress=false \
   && npm config set fetch-retry-mintimeout 20000 \

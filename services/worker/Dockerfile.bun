@@ -8,7 +8,9 @@ COPY tsconfig.json ./
 COPY src ./src
 
 ENV NODE_ENV=production
+ENV NEW_RELIC_NO_CONFIG_FILE=true
+ENV NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true
+ENV NEW_RELIC_LOG=stdout
 EXPOSE 4001
 
 CMD ["bun", "run", "bun:start"]
-

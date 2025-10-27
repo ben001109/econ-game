@@ -15,6 +15,9 @@ RUN apk add --no-cache openssl1.1-compat || apk add --no-cache openssl
 RUN bunx prisma generate
 
 ENV NODE_ENV=production
+ENV NEW_RELIC_NO_CONFIG_FILE=true
+ENV NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true
+ENV NEW_RELIC_LOG=stdout
 EXPOSE 4000
 
 # Run with Bun; will also ensure db schema via package script

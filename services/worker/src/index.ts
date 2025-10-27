@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './instrumentation.js';
 import { Queue, Worker, JobsOptions } from 'bullmq';
 import IORedis from 'ioredis';
 

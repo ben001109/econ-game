@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './instrumentation.js';
 import pino from 'pino';
 import { Client, Collection, Events, GatewayIntentBits } from 'discord.js';
 
@@ -59,4 +59,3 @@ if (!env.DISCORD_BOT_TOKEN) {
 }
 
 client.login(env.DISCORD_BOT_TOKEN);
-
