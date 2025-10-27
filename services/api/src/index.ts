@@ -1,4 +1,4 @@
-import './instrumentation.js';
+import { monitoring, Sentry } from './instrumentation.js';
 import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
@@ -10,6 +10,23 @@ import { env } from './env.js';
 
 const prisma = new PrismaClient();
 const app = Fastify({ logger: true });
+
+if (monitoring.sentry) {
+  app.addHook('onError', async (request, _reply, error) => {
+    const route = typeof request.routerPath === 'string' && request.routerPath.length > 0 ? request.routerPath : request.url;
+    Sentry.withScope((scope) => {
+      scope.setTag('service', 'api');
+      scope.setTag('method', request.method);
+      scope.setTag('route', route);
+      scope.setExtra('requestId', request.id);
+      scope.setExtra('url', request.url);
+      scope.setExtra('params', request.params);
+      scope.setExtra('query', request.query);
+      scope.setExtra('body', request.body);
+      Sentry.captureException(error);
+    });
+  });
+}
 
 await app.register(cors, { origin: true });
 

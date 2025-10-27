@@ -6,6 +6,8 @@ export const env = {
   API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:4000',
   NEW_RELIC_APP_NAME: process.env.NEW_RELIC_APP_NAME || process.env.RELIC_APP_NAME || 'econ-game-bot',
   NEW_RELIC_LICENSE_KEY: process.env.NEW_RELIC_LICENSE_KEY || process.env.RELIC_API_KEY || '',
+  SENTRY_DSN: process.env.SENTRY_DSN || '',
+  SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development',
 };
 
 if (!env.DISCORD_BOT_TOKEN) {

@@ -24,6 +24,7 @@
     "dotenv": "^16.4.5",
     "fastify": "^4.28.1",
     "ioredis": "^5.4.1",
+    "@sentry/node": "^7.114.0",
     "newrelic": "^13.5.0",
     "pino": "^9.4.0",
     "prisma": "^5.17.0",

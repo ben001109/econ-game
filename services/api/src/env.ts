@@ -6,6 +6,8 @@ export const env = {
   REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
   NEW_RELIC_APP_NAME: process.env.NEW_RELIC_APP_NAME || process.env.RELIC_APP_NAME || 'econ-game-api',
   NEW_RELIC_LICENSE_KEY: process.env.NEW_RELIC_LICENSE_KEY || process.env.RELIC_API_KEY || '',
+  SENTRY_DSN: process.env.SENTRY_DSN || '',
+  SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development',
 };
 
 if (!env.DATABASE_URL) {

@@ -3,8 +3,8 @@
 // Run without arguments: `node scripts/setup.mjs`
 
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 
@@ -39,6 +39,68 @@ function fail(msg, code = 1) {
   closeInterface();
   process.stderr.write(`[error] ${msg}\n`);
   process.exit(code);
+}
+
+function clampSampleRate(value, fallback) {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed) return fallback;
+  const numeric = Number.parseFloat(trimmed);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.min(Math.max(numeric, 0), 1);
+}
+
+function ensureEnvFile(path) {
+  if (existsSync(path)) return;
+  const examplePath = `${path}.example`;
+  if (existsSync(examplePath)) {
+    const sample = readFileSync(examplePath, 'utf8');
+    writeFileSync(path, sample);
+  } else {
+    writeFileSync(path, '');
+  }
+}
+
+function updateEnvFile(path, entries) {
+  if (!entries || entries.length === 0) {
+    return false;
+  }
+  let original = '';
+  if (existsSync(path)) {
+    original = readFileSync(path, 'utf8');
+  }
+  const eol = original.includes('\r\n') ? '\r\n' : '\n';
+  const lines = original.length > 0 ? original.split(/\r?\n/) : [];
+  if (lines.length && lines[lines.length - 1] === '') {
+    lines.pop();
+  }
+
+  const updates = new Map(entries.map(([key, value]) => [key, value ?? '']));
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const match = line.match(/^([A-Za-z0-9_.-]+)=/);
+    if (!match) continue;
+    const key = match[1];
+    if (!updates.has(key)) continue;
+    const value = updates.get(key) ?? '';
+    lines[i] = `${key}=${value}`;
+    updates.delete(key);
+  }
+
+  for (const [key, value] of updates.entries()) {
+    lines.push(`${key}=${value ?? ''}`);
+  }
+
+  const newContent = (lines.length ? lines.join(eol) + eol : '');
+  let originalNormalized = original;
+  if (originalNormalized && !originalNormalized.endsWith('\n') && !originalNormalized.endsWith('\r\n')) {
+    originalNormalized += eol;
+  }
+  if (newContent === originalNormalized) {
+    return false;
+  }
+  writeFileSync(path, newContent);
+  return true;
 }
 
 async function askQuestion(prompt, defaultValue = '') {
@@ -258,6 +320,98 @@ async function setupLocal({ skipInstall, dbPush, startDb }) {
   log('- Frontend: cd services/frontend && npm run dev');
 }
 
+function configureMonitoring(monitoring) {
+  if (!monitoring) return;
+
+  const newRelicLicense = monitoring.newRelicEnabled ? monitoring.newRelicLicense.trim() : '';
+  if (monitoring.newRelicEnabled && !newRelicLicense) {
+    warn('New Relic selected but license key is empty. Monitoring will not activate.');
+  }
+
+  const sentryDsn = monitoring.sentryEnabled ? monitoring.sentryDsn.trim() : '';
+  if (monitoring.sentryEnabled && !sentryDsn) {
+    warn('Sentry selected but DSN is empty. Monitoring will remain disabled.');
+  }
+
+  const sentryEnvironment = monitoring.sentryEnabled
+    ? (monitoring.sentryEnvironment?.trim() || 'development')
+    : 'development';
+  const sentryTracesRate = monitoring.sentryEnabled ? clampSampleRate(monitoring.sentryTracesSampleRate, 0) : 0;
+  const sentryProfilesRate = monitoring.sentryEnabled
+    ? clampSampleRate(monitoring.sentryProfilesSampleRate, sentryTracesRate)
+    : 0;
+  const sentryRelease = monitoring.sentryEnabled ? (monitoring.sentryRelease?.trim() || '') : '';
+
+  const newRelicValue = newRelicLicense;
+  const sentryTracesValue = sentryTracesRate.toString();
+  const sentryProfilesValue = sentryProfilesRate.toString();
+
+  const updates = [
+    {
+      path: join(servicesDir, 'api', '.env'),
+      entries: [
+        ['NEW_RELIC_LICENSE_KEY', newRelicValue],
+        ['SENTRY_DSN', sentryDsn],
+        ['SENTRY_ENVIRONMENT', sentryEnvironment],
+        ['SENTRY_TRACES_SAMPLE_RATE', sentryTracesValue],
+        ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfilesValue],
+        ['SENTRY_RELEASE', sentryRelease],
+      ],
+    },
+    {
+      path: join(servicesDir, 'worker', '.env'),
+      entries: [
+        ['NEW_RELIC_LICENSE_KEY', newRelicValue],
+        ['SENTRY_DSN', sentryDsn],
+        ['SENTRY_ENVIRONMENT', sentryEnvironment],
+        ['SENTRY_TRACES_SAMPLE_RATE', sentryTracesValue],
+        ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfilesValue],
+        ['SENTRY_RELEASE', sentryRelease],
+      ],
+    },
+    {
+      path: join(servicesDir, 'bot', '.env'),
+      entries: [
+        ['NEW_RELIC_LICENSE_KEY', newRelicValue],
+        ['SENTRY_DSN', sentryDsn],
+        ['SENTRY_ENVIRONMENT', sentryEnvironment],
+        ['SENTRY_TRACES_SAMPLE_RATE', sentryTracesValue],
+        ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfilesValue],
+        ['SENTRY_RELEASE', sentryRelease],
+      ],
+    },
+    {
+      path: join(servicesDir, 'frontend', '.env'),
+      entries: [
+        ['NEW_RELIC_LICENSE_KEY', newRelicValue],
+        ['SENTRY_DSN', sentryDsn],
+        ['SENTRY_ENVIRONMENT', sentryEnvironment],
+        ['SENTRY_TRACES_SAMPLE_RATE', sentryTracesValue],
+        ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfilesValue],
+        ['SENTRY_RELEASE', sentryRelease],
+        ['NEXT_PUBLIC_SENTRY_DSN', sentryDsn],
+        ['NEXT_PUBLIC_SENTRY_ENVIRONMENT', sentryEnvironment],
+        ['NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE', sentryTracesValue],
+        ['NEXT_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE', sentryProfilesValue],
+      ],
+    },
+  ];
+
+  for (const { path, entries } of updates) {
+    const shouldWrite = existsSync(path) || newRelicValue || sentryDsn;
+    if (!shouldWrite) continue;
+    try {
+      ensureEnvFile(path);
+      const changed = updateEnvFile(path, entries);
+      if (changed) {
+        log(`Updated monitoring settings in ${relative(root, path)}`);
+      }
+    } catch (err) {
+      warn(`Failed to update ${relative(root, path)}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+}
+
 async function gatherSelections() {
   const state = {
     mode: '',
@@ -265,6 +419,16 @@ async function gatherSelections() {
     localSkipInstall: false,
     localDbPush: false,
     localStartDb: false,
+    monitoring: {
+      newRelicEnabled: false,
+      newRelicLicense: '',
+      sentryEnabled: false,
+      sentryDsn: '',
+      sentryEnvironment: 'development',
+      sentryTracesSampleRate: '0',
+      sentryProfilesSampleRate: '',
+      sentryRelease: '',
+    },
   };
 
   const hasDocker = await commandExists('docker');
@@ -305,6 +469,36 @@ async function gatherSelections() {
     log(`Prisma db push: ${state.localDbPush ? 'yes' : 'no'}.`);
   }
 
+  state.monitoring.newRelicEnabled = await askYesNo('Configure New Relic APM?', false);
+  if (state.monitoring.newRelicEnabled) {
+    const license = (await askQuestion('Enter New Relic license key: ', '')).trim();
+    state.monitoring.newRelicLicense = license;
+    if (!license) {
+      warn('New Relic enabled but license key left empty. Agent will remain disabled.');
+    }
+  } else {
+    log('New Relic configuration skipped.');
+  }
+
+  state.monitoring.sentryEnabled = await askYesNo('Configure Sentry monitoring?', false);
+  if (state.monitoring.sentryEnabled) {
+    const dsn = (await askQuestion('Enter Sentry DSN: ', '')).trim();
+    state.monitoring.sentryDsn = dsn;
+    if (!dsn) {
+      warn('Sentry enabled but DSN left empty. SDK will remain disabled.');
+    }
+    const environment = (await askQuestion('Sentry environment name [development]: ', 'development')).trim();
+    state.monitoring.sentryEnvironment = environment || 'development';
+    const tracesRate = (await askQuestion('Sentry traces sample rate (0-1, default 0): ', '0')).trim();
+    state.monitoring.sentryTracesSampleRate = tracesRate || '0';
+    const profilesRate = (await askQuestion('Sentry profiles sample rate (0-1, blank to reuse traces): ', '')).trim();
+    state.monitoring.sentryProfilesSampleRate = profilesRate;
+    const release = (await askQuestion('Sentry release identifier (optional): ', '')).trim();
+    state.monitoring.sentryRelease = release;
+  } else {
+    log('Sentry configuration skipped.');
+  }
+
   return state;
 }
 
@@ -329,6 +523,8 @@ async function main() {
   } else {
     fail(`Unknown mode: ${selections.mode}`);
   }
+
+  configureMonitoring(selections.monitoring);
 }
 
 main().catch((e) => fail(e.message || String(e)));

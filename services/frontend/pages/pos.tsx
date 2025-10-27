@@ -1,6 +1,7 @@
 import Head from 'next/head';
-import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
+import { useEffect, useMemo, useState } from 'react';
+
 import en from '../locales/en/common.json';
 import zh from '../locales/zh/common.json';
 
@@ -15,7 +16,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 export default function POS() {
   const router = useRouter();
   const locale = (router.locale || 'en').split('-')[0];
-  const t = (locale === 'zh' ? zh : en) as any;
+  const messages: Record<string, string> = locale === 'zh' ? zh : en;
   const [menus, setMenus] = useState<MenuItem[]>([]);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [branchId, setBranchId] = useState('');
@@ -99,15 +100,15 @@ export default function POS() {
   return (
     <main style={{ padding: 24, fontFamily: 'sans-serif' }}>
       <Head>
-        <title>{t['pos.title']}</title>
+        <title>{messages['pos.title']}</title>
       </Head>
-      <h1>{t['pos.title']} (MVP)</h1>
+      <h1>{messages['pos.title']} (MVP)</h1>
       <div style={{ display: 'flex', gap: 24 }}>
         <section>
           <h3>Create Order</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <label>
-              {t['pos.branch']}:
+              {messages['pos.branch']}:
               <select value={branchId} onChange={(e) => { setBranchId(e.target.value); setTableId(''); }}>
                 <option value="">-- select --</option>
                 {restaurants.flatMap(r => r.branches).map(b => (
@@ -116,7 +117,7 @@ export default function POS() {
               </select>
             </label>
             <label>
-              {t['pos.table']}:
+              {messages['pos.table']}:
               <select value={tableId} onChange={(e) => setTableId(e.target.value)} disabled={!branchId}>
                 <option value="">-- optional --</option>
                 {restaurants.flatMap(r => r.branches).filter(b => b.id === branchId).flatMap(b => b.tables).map(t => (
@@ -124,12 +125,12 @@ export default function POS() {
                 ))}
               </select>
             </label>
-            <button disabled={!canCreate || loading} onClick={createOrder}>{t['pos.create']}</button>
-            <button disabled={loading} onClick={setupDemo}>{t['pos.setupDemo']}</button>
+            <button disabled={!canCreate || loading} onClick={createOrder}>{messages['pos.create']}</button>
+            <button disabled={loading} onClick={setupDemo}>{messages['pos.setupDemo']}</button>
           </div>
           {order && <div style={{ marginTop: 8 }}>Order: {order.id} ({order.status})</div>}
           <div style={{ marginTop: 8 }}>
-            <button disabled={!order || loading} onClick={payAndClose}>{t['pos.payClose']}</button>
+            <button disabled={!order || loading} onClick={payAndClose}>{messages['pos.payClose']}</button>
           </div>
           <div style={{ marginTop: 8, color: '#666' }}>{log}</div>
         </section>

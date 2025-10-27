@@ -1,4 +1,4 @@
-import './instrumentation.js';
+import { monitoring, Sentry } from './instrumentation.js';
 import { Queue, Worker, JobsOptions } from 'bullmq';
 import IORedis from 'ioredis';
 
@@ -41,6 +41,18 @@ const worker = new Worker(
 worker.on('failed', (job, err) => {
   // eslint-disable-next-line no-console
   console.error(`[econ-worker] job failed ${job?.id}:`, err);
+  if (monitoring.sentry) {
+    Sentry.withScope((scope) => {
+      scope.setTag('service', 'worker');
+      scope.setTag('queue', queueName);
+      if (job) {
+        scope.setExtra('jobId', job.id);
+        scope.setExtra('jobName', job.name);
+        scope.setExtra('jobData', job.data);
+      }
+      Sentry.captureException(err);
+    });
+  }
 });
 
 ensureRepeatingJob()
@@ -51,5 +63,13 @@ ensureRepeatingJob()
   .catch((e) => {
     // eslint-disable-next-line no-console
     console.error('[econ-worker] failed to schedule tick', e);
+    if (monitoring.sentry) {
+      Sentry.withScope((scope) => {
+        scope.setTag('service', 'worker');
+        scope.setTag('queue', queueName);
+        scope.setLevel('error');
+        Sentry.captureException(e);
+      });
+    }
     process.exit(1);
   });

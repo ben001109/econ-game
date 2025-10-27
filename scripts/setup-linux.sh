@@ -29,6 +29,14 @@ NODE_REQUIRED_VERSION=""
 NVM_NOT_FOUND_WARNED=0
 SUMMARY_MESSAGES=()
 PRIVATE_IP=""
+USE_NEW_RELIC=0
+NEW_RELIC_LICENSE=""
+USE_SENTRY=0
+SENTRY_DSN=""
+SENTRY_ENVIRONMENT="development"
+SENTRY_TRACES_SAMPLE_RATE="0"
+SENTRY_PROFILES_SAMPLE_RATE=""
+SENTRY_RELEASE=""
 
 log() {
   printf '%s\n' "$1"
@@ -71,6 +79,141 @@ print_summary() {
   local entry=""
   for entry in "${SUMMARY_MESSAGES[@]}"; do
     printf ' - %s\n' "$entry"
+  done
+}
+
+ensure_env_file() {
+  local path="$1"
+  if [[ -f "$path" ]]; then
+    return 0
+  fi
+  local example="${path}.example"
+  if [[ -f "$example" ]]; then
+    cp "$example" "$path"
+  else
+    : >"$path"
+  fi
+}
+
+update_env_file() {
+  local path="$1"
+  shift
+  if (($# == 0)); then
+    return 1
+  fi
+  local -a entries=("$@")
+  local -a lines=()
+  if [[ -f "$path" ]]; then
+    mapfile -t lines <"$path"
+  fi
+
+  declare -A kv=()
+  local -a order=()
+  local entry=""
+  for entry in "${entries[@]}"; do
+    local key="${entry%%=*}"
+    local value="${entry#*=}"
+     if [[ -z "${kv[$key]+x}" ]]; then
+       order+=("$key")
+     fi
+    kv["$key"]="$value"
+  done
+
+  local changed=0
+  local idx=0
+  for idx in "${!lines[@]}"; do
+    local line="${lines[$idx]}"
+    if [[ "$line" =~ ^([A-Za-z0-9_.-]+)= ]]; then
+      local key="${BASH_REMATCH[1]}"
+      if [[ -n "${kv[$key]+x}" ]]; then
+        local new_value="${kv[$key]}"
+        local new_line="${key}=${new_value}"
+        if [[ "$line" != "$new_line" ]]; then
+          lines[$idx]="$new_line"
+          changed=1
+        fi
+        unset 'kv[$key]'
+      fi
+    fi
+  done
+
+  local key=""
+  for key in "${order[@]}"; do
+    if [[ -n "${kv[$key]+x}" ]]; then
+      lines+=("${key}=${kv[$key]}")
+      changed=1
+      unset 'kv[$key]'
+    fi
+  done
+
+  if [[ "$changed" == "1" ]]; then
+    printf '%s\n' "${lines[@]}" >"$path"
+    return 0
+  fi
+  return 1
+}
+
+configure_monitoring() {
+  local new_relic_value=""
+  if [[ "$USE_NEW_RELIC" == "1" ]]; then
+    new_relic_value="${NEW_RELIC_LICENSE//$'\r'/}"
+    if [[ -z "$new_relic_value" ]]; then
+      warn "New Relic enabled but license key empty. Agent will remain disabled."
+    fi
+  fi
+
+  local sentry_dsn_value=""
+  if [[ "$USE_SENTRY" == "1" ]]; then
+    sentry_dsn_value="${SENTRY_DSN//$'\r'/}"
+    if [[ -z "$sentry_dsn_value" ]]; then
+      warn "Sentry enabled but DSN empty. Monitoring will remain disabled."
+    fi
+  fi
+
+  local sentry_env="${SENTRY_ENVIRONMENT:-development}"
+  local sentry_traces="${SENTRY_TRACES_SAMPLE_RATE:-0}"
+  if [[ -z "$sentry_traces" ]]; then
+    sentry_traces="0"
+  fi
+  local sentry_profiles="$sentry_traces"
+  if [[ -n "$SENTRY_PROFILES_SAMPLE_RATE" ]]; then
+    sentry_profiles="$SENTRY_PROFILES_SAMPLE_RATE"
+  fi
+  local sentry_release_value="${SENTRY_RELEASE:-}"
+
+  local -a env_files=(
+    "${SERVICES_DIR}/api/.env"
+    "${SERVICES_DIR}/worker/.env"
+    "${SERVICES_DIR}/bot/.env"
+    "${SERVICES_DIR}/frontend/.env"
+  )
+
+  local env_file=""
+  for env_file in "${env_files[@]}"; do
+    if [[ ! -f "$env_file" && -z "$new_relic_value" && -z "$sentry_dsn_value" ]]; then
+      continue
+    fi
+    ensure_env_file "$env_file"
+    local -a updates=(
+      "NEW_RELIC_LICENSE_KEY=${new_relic_value}"
+      "SENTRY_DSN=${sentry_dsn_value}"
+      "SENTRY_ENVIRONMENT=${sentry_env}"
+      "SENTRY_TRACES_SAMPLE_RATE=${sentry_traces}"
+      "SENTRY_PROFILES_SAMPLE_RATE=${sentry_profiles}"
+      "SENTRY_RELEASE=${sentry_release_value}"
+    )
+    if [[ "$env_file" == "${SERVICES_DIR}/frontend/.env" ]]; then
+      updates+=(
+        "NEXT_PUBLIC_SENTRY_DSN=${sentry_dsn_value}"
+        "NEXT_PUBLIC_SENTRY_ENVIRONMENT=${sentry_env}"
+        "NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=${sentry_traces}"
+        "NEXT_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE=${sentry_profiles}"
+      )
+    fi
+    if update_env_file "$env_file" "${updates[@]}"; then
+      local rel_path="${env_file#"${ROOT}/"}"
+      log "Updated monitoring settings in ${rel_path}"
+    fi
   done
 }
 
@@ -558,6 +701,68 @@ prompt_portainer_selection() {
   fi
 }
 
+prompt_monitoring_options() {
+  if [[ ! -t 0 ]]; then
+    return 0
+  fi
+
+  printf 'Configure New Relic APM? [y/N]: ' >&2
+  local answer=""
+  read -r answer || answer=""
+  case "${answer,,}" in
+    y|yes|1)
+      USE_NEW_RELIC=1
+      printf 'Enter New Relic license key: ' >&2
+      read -r NEW_RELIC_LICENSE || NEW_RELIC_LICENSE=""
+      NEW_RELIC_LICENSE="${NEW_RELIC_LICENSE//$'\r'/}"
+      if [[ -z "$NEW_RELIC_LICENSE" ]]; then
+        warn 'New Relic enabled but license key empty. Agent will remain disabled.'
+      fi
+      ;;
+    *)
+      USE_NEW_RELIC=0
+      log 'New Relic configuration skipped.'
+      ;;
+  esac
+
+  printf 'Configure Sentry monitoring? [y/N]: ' >&2
+  answer=""
+  read -r answer || answer=""
+  case "${answer,,}" in
+    y|yes|1)
+      USE_SENTRY=1
+      printf 'Enter Sentry DSN: ' >&2
+      read -r SENTRY_DSN || SENTRY_DSN=""
+      SENTRY_DSN="${SENTRY_DSN//$'\r'/}"
+      if [[ -z "$SENTRY_DSN" ]]; then
+        warn 'Sentry enabled but DSN empty. Monitoring will remain disabled.'
+      fi
+      printf 'Sentry environment name [development]: ' >&2
+      read -r SENTRY_ENVIRONMENT || SENTRY_ENVIRONMENT=""
+      SENTRY_ENVIRONMENT="${SENTRY_ENVIRONMENT//$'\r'/}"
+      if [[ -z "$SENTRY_ENVIRONMENT" ]]; then
+        SENTRY_ENVIRONMENT='development'
+      fi
+      printf 'Sentry traces sample rate (0-1, default 0): ' >&2
+      read -r SENTRY_TRACES_SAMPLE_RATE || SENTRY_TRACES_SAMPLE_RATE=""
+      SENTRY_TRACES_SAMPLE_RATE="${SENTRY_TRACES_SAMPLE_RATE//$'\r'/}"
+      if [[ -z "$SENTRY_TRACES_SAMPLE_RATE" ]]; then
+        SENTRY_TRACES_SAMPLE_RATE='0'
+      fi
+      printf 'Sentry profiles sample rate (0-1, blank to reuse traces): ' >&2
+      read -r SENTRY_PROFILES_SAMPLE_RATE || SENTRY_PROFILES_SAMPLE_RATE=""
+      SENTRY_PROFILES_SAMPLE_RATE="${SENTRY_PROFILES_SAMPLE_RATE//$'\r'/}"
+      printf 'Sentry release identifier (optional): ' >&2
+      read -r SENTRY_RELEASE || SENTRY_RELEASE=""
+      SENTRY_RELEASE="${SENTRY_RELEASE//$'\r'/}"
+      ;;
+    *)
+      USE_SENTRY=0
+      log 'Sentry configuration skipped.'
+      ;;
+  esac
+}
+
 prompt_mode_selection() {
   if [[ -n "$MODE" ]]; then
     return 0
@@ -599,6 +804,7 @@ prompt_mode_selection() {
     prompt_local_options
   fi
   prompt_portainer_selection
+  prompt_monitoring_options
   return 0
 }
 
@@ -1060,6 +1266,7 @@ main() {
   if [[ "$INSTALL_PORTAINER" == "1" ]]; then
     install_portainer
   fi
+  configure_monitoring
   print_summary
 }
 

@@ -1,6 +1,6 @@
 import Head from 'next/head';
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react';
 
 import en from '../locales/en/common.json';
 import zh from '../locales/zh/common.json';

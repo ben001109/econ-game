@@ -1,4 +1,4 @@
-import './instrumentation.js';
+import { monitoring, Sentry } from './instrumentation.js';
 import pino from 'pino';
 import { Client, Collection, Events, GatewayIntentBits } from 'discord.js';
 
@@ -28,6 +28,13 @@ client.once(Events.ClientReady, async (c) => {
     }
   } catch (err) {
     logger.error({ err }, 'Failed to register commands');
+    if (monitoring.sentry) {
+      Sentry.withScope((scope) => {
+        scope.setTag('service', 'bot');
+        scope.setTag('event', 'register-commands');
+        Sentry.captureException(err as Error);
+      });
+    }
   }
   if (process.env.CI) {
     logger.info('CI environment detected, shutting down.');
@@ -45,6 +52,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await command.execute(interaction, t);
   } catch (err) {
     logger.error({ err }, 'Command execute failed');
+    if (monitoring.sentry) {
+      Sentry.withScope((scope) => {
+        scope.setTag('service', 'bot');
+        scope.setTag('command', interaction.commandName);
+        scope.setUser({ id: interaction.user.id, username: interaction.user.tag });
+        Sentry.captureException(err as Error);
+      });
+    }
     try {
       await interaction.reply({ content: t('error_execute'), ephemeral: true });
     } catch {
@@ -58,4 +73,25 @@ if (!env.DISCORD_BOT_TOKEN) {
   process.exit(1);
 }
 
-client.login(env.DISCORD_BOT_TOKEN);
+client.on('error', (err) => {
+  logger.error({ err }, 'Discord client error');
+  if (monitoring.sentry) {
+    Sentry.withScope((scope) => {
+      scope.setTag('service', 'bot');
+      scope.setTag('event', 'client-error');
+      Sentry.captureException(err);
+    });
+  }
+});
+
+client.login(env.DISCORD_BOT_TOKEN).catch((err) => {
+  logger.error({ err }, 'Failed to login Discord client');
+  if (monitoring.sentry) {
+    Sentry.withScope((scope) => {
+      scope.setTag('service', 'bot');
+      scope.setTag('event', 'login');
+      Sentry.captureException(err);
+    });
+  }
+  process.exit(1);
+});
