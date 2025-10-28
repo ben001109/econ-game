@@ -6,6 +6,8 @@ COPY tsconfig.json ./
 COPY next.config.mjs ./
 COPY pages ./pages
 COPY locales ./locales
+COPY sentry.client.config.ts ./sentry.client.config.ts
+COPY sentry.server.config.ts ./sentry.server.config.ts
 RUN npm run build
 
 FROM node:20-alpine AS runner
