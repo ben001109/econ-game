@@ -18,6 +18,10 @@ if (process.env.RELIC_APP_NAME && !process.env.NEW_RELIC_APP_NAME) {
   process.env.NEW_RELIC_APP_NAME = process.env.RELIC_APP_NAME;
 }
 
+if (!process.env.NEW_RELIC_APP_NAME || !process.env.NEW_RELIC_APP_NAME.trim()) {
+  process.env.NEW_RELIC_APP_NAME = 'econ-game-api';
+}
+
 if (process.env.NEW_RELIC_LICENSE_KEY) {
   const newRelicFlag = Symbol.for('econGame.newRelicLoaded');
   if (!globalState[newRelicFlag]) {
@@ -42,6 +46,7 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
 const sentryDsn = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN || '';
 const sentryFlag = Symbol.for('econGame.sentryInitialized');
 const sentryHooksFlag = Symbol.for('econGame.sentryProcessHooks');
+const sentryWarnFlag = Symbol.for('econGame.sentryWarned');
 
 function parseSampleRate(value: string | undefined, fallback = 0): number {
   if (!value) return fallback;
@@ -50,12 +55,22 @@ function parseSampleRate(value: string | undefined, fallback = 0): number {
   return Math.min(Math.max(parsed, 0), 1);
 }
 
-if (sentryDsn && !globalState[sentryFlag]) {
+const trimmedDsn = sentryDsn.trim();
+const hasSentryDsn = trimmedDsn.length > 0;
+const dsnLooksValid = hasSentryDsn && /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmedDsn);
+
+if (hasSentryDsn && !dsnLooksValid && !globalState[sentryWarnFlag]) {
+  // eslint-disable-next-line no-console
+  console.warn('[sentry] Invalid SENTRY_DSN provided; skipping Sentry initialisation.');
+  globalState[sentryWarnFlag] = true;
+}
+
+if (dsnLooksValid && !globalState[sentryFlag]) {
   const environment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development';
   const tracesSampleRate = parseSampleRate(process.env.SENTRY_TRACES_SAMPLE_RATE, 0);
   const profilesSampleRate = parseSampleRate(process.env.SENTRY_PROFILES_SAMPLE_RATE, tracesSampleRate);
   Sentry.init({
-    dsn: sentryDsn,
+    dsn: trimmedDsn,
     environment,
     tracesSampleRate,
     profilesSampleRate,
