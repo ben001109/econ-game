@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Interactive Linux setup helper for econ-game
-# Mirrors the behaviour of scripts/setup.mjs through guided prompts.
+# Mirrors the behaviour of the console setup wizard (`node scripts/console.mjs`).
 
 set -euo pipefail
 

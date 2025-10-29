@@ -21,21 +21,18 @@ Prerequisites:
 
 ## Setup
 
-Cross-platform setup script (Node 20+):
+Interactive console (Node 20+):
 
 ```
-node scripts/setup.mjs --docker           # build + start containers
-node scripts/setup.mjs --docker --dev     # dev profile (hot reload)
-
-# Human-friendly console
 node scripts/console.mjs
+# Choose option 12 “Setup Wizard” to run the former Docker/local bootstrap flow,
+# seed monitoring secrets (New Relic/Sentry), and generate env files.
+```
 
-node scripts/setup.mjs --local            # install deps + prisma generate
-node scripts/setup.mjs --local --start-db # start Postgres+Redis via Docker
-node scripts/setup.mjs --local --db-push  # prisma db push (DB must be up)
+Linux-only convenience script (non-interactive) still mirrors the wizard prompts:
 
-# auto-pick (prefers docker dev if available)
-node scripts/setup.mjs
+```
+bash scripts/setup-linux.sh
 ```
 
 Run:
@@ -115,7 +112,7 @@ node scripts/console.mjs
 
 # Alternatively (non-interactive):
 # - Start Docker dev profile without console
-node scripts/setup.mjs --docker --dev
+docker compose --profile dev up --build -d postgres redis api-dev worker-dev frontend-dev bot-dev adminer redis-commander
 
 # - Only remove dev app containers, keep DB/tools (manual maintenance)
 docker compose rm -s -f api-dev worker-dev frontend-dev bot-dev
@@ -131,7 +128,7 @@ Alternatively, run API/Worker directly on your host (Node 20) and point to the C
 - Update `.env` to use localhost hosts:
   - `DATABASE_URL=postgresql://game:gamepass@localhost:5432/game?schema=public`
   - `REDIS_URL=redis://localhost:6379`
-- Then run local dev: `node scripts/setup.mjs --local`
+- Then run local dev via the console wizard (choose Local workflow) or manually run `npm install` inside each service.
 - Environment check: `node scripts/doctor.mjs`
 
 ## Lint & Format

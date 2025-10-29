@@ -8,6 +8,7 @@ import { resolve, join, basename, relative } from 'node:path';
 import { existsSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
 
 const root = resolve(process.cwd());
+const servicesDir = join(root, 'services');
 const CONFIG_PATH = join(root, '.econ-console.json');
 const services = {
   dev: ['api-dev', 'worker-dev', 'frontend-dev', 'bot-dev'],
@@ -56,6 +57,7 @@ const I18N = {
     // consolidated service + clean submenus
     menu_services: 'Services (start/stop/restart/rebuild)',
     menu_clean: 'Clean (consolidated options)',
+    menu_setup: 'Setup Wizard (Docker/local + monitoring)',
     menu_6: 'Status (compose ps)',
     menu_7: 'Tail Logs',
     menu_8: 'Restart Services',
@@ -143,6 +145,7 @@ const I18N = {
     // consolidated service + clean submenus
     menu_services: '服務操作（開啟/關閉/重啟/重建）',
     menu_clean: '清理（整合所有清理選項）',
+    menu_setup: '設定精靈（Docker/本機與監控配置）',
     menu_6: '查看狀態 (compose ps)',
     menu_7: '追蹤日誌',
     menu_8: '重啟服務',
@@ -251,6 +254,453 @@ let LANG = CONFIG.lang;
 function t(key) {
   const pack = I18N[LANG] || I18N.en;
   return pack[key] || I18N.en[key] || key;
+}
+
+function clampSampleRate(value, fallback) {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed) return fallback;
+  const numeric = Number.parseFloat(trimmed);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.min(Math.max(numeric, 0), 1);
+}
+
+function ensureEnvFileWithExample(path) {
+  if (existsSync(path)) return;
+  const examplePath = `${path}.example`;
+  try {
+    if (existsSync(examplePath)) {
+      const seed = readFileSync(examplePath, 'utf8');
+      writeFileSync(path, seed);
+    } else {
+      writeFileSync(path, '');
+    }
+  } catch (e) {
+    console.error('[console]', t('error_prefix'), e.message || e);
+  }
+}
+
+function updateEnvEntries(path, entries) {
+  if (!entries || !entries.length) return false;
+  let original = '';
+  if (existsSync(path)) {
+    try {
+      original = readFileSync(path, 'utf8');
+    } catch {
+      original = '';
+    }
+  }
+  const eol = original.includes('\r\n') ? '\r\n' : '\n';
+  const lines = original.length ? original.split(/\r?\n/) : [];
+  if (lines.length && lines[lines.length - 1] === '') lines.pop();
+
+  const order = [];
+  const updates = new Map();
+  for (const [key, value] of entries) {
+    if (!updates.has(key)) order.push(key);
+    updates.set(key, value ?? '');
+  }
+
+  let changed = false;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const match = line.match(/^([A-Za-z0-9_.-]+)=/);
+    if (!match) continue;
+    const key = match[1];
+    if (!updates.has(key)) continue;
+    const nextValue = updates.get(key);
+    const nextLine = `${key}=${nextValue}`;
+    if (line !== nextLine) {
+      lines[i] = nextLine;
+      changed = true;
+    }
+    updates.delete(key);
+  }
+
+  for (const key of order) {
+    if (!updates.has(key)) continue;
+    lines.push(`${key}=${updates.get(key)}`);
+    updates.delete(key);
+    changed = true;
+  }
+
+  if (!changed) return false;
+  const output = lines.length ? `${lines.join(eol)}${eol}` : '';
+  try {
+    writeFileSync(path, output);
+    return true;
+  } catch (e) {
+    console.error('[console]', t('error_prefix'), e.message || e);
+    return false;
+  }
+}
+
+function configureMonitoringFromSetup(monitoring) {
+  if (!monitoring) return;
+  const newRelicLicense = monitoring.newRelicEnabled ? monitoring.newRelicLicense.trim() : '';
+  if (monitoring.newRelicEnabled && !newRelicLicense) {
+    console.warn('[console] New Relic selected but license key empty. Agent will remain disabled.');
+  }
+  const sentryDsn = monitoring.sentryEnabled ? monitoring.sentryDsn.trim() : '';
+  if (monitoring.sentryEnabled && !sentryDsn) {
+    console.warn('[console] Sentry selected but DSN empty. SDK will remain disabled.');
+  }
+  const sentryEnvironment = monitoring.sentryEnabled
+    ? (monitoring.sentryEnvironment?.trim() || 'development')
+    : 'development';
+  const sentryTraces = monitoring.sentryEnabled ? clampSampleRate(monitoring.sentryTracesSampleRate, 0) : 0;
+  const sentryProfiles = monitoring.sentryEnabled ? clampSampleRate(monitoring.sentryProfilesSampleRate, sentryTraces) : 0;
+  const sentryRelease = monitoring.sentryEnabled ? (monitoring.sentryRelease?.trim() || '') : '';
+
+  const updates = [
+    {
+      path: join(servicesDir, 'api', '.env'),
+      entries: [
+        ['NEW_RELIC_LICENSE_KEY', newRelicLicense],
+        ['SENTRY_DSN', sentryDsn],
+        ['SENTRY_ENVIRONMENT', sentryEnvironment],
+        ['SENTRY_TRACES_SAMPLE_RATE', sentryTraces.toString()],
+        ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfiles.toString()],
+        ['SENTRY_RELEASE', sentryRelease],
+      ],
+    },
+    {
+      path: join(servicesDir, 'worker', '.env'),
+      entries: [
+        ['NEW_RELIC_LICENSE_KEY', newRelicLicense],
+        ['SENTRY_DSN', sentryDsn],
+        ['SENTRY_ENVIRONMENT', sentryEnvironment],
+        ['SENTRY_TRACES_SAMPLE_RATE', sentryTraces.toString()],
+        ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfiles.toString()],
+        ['SENTRY_RELEASE', sentryRelease],
+      ],
+    },
+    {
+      path: join(servicesDir, 'bot', '.env'),
+      entries: [
+        ['NEW_RELIC_LICENSE_KEY', newRelicLicense],
+        ['SENTRY_DSN', sentryDsn],
+        ['SENTRY_ENVIRONMENT', sentryEnvironment],
+        ['SENTRY_TRACES_SAMPLE_RATE', sentryTraces.toString()],
+        ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfiles.toString()],
+        ['SENTRY_RELEASE', sentryRelease],
+      ],
+    },
+    {
+      path: join(servicesDir, 'frontend', '.env'),
+      entries: [
+        ['NEW_RELIC_LICENSE_KEY', newRelicLicense],
+        ['SENTRY_DSN', sentryDsn],
+        ['SENTRY_ENVIRONMENT', sentryEnvironment],
+        ['SENTRY_TRACES_SAMPLE_RATE', sentryTraces.toString()],
+        ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfiles.toString()],
+        ['SENTRY_RELEASE', sentryRelease],
+        ['NEXT_PUBLIC_SENTRY_DSN', sentryDsn],
+        ['NEXT_PUBLIC_SENTRY_ENVIRONMENT', sentryEnvironment],
+        ['NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE', sentryTraces.toString()],
+        ['NEXT_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE', sentryProfiles.toString()],
+      ],
+    },
+  ];
+
+  for (const { path, entries } of updates) {
+    if (!entries || (!existsSync(path) && !newRelicLicense && !sentryDsn)) continue;
+    ensureEnvFileWithExample(path);
+    if (updateEnvEntries(path, entries)) {
+      console.log('[console] Updated monitoring settings in', relative(root, path));
+    }
+  }
+}
+
+function platformCommand(cmd) {
+  return process.platform === 'win32' ? `${cmd}.cmd` : cmd;
+}
+
+async function setupCommandExists(cmd) {
+  if (process.platform === 'win32') {
+    try {
+      await sh('where', [cmd], { stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  const quoted = cmd.replace(/"/g, '\\"');
+  try {
+    await sh('sh', ['-c', `command -v "${quoted}" >/dev/null 2>&1`], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function setupEnsureDocker() {
+  const hasDocker = await setupCommandExists('docker');
+  if (!hasDocker) {
+    throw new Error('Docker is required. Install Docker Desktop (Win/macOS) or docker engine (Linux).');
+  }
+  try {
+    await sh('docker', ['compose', 'version'], { stdio: 'ignore' });
+    return;
+  } catch {}
+  const hasLegacy = await setupCommandExists('docker-compose');
+  if (!hasLegacy) {
+    throw new Error('Docker Compose plugin not found. Update Docker to include `docker compose` or install docker-compose.');
+  }
+}
+
+function getNodeMajor() {
+  return Number(process.versions.node.split('.')[0]);
+}
+
+function readNvmrc() {
+  const p = join(root, '.nvmrc');
+  if (!existsSync(p)) return null;
+  const raw = readFileSync(p, 'utf8').trim();
+  const major = Number(raw.replace(/^v/, ''));
+  return Number.isFinite(major) ? major : null;
+}
+
+async function setupDockerWorkflow(includeDevProfile) {
+  await setupEnsureDocker();
+  if (includeDevProfile) {
+    console.log('[console] Cleaning previous dev containers (api-dev, worker-dev, frontend-dev, bot-dev)...');
+    try {
+      await dockerCompose(['rm', '-s', '-f', 'api-dev', 'worker-dev', 'frontend-dev', 'bot-dev']);
+    } catch {
+      console.warn('[console] No existing dev containers to remove or cleanup failed; continuing.');
+    }
+    console.log('[console] Starting dev profile containers (api-dev, worker-dev, frontend-dev, bot-dev, postgres, redis, adminer, redis-commander)...');
+    await dockerCompose(['--profile', 'dev', 'up', '--build', '-d', 'postgres', 'redis', 'api-dev', 'worker-dev', 'frontend-dev', 'bot-dev', 'adminer', 'redis-commander']);
+  } else {
+    console.log('[console] Building and starting production-like stack...');
+    await dockerCompose(['up', '--build', '-d']);
+  }
+  console.log('[console] Docker setup complete.');
+}
+
+async function setupLocalWorkflow({ skipInstall, dbPush, startDb }) {
+  const requiredNode = readNvmrc() ?? 20;
+  const current = getNodeMajor();
+  if (current < requiredNode) {
+    console.warn(`[console] Node ${requiredNode}+ recommended (found ${process.versions.node}).`);
+    console.warn('[console] Use nvm: `nvm use` then rerun if available.');
+  }
+
+  if (startDb) {
+    const dockerOk = await setupCommandExists('docker');
+    if (dockerOk) {
+      console.log('[console] Starting Postgres and Redis via Docker...');
+      await setupEnsureDocker();
+      await dockerCompose(['up', '-d', 'postgres', 'redis']);
+    } else if (process.platform === 'win32') {
+      console.warn('[console] Docker not available on Windows. Please install Postgres/Redis locally.');
+      setupPrintWindowsDbSetupHelp();
+    } else {
+      throw new Error('Docker not available. Install Docker or run DB services manually.');
+    }
+  }
+
+  const packages = [
+    { name: 'api', dir: join(servicesDir, 'api') },
+    { name: 'worker', dir: join(servicesDir, 'worker') },
+    { name: 'frontend', dir: join(servicesDir, 'frontend') },
+  ];
+
+  for (const pkg of packages) {
+    if (!existsSync(join(pkg.dir, 'package.json'))) continue;
+    if (skipInstall) {
+      console.log(`[console] Skipping install for ${pkg.name}`);
+      continue;
+    }
+    console.log(`[console] Installing dependencies for ${pkg.name}...`);
+    const hasLock = existsSync(join(pkg.dir, 'package-lock.json'));
+    const args = hasLock ? ['ci'] : ['install'];
+    await sh(platformCommand('npm'), args, { cwd: pkg.dir });
+  }
+
+  if (existsSync(join(servicesDir, 'api', 'prisma'))) {
+    console.log('[console] Generating Prisma client (api)...');
+    await sh(platformCommand('npx'), ['prisma', 'generate'], { cwd: join(servicesDir, 'api') });
+    if (dbPush) {
+      console.log('[console] Pushing Prisma schema to DB (requires reachable Postgres)...');
+      await sh(platformCommand('npx'), ['prisma', 'db', 'push'], { cwd: join(servicesDir, 'api') });
+    }
+  }
+
+  console.log('[console] Local setup complete.');
+  console.log('[console] Next steps:');
+  console.log('- API:      cd services/api && npm run dev');
+  console.log('- Worker:   cd services/worker && npm run dev');
+  console.log('- Frontend: cd services/frontend && npm run dev');
+}
+
+async function setupAskQuestion(prompt, defaultValue = '') {
+  if (!process.stdin.isTTY) return defaultValue ?? '';
+  const ans = await rlPrompt(prompt);
+  if (ans == null || ans === '') return defaultValue ?? '';
+  return ans;
+}
+
+async function setupAskYesNo(question, defaultYes = true) {
+  if (!process.stdin.isTTY) return defaultYes;
+  const suffix = defaultYes ? ' [Y/n]: ' : ' [y/N]: ';
+  const ans = (await setupAskQuestion(`${question}${suffix}`, '')).trim().toLowerCase();
+  if (!ans) return defaultYes;
+  if (['y', 'yes', '1'].includes(ans)) return true;
+  if (['n', 'no', '0'].includes(ans)) return false;
+  console.warn(`[console] Unknown selection '${ans}'. Using default (${defaultYes ? 'yes' : 'no'}).`);
+  return defaultYes;
+}
+
+async function setupAskChoice(question, choices, defaultValue) {
+  if (!process.stdin.isTTY) return defaultValue;
+  console.log(question);
+  choices.forEach((choice, idx) => {
+    console.log(`  ${idx + 1}) ${choice.label}`);
+  });
+  const defaultIndex = choices.findIndex((choice) => choice.value === defaultValue);
+  const fallbackIndex = defaultIndex >= 0 ? defaultIndex : 0;
+  const prompt = `Enter choice [${fallbackIndex + 1}]: `;
+  const raw = (await setupAskQuestion(prompt, '')).trim().toLowerCase();
+  if (!raw) return choices[fallbackIndex].value;
+  const numeric = Number.parseInt(raw, 10);
+  if (Number.isFinite(numeric) && numeric >= 1 && numeric <= choices.length) {
+    return choices[numeric - 1].value;
+  }
+  const match = choices.find((choice) => {
+    if (choice.value.toLowerCase() === raw) return true;
+    if (!choice.aliases) return false;
+    return choice.aliases.map((alias) => alias.toLowerCase()).includes(raw);
+  });
+  if (match) return match.value;
+  console.warn(`[console] Unknown selection '${raw}'. Using default.`);
+  return choices[fallbackIndex].value;
+}
+
+async function gatherSetupSelections() {
+  const state = {
+    mode: '',
+    dockerDev: true,
+    localSkipInstall: false,
+    localDbPush: false,
+    localStartDb: false,
+    monitoring: {
+      newRelicEnabled: false,
+      newRelicLicense: '',
+      sentryEnabled: false,
+      sentryDsn: '',
+      sentryEnvironment: 'development',
+      sentryTracesSampleRate: '0',
+      sentryProfilesSampleRate: '',
+      sentryRelease: '',
+    },
+  };
+
+  const hasDocker = await setupCommandExists('docker');
+
+  if (!process.stdin.isTTY) {
+    if (hasDocker) {
+      console.log('[console] Non-interactive mode: auto-selected Docker workflow (dev profile).');
+      state.mode = 'docker';
+      state.dockerDev = true;
+    } else {
+      console.log('[console] Non-interactive mode: auto-selected Local workflow.');
+      state.mode = 'local';
+    }
+    return state;
+  }
+
+  const defaultMode = hasDocker ? 'docker' : 'local';
+  const mode = await setupAskChoice(
+    'Select setup workflow:',
+    [
+      { value: 'docker', label: 'Docker (Docker Compose stack for services)', aliases: ['d', 'docker'] },
+      { value: 'local', label: 'Local (install Node.js dependencies locally)', aliases: ['l', 'local'] },
+    ],
+    defaultMode,
+  );
+  state.mode = mode;
+  console.log(`[console] Selected workflow: ${mode}.`);
+
+  if (mode === 'docker') {
+    state.dockerDev = await setupAskYesNo('Include developer containers (api-dev, worker-dev, frontend-dev, bot-dev)?', true);
+    console.log(`[console] Docker dev profile: ${state.dockerDev ? 'enabled' : 'disabled'}.`);
+  } else {
+    state.localSkipInstall = await setupAskYesNo('Skip Node.js package installation (npm install)?', false);
+    state.localStartDb = await setupAskYesNo('Start databases after setup?', false);
+    state.localDbPush = await setupAskYesNo('Push Prisma schema to DB after setup?', false);
+    console.log(`[console] npm install: ${state.localSkipInstall ? 'skipped' : 'will run'}.`);
+    console.log(`[console] Start local databases: ${state.localStartDb ? 'yes' : 'no'}.`);
+    console.log(`[console] Prisma db push: ${state.localDbPush ? 'yes' : 'no'}.`);
+  }
+
+  state.monitoring.newRelicEnabled = await setupAskYesNo('Configure New Relic APM?', false);
+  if (state.monitoring.newRelicEnabled) {
+    const license = (await setupAskQuestion('Enter New Relic license key: ', '')).trim();
+    state.monitoring.newRelicLicense = license;
+    if (!license) {
+      console.warn('[console] New Relic enabled but license key left empty. Agent will remain disabled.');
+    }
+  } else {
+    console.log('[console] New Relic configuration skipped.');
+  }
+
+  state.monitoring.sentryEnabled = await setupAskYesNo('Configure Sentry monitoring?', false);
+  if (state.monitoring.sentryEnabled) {
+    const dsn = (await setupAskQuestion('Enter Sentry DSN: ', '')).trim();
+    state.monitoring.sentryDsn = dsn;
+    if (!dsn) {
+      console.warn('[console] Sentry enabled but DSN left empty. SDK will remain disabled.');
+    }
+    const environment = (await setupAskQuestion('Sentry environment name [development]: ', 'development')).trim();
+    state.monitoring.sentryEnvironment = environment || 'development';
+    const tracesRate = (await setupAskQuestion('Sentry traces sample rate (0-1, default 0): ', '0')).trim();
+    state.monitoring.sentryTracesSampleRate = tracesRate || '0';
+    const profilesRate = (await setupAskQuestion('Sentry profiles sample rate (0-1, blank to reuse traces): ', '')).trim();
+    state.monitoring.sentryProfilesSampleRate = profilesRate;
+    const release = (await setupAskQuestion('Sentry release identifier (optional): ', '')).trim();
+    state.monitoring.sentryRelease = release;
+  } else {
+    console.log('[console] Sentry configuration skipped.');
+  }
+
+  return state;
+}
+
+function setupPrintWindowsDbSetupHelp() {
+  console.log('[console] Windows without Docker: install Postgres and Redis locally.');
+  console.log('[console] Options:');
+  console.log('[console] - Winget (recommended if available):');
+  console.log('    winget install -e --id PostgreSQL.PostgreSQL');
+  console.log('    winget install -e --id tporadowski.Redis-64');
+  console.log('[console] - Chocolatey (alternative):');
+  console.log('    choco install postgresql redis-64');
+  console.log('[console] After install, ensure services are running and reachable:');
+  console.log('[console] - Postgres: localhost:5432 (user=game pass=gamepass db=game)');
+  console.log('[console] - Redis:    localhost:6379');
+  console.log('[console] Then update .env files to use localhost hosts if needed.');
+}
+
+async function runSetupWizard() {
+  if (!existsSync(join(root, 'services'))) {
+    console.error('[console] Please run from repo root (missing ./services).');
+    return;
+  }
+  const selections = await gatherSetupSelections();
+  if (selections.mode === 'docker') {
+    await setupDockerWorkflow(!!selections.dockerDev);
+  } else if (selections.mode === 'local') {
+    await setupLocalWorkflow({
+      skipInstall: selections.localSkipInstall,
+      dbPush: selections.localDbPush,
+      startDb: selections.localStartDb,
+    });
+  } else {
+    console.error('[console] Unknown setup mode:', selections.mode);
+    return;
+  }
+  configureMonitoringFromSetup(selections.monitoring);
+  console.log('[console] Setup wizard completed.');
 }
 
 function ensureEnvFiles(names) {
@@ -459,7 +909,9 @@ async function dockerCompose(args) {
   try {
     await sh('docker', ['compose', ...args]);
   } catch (e) {
-    throw e;
+    const hasLegacy = await setupCommandExists('docker-compose');
+    if (!hasLegacy) throw e;
+    await sh('docker-compose', args);
   }
 }
 
@@ -985,6 +1437,7 @@ async function printMenu() {
   console.log(`9) ${t('menu_16')}`); // Quick Restart Prod
   console.log(`10) ${t('menu_17')}`); // Quick Restart Dev + Tail
   console.log(`11) ${t('menu_18')}`); // Quick Restart Prod + Tail
+  console.log(`12) ${t('menu_setup')}`); // Setup wizard
   console.log('0) Quit');
 }
 
@@ -1009,6 +1462,7 @@ async function main() {
       else if (ans === '9') await restartProdQuick();
       else if (ans === '10') await restartDevQuickTail();
       else if (ans === '11') await restartProdQuickTail();
+      else if (ans === '12') await runSetupWizard();
       else if (ans === '0') break;
     } catch (e) {
       console.error('[console]', t('error_prefix'), e.message || e);
