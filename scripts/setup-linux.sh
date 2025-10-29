@@ -183,14 +183,18 @@ configure_monitoring() {
 
   local -a env_files=(
     "${SERVICES_DIR}/api/.env"
+    "${SERVICES_DIR}/api/.env.local"
     "${SERVICES_DIR}/worker/.env"
+    "${SERVICES_DIR}/worker/.env.local"
     "${SERVICES_DIR}/bot/.env"
+    "${SERVICES_DIR}/bot/.env.local"
     "${SERVICES_DIR}/frontend/.env"
+    "${SERVICES_DIR}/frontend/.env.local"
   )
 
   local env_file=""
   for env_file in "${env_files[@]}"; do
-    if [[ ! -f "$env_file" && -z "$new_relic_value" && -z "$sentry_dsn_value" ]]; then
+    if [[ ! -f "$env_file" && "$USE_NEW_RELIC" != "1" && "$USE_SENTRY" != "1" ]]; then
       continue
     fi
     ensure_env_file "$env_file"
@@ -202,7 +206,7 @@ configure_monitoring() {
       "SENTRY_PROFILES_SAMPLE_RATE=${sentry_profiles}"
       "SENTRY_RELEASE=${sentry_release_value}"
     )
-    if [[ "$env_file" == "${SERVICES_DIR}/frontend/.env" ]]; then
+    if [[ "$env_file" == "${SERVICES_DIR}/frontend/.env" || "$env_file" == "${SERVICES_DIR}/frontend/.env.local" ]]; then
       updates+=(
         "NEXT_PUBLIC_SENTRY_DSN=${sentry_dsn_value}"
         "NEXT_PUBLIC_SENTRY_ENVIRONMENT=${sentry_env}"

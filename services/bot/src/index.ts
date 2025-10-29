@@ -15,6 +15,34 @@ for (const c of commands) {
   registry.set(c.data.name, c);
 }
 
+// Adding a bunch of code for remove all registered commands for all guild (for initialization purposes)
+// And just run it once when bot starting up
+ client.once(Events.ClientReady, async (c) => {
+   logger.info(`Logged in as ${c.user.tag}`);
+   try {
+     if (client.application) {
+       const guilds = await client.guilds.fetch();
+       for (const [guildId] of guilds) {
+         const guild = await client.guilds.fetch(guildId);
+         await guild.commands.set([]);
+         logger.info({ guild: guildId }, 'Cleared slash commands for guild');
+       }
+       await client.application.commands.set([]);
+       logger.info('Cleared global slash commands');
+     }
+   } catch (err) {
+     logger.error({ err }, 'Failed to clear commands');
+     if (monitoring.sentry) {
+       Sentry.withScope((scope) => {
+         scope.setTag('service', 'bot');
+         scope.setTag('event', 'clear-commands');
+         Sentry.captureException(err as Error);
+       });
+     }
+   }
+   process.exit(0);
+}); 
+
 client.once(Events.ClientReady, async (c) => {
   logger.info(`Logged in as ${c.user.tag}`);
   try {

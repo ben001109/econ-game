@@ -346,68 +346,62 @@ function configureMonitoring(monitoring) {
   const sentryTracesValue = sentryTracesRate.toString();
   const sentryProfilesValue = sentryProfilesRate.toString();
 
+  const baseEntries = [
+    ['NEW_RELIC_LICENSE_KEY', newRelicValue],
+    ['SENTRY_DSN', sentryDsn],
+    ['SENTRY_ENVIRONMENT', sentryEnvironment],
+    ['SENTRY_TRACES_SAMPLE_RATE', sentryTracesValue],
+    ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfilesValue],
+    ['SENTRY_RELEASE', sentryRelease],
+  ];
+
+  const frontendEntries = [
+    ...baseEntries,
+    ['NEXT_PUBLIC_SENTRY_DSN', sentryDsn],
+    ['NEXT_PUBLIC_SENTRY_ENVIRONMENT', sentryEnvironment],
+    ['NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE', sentryTracesValue],
+    ['NEXT_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE', sentryProfilesValue],
+  ];
+
+  const monitoringSelected = monitoring.newRelicEnabled || monitoring.sentryEnabled;
+
   const updates = [
     {
-      path: join(servicesDir, 'api', '.env'),
-      entries: [
-        ['NEW_RELIC_LICENSE_KEY', newRelicValue],
-        ['SENTRY_DSN', sentryDsn],
-        ['SENTRY_ENVIRONMENT', sentryEnvironment],
-        ['SENTRY_TRACES_SAMPLE_RATE', sentryTracesValue],
-        ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfilesValue],
-        ['SENTRY_RELEASE', sentryRelease],
-      ],
+      baseDir: 'api',
+      files: ['.env', '.env.local'],
+      entries: baseEntries,
     },
     {
-      path: join(servicesDir, 'worker', '.env'),
-      entries: [
-        ['NEW_RELIC_LICENSE_KEY', newRelicValue],
-        ['SENTRY_DSN', sentryDsn],
-        ['SENTRY_ENVIRONMENT', sentryEnvironment],
-        ['SENTRY_TRACES_SAMPLE_RATE', sentryTracesValue],
-        ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfilesValue],
-        ['SENTRY_RELEASE', sentryRelease],
-      ],
+      baseDir: 'worker',
+      files: ['.env', '.env.local'],
+      entries: baseEntries,
     },
     {
-      path: join(servicesDir, 'bot', '.env'),
-      entries: [
-        ['NEW_RELIC_LICENSE_KEY', newRelicValue],
-        ['SENTRY_DSN', sentryDsn],
-        ['SENTRY_ENVIRONMENT', sentryEnvironment],
-        ['SENTRY_TRACES_SAMPLE_RATE', sentryTracesValue],
-        ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfilesValue],
-        ['SENTRY_RELEASE', sentryRelease],
-      ],
+      baseDir: 'bot',
+      files: ['.env', '.env.local'],
+      entries: baseEntries,
     },
     {
-      path: join(servicesDir, 'frontend', '.env'),
-      entries: [
-        ['NEW_RELIC_LICENSE_KEY', newRelicValue],
-        ['SENTRY_DSN', sentryDsn],
-        ['SENTRY_ENVIRONMENT', sentryEnvironment],
-        ['SENTRY_TRACES_SAMPLE_RATE', sentryTracesValue],
-        ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfilesValue],
-        ['SENTRY_RELEASE', sentryRelease],
-        ['NEXT_PUBLIC_SENTRY_DSN', sentryDsn],
-        ['NEXT_PUBLIC_SENTRY_ENVIRONMENT', sentryEnvironment],
-        ['NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE', sentryTracesValue],
-        ['NEXT_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE', sentryProfilesValue],
-      ],
+      baseDir: 'frontend',
+      files: ['.env', '.env.local'],
+      entries: frontendEntries,
     },
   ];
 
-  for (const { path, entries } of updates) {
-    const shouldWrite = existsSync(path) || newRelicValue || sentryDsn;
-    if (!shouldWrite) continue;
-    try {
-      ensureEnvFile(path);
-      const changed = updateEnvFile(path, entries);
-      if (changed) {
-        log(`Updated monitoring settings in ${relative(root, path)}`);
+  for (const { baseDir, files, entries } of updates) {
+    for (const file of files) {
+      const path = join(servicesDir, baseDir, file);
+      const shouldWrite = existsSync(path) || monitoringSelected;
+      if (!shouldWrite) continue;
+      try {
+        ensureEnvFile(path);
+        const changed = updateEnvFile(path, entries);
+        if (changed) {
+          log(`Updated monitoring settings in ${relative(root, path)}`);
+        }
+      } catch (err) {
+        warn(`Failed to update ${relative(root, path)}: ${err instanceof Error ? err.message : String(err)}`);
       }
-    } catch (err) {
-      warn(`Failed to update ${relative(root, path)}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 }

@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@types/newrelic": "^9.14.8",
-    "@types/node": "^20.14.10",
+    "@types/node": "^20.19.24",
     "@typescript-eslint/eslint-plugin": "^8.4.0",
     "@typescript-eslint/parser": "^8.4.0",
     "eslint": "^8.57.0",
