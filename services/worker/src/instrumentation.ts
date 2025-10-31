@@ -6,6 +6,11 @@ type MonitoringState = {
   sentry: boolean;
 };
 
+type LoggerLike = {
+  error: (obj: unknown, msg?: string) => void;
+  warn?: (obj: unknown, msg?: string) => void;
+};
+
 const globalState = globalThis as Record<string | symbol, unknown>;
 const monitoringState: MonitoringState = { newRelic: false, sentry: false };
 
@@ -90,6 +95,41 @@ if (monitoringState.sentry && !globalState[sentryHooksFlag]) {
   };
   process.on('unhandledRejection', captureUnhandled);
   globalState[sentryHooksFlag] = true;
+}
+
+const processLogFlag = Symbol.for('econGame.processLogging');
+
+export function registerProcessLogging(logger: LoggerLike) {
+  if (globalState[processLogFlag]) return;
+  const errorLogger =
+    typeof logger.error === 'function'
+      ? logger.error.bind(logger)
+      : (payload: unknown, message?: string) => {
+          // eslint-disable-next-line no-console
+          console.error(message, payload);
+        };
+  const warnLogger =
+    typeof logger.warn === 'function'
+      ? logger.warn.bind(logger)
+      : (payload: unknown, message?: string) => {
+          // eslint-disable-next-line no-console
+          console.warn(message, payload);
+        };
+
+  process.on('uncaughtException', (err) => {
+    errorLogger({ err }, '[process] uncaughtException');
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    const err = reason instanceof Error ? reason : new Error(String(reason));
+    errorLogger({ err }, '[process] unhandledRejection');
+  });
+
+  process.on('warning', (warning) => {
+    warnLogger({ warning }, '[process] warning');
+  });
+
+  globalState[processLogFlag] = true;
 }
 
 export { Sentry };

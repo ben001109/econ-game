@@ -1,6 +1,11 @@
-import { monitoring, Sentry } from './instrumentation.js';
+import { monitoring, Sentry, registerProcessLogging } from './instrumentation.js';
 import { Queue, Worker, JobsOptions } from 'bullmq';
 import IORedis from 'ioredis';
+import pino from 'pino';
+
+const logger = pino({ name: 'econ-worker' });
+
+registerProcessLogging(logger);
 
 const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
   // BullMQ requires this to be null when blocking commands are used
@@ -13,8 +18,7 @@ const intervalMs = parseInt(process.env.TICK_INTERVAL_MS || '5000', 10);
 
 // Optional: Discord bot token presence check (no value logged)
 if (!process.env.DISCORD_BOT_TOKEN) {
-  // eslint-disable-next-line no-console
-  console.warn('[env] DISCORD_BOT_TOKEN not set. Discord bot features are disabled.');
+  logger.warn('[env] DISCORD_BOT_TOKEN not set. Discord bot features are disabled.');
 }
 
 async function ensureRepeatingJob() {
@@ -31,16 +35,14 @@ const worker = new Worker(
     // - read current supply/demand from DB/cache
     // - compute price movements
     // - write a batch of changes (ledger entries, market quotes)
-    // For now, just log a heartbeat.
-    // eslint-disable-next-line no-console
-    console.log(`[econ-worker] processed job ${job.name} @ ${new Date().toISOString()}`);
+// For now, just log a heartbeat.
+    logger.info({ jobName: job.name }, 'processed job');
   },
   { connection }
 );
 
 worker.on('failed', (job, err) => {
-  // eslint-disable-next-line no-console
-  console.error(`[econ-worker] job failed ${job?.id}:`, err);
+  logger.error({ jobId: job?.id, err }, 'job failed');
   if (monitoring.sentry) {
     Sentry.withScope((scope) => {
       scope.setTag('service', 'worker');
@@ -57,12 +59,10 @@ worker.on('failed', (job, err) => {
 
 ensureRepeatingJob()
   .then(() => {
-    // eslint-disable-next-line no-console
-    console.log(`[econ-worker] scheduled tick every ${intervalMs}ms`);
+    logger.info({ intervalMs }, 'scheduled tick job');
   })
   .catch((e) => {
-    // eslint-disable-next-line no-console
-    console.error('[econ-worker] failed to schedule tick', e);
+    logger.error({ err: e }, 'failed to schedule tick');
     if (monitoring.sentry) {
       Sentry.withScope((scope) => {
         scope.setTag('service', 'worker');

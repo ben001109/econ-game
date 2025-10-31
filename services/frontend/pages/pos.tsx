@@ -1,12 +1,12 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import en from '../locales/en/common.json';
 import zh from '../locales/zh/common.json';
 
 type MenuItem = { id: string; name: string; sku: string; basePrice: number };
-type Table = { id: string; code: string };
+type Table = { id: string; code: string; status: string; seats: number };
 type Branch = { id: string; name: string; tables: Table[] };
 type Restaurant = { id: string; name: string; branches: Branch[] };
 type Order = { id: string; status: string };
@@ -25,10 +25,35 @@ export default function POS() {
   const [loading, setLoading] = useState(false);
   const [log, setLog] = useState<string>('');
 
-  useEffect(() => {
-    fetch(`${API}/menus`).then((r) => r.json()).then(setMenus).catch(() => {});
-    fetch(`${API}/restaurants`).then((r) => r.json()).then(setRestaurants).catch(() => {});
+  const fetchMenus = useCallback(async () => {
+    const res = await fetch(`${API}/menus`);
+    if (res.ok) {
+      const data = await res.json();
+      setMenus(data);
+    }
   }, []);
+
+  const fetchRestaurants = useCallback(async () => {
+    const res = await fetch(`${API}/restaurants`);
+    if (res.ok) {
+      const data = await res.json();
+      setRestaurants(data);
+      if (tableId) {
+        const selected = data
+          .flatMap((r: Restaurant) => r.branches)
+          .flatMap((b: Branch) => b.tables)
+          .find((t: Table) => t.id === tableId);
+        if (!selected || selected.status !== 'AVAILABLE') {
+          setTableId('');
+        }
+      }
+    }
+  }, [tableId]);
+
+  useEffect(() => {
+    fetchMenus().catch(() => {});
+    fetchRestaurants().catch(() => {});
+  }, [fetchMenus, fetchRestaurants]);
 
   const canCreate = useMemo(() => !!branchId, [branchId]);
 
@@ -42,8 +67,13 @@ export default function POS() {
         body: JSON.stringify({ branchId, tableId: tableId || undefined }),
       });
       const data = await r.json();
+      if (!r.ok) {
+        setLog(data?.message || data?.code || 'Failed to create order');
+        return;
+      }
       setOrder(data);
       setLog(`Created order ${data.id}`);
+      await fetchRestaurants();
     } finally {
       setLoading(false);
     }
@@ -59,7 +89,8 @@ export default function POS() {
       if (b?.id) setBranchId(b.id);
       if (t?.id) setTableId(t.id);
       setLog('Demo data bootstrapped');
-      await fetch(`${API}/menus`).then((x) => x.json()).then(setMenus).catch(() => {});
+      await fetchMenus();
+      await fetchRestaurants();
     } finally {
       setLoading(false);
     }
@@ -75,6 +106,10 @@ export default function POS() {
         body: JSON.stringify({ menuItemId }),
       });
       const data = await r.json();
+      if (!r.ok) {
+        setLog(data?.message || data?.code || 'Failed to add item');
+        return;
+      }
       setLog(`Added item ${data.id}`);
     } finally {
       setLoading(false);
@@ -90,8 +125,13 @@ export default function POS() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ method: 'cash', amount: 999, close: true }),
       });
-      await r.json();
+      const data = await r.json();
+      if (!r.ok) {
+        setLog(data?.message || data?.code || 'Failed to pay');
+        return;
+      }
       setLog(`Paid and closed order`);
+      await fetchRestaurants();
     } finally {
       setLoading(false);
     }
@@ -121,7 +161,9 @@ export default function POS() {
               <select value={tableId} onChange={(e) => setTableId(e.target.value)} disabled={!branchId}>
                 <option value="">-- optional --</option>
                 {restaurants.flatMap(r => r.branches).filter(b => b.id === branchId).flatMap(b => b.tables).map(t => (
-                  <option key={t.id} value={t.id}>{t.code}</option>
+                  <option key={t.id} value={t.id} disabled={t.status !== 'AVAILABLE'}>
+                    {t.code} · {t.status.toLowerCase()}
+                  </option>
                 ))}
               </select>
             </label>

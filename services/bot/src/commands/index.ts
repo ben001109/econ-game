@@ -1,12 +1,20 @@
-import type { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import type {
+  ChatInputCommandInteraction,
+  SlashCommandBuilder,
+  SlashCommandSubcommandsOnlyBuilder,
+} from 'discord.js';
 
 import * as ping from './ping.js';
-import * as init from './init.js';
+import * as ops from './ops.js';
+import * as pos from './pos.js';
+import * as kds from './kds.js';
 
 export type SlashCommand = {
-  data: SlashCommandBuilder;
-  execute: (interaction: ChatInputCommandInteraction, t: (k: string) => string) => Promise<void>;
+  data: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder;
+  execute: (
+    interaction: ChatInputCommandInteraction,
+    t: (key: string, vars?: Record<string, string | number>) => string
+  ) => Promise<void>;
 };
 
-export const commands: SlashCommand[] = [ping, init];
-
+export const commands: SlashCommand[] = [ping, ops, pos, kds];

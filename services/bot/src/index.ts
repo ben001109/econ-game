@@ -1,4 +1,4 @@
-import { monitoring, Sentry } from './instrumentation.js';
+import { monitoring, Sentry, registerProcessLogging } from './instrumentation.js';
 import pino from 'pino';
 import { Client, Collection, Events, GatewayIntentBits } from 'discord.js';
 
@@ -7,6 +7,8 @@ import { env } from './env.js';
 import { loadLocale } from './i18n.js';
 
 const logger = pino({ name: 'econ-bot' });
+
+registerProcessLogging(logger);
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
