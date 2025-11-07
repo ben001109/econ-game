@@ -1,12 +1,10 @@
 import { monitoring, Sentry, registerProcessLogging } from './instrumentation.js';
-import pino from 'pino';
 import { Client, Collection, Events, GatewayIntentBits } from 'discord.js';
 
 import { commands } from './commands/index.js';
 import { env } from './env.js';
 import { loadLocale } from './i18n.js';
-
-const logger = pino({ name: 'econ-bot' });
+import { logger } from './logger.js';
 
 registerProcessLogging(logger);
 

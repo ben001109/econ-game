@@ -54,6 +54,8 @@ const ENV_GROUP_MAP = new Map(ENV_GROUPS.map((g) => [g.name, g]));
 const I18N = {
   en: {
     menu_header: '=== Econ Game Console ===',
+    update_available: 'GitHub updates detected. Run "git pull" to sync.',
+    update_failed: 'Unable to check for GitHub updates (continuing offline).',
     // consolidated service + clean submenus
     menu_services: 'Services (start/stop/restart/rebuild)',
     menu_clean: 'Clean (consolidated options)',
@@ -142,6 +144,8 @@ const I18N = {
   },
   zh: {
     menu_header: '=== 經濟遊戲 控制台 ===',
+    update_available: '偵測到 GitHub 上有新更新，請執行 "git pull" 同步。',
+    update_failed: '無法檢查 GitHub 更新，將略過。',
     // consolidated service + clean submenus
     menu_services: '服務操作（開啟/關閉/重啟/重建）',
     menu_clean: '清理（整合所有清理選項）',
@@ -905,6 +909,61 @@ function runCapture(cmd, args, opts = {}) {
   });
 }
 
+async function checkForUpdates() {
+  try {
+    const localHash = (await runCapture('git', ['rev-parse', 'HEAD'])).trim();
+    if (!localHash) return;
+
+    let upstreamRef = '';
+    try {
+      upstreamRef = (await runCapture('git', ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'])).trim();
+    } catch {}
+
+    let remoteName = 'origin';
+    let remoteBranch = 'main';
+    if (upstreamRef && upstreamRef.includes('/')) {
+      const slash = upstreamRef.indexOf('/');
+      if (slash > 0) {
+        remoteName = upstreamRef.slice(0, slash);
+        remoteBranch = upstreamRef.slice(slash + 1) || remoteBranch;
+      }
+    } else {
+      try {
+        const branch = (await runCapture('git', ['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
+        if (branch && branch !== 'HEAD') remoteBranch = branch;
+      } catch {}
+    }
+
+    try {
+      await runCapture('git', ['fetch', '--quiet', remoteName, remoteBranch]);
+    } catch (fetchErr) {
+      throw fetchErr;
+    }
+
+    let ahead = 0;
+    try {
+      const aheadRaw = (await runCapture('git', ['rev-list', '--count', `HEAD..${remoteName}/${remoteBranch}`])).trim();
+      ahead = Number.parseInt(aheadRaw, 10);
+    } catch {}
+
+    if (Number.isFinite(ahead) && ahead > 0) {
+      console.log(`[console] ${t('update_available')} (${remoteName}/${remoteBranch})`);
+      return;
+    }
+
+    let remoteHash = '';
+    try {
+      remoteHash = (await runCapture('git', ['rev-parse', `${remoteName}/${remoteBranch}`])).trim();
+    } catch {}
+    if (remoteHash && remoteHash !== localHash) {
+      console.log(`[console] ${t('update_available')} (${remoteName}/${remoteBranch})`);
+    }
+  } catch (err) {
+    const msg = err && err.message ? ` (${err.message})` : '';
+    console.log('[console]', t('update_failed') + msg);
+  }
+}
+
 async function dockerCompose(args) {
   try {
     await sh('docker', ['compose', ...args]);
@@ -1446,6 +1505,7 @@ async function main() {
     console.error('[console] Please run from repo root (missing docker-compose.yml).');
     process.exit(1);
   }
+  await checkForUpdates();
   ensureEnvFiles();
   for (;;) {
     await printMenu();

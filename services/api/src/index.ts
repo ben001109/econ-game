@@ -7,11 +7,12 @@ import Fastify from 'fastify';
 import { z } from 'zod';
 
 import { env } from './env.js';
+import { logger } from './logger.js';
 
 const prisma = new PrismaClient();
-const app = Fastify({ logger: true });
+const app = Fastify({ logger });
 
-registerProcessLogging(app.log);
+registerProcessLogging(logger);
 
 class ApiError extends Error {
   status: number;

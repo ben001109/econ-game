@@ -50,6 +50,13 @@ Services:
 - Redis Commander: http://localhost:8081
 - Bot: Discord bot (no HTTP port; connects to Discord)
 
+## Logging
+
+- API, worker, and bot now stream their pino output to both the terminal and rotating `.log` files under `logs/` (`*-dev.log` when `NODE_ENV !== production`).
+- Override the destination directory with `LOG_DIR` or point to an exact file with `LOG_FILE`. Paths can be absolute or resolved relative to the service directory.
+- Use `LOG_TO_FILE=false` (or `0`/`off`) to disable file writes entirely; helpful for ephemeral CI environments.
+- `LOG_LEVEL` controls both console and file verbosity, while `LOG_FILE_SUFFIX` lets you customise the filename suffix if the `-dev` default is not desired.
+
 ## Components (各服務用途)
 
 ### API（後端服務）

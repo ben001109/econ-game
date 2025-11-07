@@ -1,9 +1,8 @@
 import { monitoring, Sentry, registerProcessLogging } from './instrumentation.js';
 import { Queue, Worker, JobsOptions } from 'bullmq';
 import IORedis from 'ioredis';
-import pino from 'pino';
 
-const logger = pino({ name: 'econ-worker' });
+import { logger } from './logger.js';
 
 registerProcessLogging(logger);
 
