@@ -29,7 +29,10 @@ const isApiError = (err: unknown): err is ApiError => err instanceof ApiError;
 
 if (monitoring.sentry) {
   app.addHook('onError', async (request, _reply, error) => {
-    const route = typeof request.routerPath === 'string' && request.routerPath.length > 0 ? request.routerPath : request.url;
+    const route =
+      typeof request.routeOptions?.url === 'string' && request.routeOptions.url.length > 0
+        ? request.routeOptions.url
+        : request.url;
     Sentry.withScope((scope) => {
       scope.setTag('service', 'api');
       scope.setTag('method', request.method);
