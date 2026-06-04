@@ -1,10 +1,10 @@
-# 開發計畫 Roadmap（Restaurant Tycoon）
+# 開發計畫 Roadmap（Godot-first 產業鏈經濟遊戲）
 
-本文件彙整短/中/長期開發規劃、技術選型、里程碑與驗收標準，並對應容器化開發環境。參考既有專案 maii-bot 的工程慣例（Node、Docker Compose、K8s 清單、ESLint/Prettier），新專案在此基礎上以 TypeScript、Fastify、Prisma、BullMQ 進一步實作。
+本專案方向以 Godot/Steam 主遊戲優先，Discord BOT 作為 companion app，Web 則定位為開發與管理工具。餐飲是第一個切入經濟與供應鏈模擬的產業入口：先由 NPC 供應商支撐採購與庫存循環，再逐步加入價格波動、玩家市場與可遊玩的產業鏈角色。
 
 ---
 
-## 0. 工程基礎與慣例（對齊 maii-bot）
+## 0. 工程基礎與慣例
 - Node 版本: 導入 `.nvmrc`（Node 20）
 - 稽核工具: ESLint + Prettier（與 maii-bot 類似配置，TS 版）
 - Git 規範: Conventional Commits、自動生成 CHANGELOG
@@ -12,10 +12,11 @@
 - 容器與本地: `docker-compose.yml` 啟動 Postgres/Redis/API/Worker/Frontend；提供 dev profile 支援熱更新
 - K8s（中期）: 參考 maii-bot 的 `k8s/` 結構，加入部署與環境變數範本
 - 設定檔: `.env`（本地）、`secrets`（部署）、dotenv 加載
+- 共享套件: `packages/game-core`、`packages/content`、`packages/shared` 分離規則、內容與共用型別/工具
 
 ---
 
-## 1. 需求輪廓與系統邏輯（餐飲導向）
+## 1. 需求輪廓與系統邏輯（餐飲作為第一產業入口）
 - 分層職能（前/中/後段）：
   - 前台（FOH）：訂位、帶位、桌位/客數、點餐（內用/外帶/外送）、帳單拆併單、折扣/稅/服務費、收款與小費
   - 中台（MOH/廚房）：菜單與配方、出餐節點（工位/站點）、Kitchen Display System（KDS）、出餐優先序與叫號、備料/工序
@@ -56,30 +57,29 @@
 
 ---
 
-## 3. 服務與模組（餐飲場景）
+## 3. 服務、客戶端與模組定位
+- Godot（Steam 主遊戲）
+  - 2D management UI，承載玩家主要操作與遊戲節奏
+  - 採購、菜單決策、自動營業、日結、解鎖與成長循環
+  - 本地存檔永遠可用，雲端同步與 Discord 連動作為選配能力
 - API（Fastify + Prisma）
-  - FOH：餐廳/桌位/訂位、建立訂單、加菜/備註/修飾、拆併單、折扣/服務費/小費、結帳
-  - MOH（KDS）：拉單/出餐/退菜、站點/工位佇列、優先序
-  - BOH：供應商/採購單/驗收、庫存批次/報廢/轉移、配方/成本試算、補貨建議
-  - 安全：JWT/Session、Rate Limit、Idempotency-Key（結帳/入庫）、權限（職務/門店）
-  - i18n：code-based 訊息，字典對應（`en/zh`）
+  - 持久化、同步、身分連結、Godot/BOT API
+  - Route handlers 不擁有核心規則；經濟、庫存、日結等規則移至 `packages/game-core`
+  - 安全：JWT/Session、Rate Limit、Idempotency-Key（結帳/入庫）、權限與 i18n code-based 訊息
 - Worker（BullMQ）
-  - 日結：結算銷售、COGS、服務費/小費分攤，關帳憑證寫入 `Ledger*`
-  - 庫存：配方耗用出庫、保鮮期/報廢、盤點差異調整
-  - 採購：補貨規則運算 → 產生建議 PO；交期模擬與到貨扣帳
-  - 成本：配方成本回溯/滾動平均、毛利報表快取
-- Mini-game（nanb）
-  - 核心玩法：`nanb` 猜數字/問答（依定義完善），支援多人輪流與單人練習模式
-  - 獎勵系統：每日任務、周/月累積獎勵、餐飲系統虛擬貨幣或折扣券
-  - 排行榜：日/週/月排行榜，支援餐廳內部與全伺服器榜單、平手處理與作弊檢測
-  - 整合：遊戲結果回寫 Player Profile、POS 提示當週冠軍、Discord 公告
-- Bot（Discord Slash Commands）
-  - FOH 快捷：`/pos open`（開單）、`/pos add-item`（加菜/備註）、`/pos close`（結帳/小費/關單）
-  - KDS 操作：`/kds tickets`（查看佇列）、`/kds start`、`/kds serve`、`/kds bump`（退菜預留）
-  - 維運支援：`/ops bootstrap`（重建 Demo 資料）、`/ops health`（服務健康）、`/ops alert`（日結/庫存提醒）
-  - 權限與 i18n：指令層級權限（管理員/前台/後台）與 `en/zh` 本地化回應
-- 快取（Redis）
-  - KDS 佇列/訂單狀態、熱門品項、門店看板；TTL/失效策略
+  - 日結、供應商價格/缺貨/交期/補貨 jobs
+  - 排行榜、活動、獎勵與 Discord notification queue
+- Bot（Discord Companion）
+  - Companion 指令：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard`、`/event join`
+  - 推播通知：日結、低庫存、供應商特價/缺貨、活動與獎勵提醒
+  - 不承載完整 POS/KDS/配方/建造/地圖/市場/全產業鏈 UI
+- Frontend（Next.js）
+  - 管理後台與開發工具，用於內容、營運、除錯、Demo bootstrap 與內部測試
+  - POS/KDS 僅作為內部測試工具，不是主要玩家入口
+- Shared packages
+  - `packages/game-core`：經濟規則、供應鏈演算、日結與可重放 deterministic logic
+  - `packages/content`：產業、食材、供應商、事件、解鎖與平衡資料
+  - `packages/shared`：共用型別、Zod schema、API contract、i18n keys 與工具函式
 
 ---
 
@@ -206,12 +206,11 @@
 - [ ] 里程碑 B - Mini-game：獎勵兌換、任務進度、週/月排行榜詳情頁
 - [ ] 里程碑 C - Mini-game：跨伺服器排行榜、活動賽事、社群分享與徽章展示
 
-### Bot（Discord 指令）
-- [ ] MVP：`/pos open`、`/pos add-item`、`/pos close` 串接 API，支援桌位選擇與小費輸入
-- [ ] KDS：`/kds tickets` 查詢、`/kds start`/`/kds serve` 更新狀態，回傳 ticket 摘要
-- [ ] 維運：`/ops bootstrap` Demo 資料重建、`/ops health` 服務健康檢查、通知 channel
-- [ ] 庫存/採購（B 期）：`/inventory low` 欠料清單、`/inventory po-draft` 建議採購指令，連動 Worker 報告
-- [ ] Mini-game：`/nanb play`、`/nanb leaderboard`、`/nanb reward` 指令，串接排行榜與獎勵
+### Bot（Discord Companion）
+- [ ] Companion MVP：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard`、`/event join` 串接 API 與 Worker 結果
+- [ ] 通知：日結摘要、低庫存、供應商特價/缺貨、補貨完成、活動開始/結束與獎勵可領取提醒
+- [ ] Discord linking：支援 Discord 帳號與遊戲身分連結、權限檢查、伺服器/頻道偏好與 `en/zh` 本地化回應
+- [ ] Dev test commands：保留 POS/KDS 相關指令作為內部開發測試工具，不作為完整玩家操作介面
 
 ### 觀測與維運
 - [ ] Pino 日誌結構化輸出，請求追蹤 ID
