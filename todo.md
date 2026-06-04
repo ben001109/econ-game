@@ -36,7 +36,7 @@
   - `Staff { name, role }`, `Shift { branchId, startsAt, endsAt }`, `StaffAssignment { staffId, shiftId, station? }`
 - 菜單/配方/修飾：
   - `MenuCategory`, `MenuItem { sku, name, basePrice, active }`, `MenuPrice { menuItemId, timeOfDay, price }`
-  - `ModifierGroup { name, min,max }`, `ModifierOption { name, priceDelta }`
+  - `ModifierGroup { name, min, max }`, `ModifierOption { name, priceDelta }`
   - `Recipe { menuItemId, yieldQty }`, `RecipeComponent { recipeId, ingredientId, qty, unit }`
 - 庫存/採購：
   - `Ingredient { name, unit, perishability, sku? }`, `Vendor { name, leadTimeDays }`
@@ -141,7 +141,7 @@
 ### 里程碑 A（0–3 週）Godot-first 餐飲經濟原型（優先 P0）
 - Godot：2D management prototype（採購、菜單/價格決策、自動營業、日結、解鎖）與本地存檔
 - Shared packages：建立 `packages/game-core`、`packages/content`、`packages/shared`，將核心經濟/供應鏈規則、內容資料與 API contract 分離
-- DB/API：Prisma 新增餐飲最小實體（Restaurant/Branch/MenuItem/Ingredient/Vendor/Inventory/Order/Payment/Ledger*）於 `schema=dev`；提供 Godot/BOT 所需狀態、日結、補貨與身分連結 endpoints
+- DB/API：Prisma 新增餐飲最小已完成實體（Restaurant/Branch/Table/MenuItem/Order/OrderItem/Payment/TaxLine/Tip，保留 `Player/Account/*`）於 `schema=dev`；Ingredient/Vendor/Inventory 作為里程碑 B 或選配 foundation 擴充；提供 Godot/BOT 所需狀態、日結、補貨與身分連結 endpoints
 - Worker：日結（Sales/COGS/Tip/ServiceCharge 憑證）、供應商價格/缺貨/交期與低庫存通知 queue
 - Bot Companion：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard` MVP 與通知 channel
 - Frontend：admin/dev tooling（Demo bootstrap、內容檢視、健康狀態、POS/KDS 內部測試原型、i18n 切換）
@@ -178,6 +178,7 @@
 - [ ] `shared`：Godot/BOT/API 共用型別、Zod schema、API contract、i18n keys
 - [ ] Godot prototype：2D management UI、本地存檔、採購→自動營業→日結→解鎖一輪 playable loop
 - [x] Prisma schema（dev schema）新增最小餐飲實體：Restaurant/Branch/Table/MenuItem/Order/OrderItem/Payment/TaxLine/Tip（不移除既有 `Player/Account/*`）
+- [x] API `/bootstrap` 端點：一鍵建立示範餐廳/門店/桌位與菜單，便於 Godot prototype、admin tooling 與 POS/KDS 內部測試
 - [ ] API endpoints：Godot 狀態讀寫、日結提交/查詢、補貨/供應商 deals、Discord linking；route handlers 只調用 `game-core`
 - [ ] Worker：聚合銷售/小費/服務費與 COGS，寫入 `Ledger*`；排程供應商價格/缺貨/交期與通知 queue
 - [ ] Bot Companion MVP：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard`
@@ -258,9 +259,6 @@
 - [ ] 基準場景測試（Godot core loop→API sync→Worker 日結→BOT 通知；POS/KDS 僅內部測試）
 - [ ] 監控儀表板最小集合到位
 - [ ] 安全掃描（依賴/容器）
-
-補充：
-- [x] API `/bootstrap` 端點：一鍵建立示範餐廳/門店/桌位與菜單，便於 Godot prototype、admin tooling 與 POS/KDS 內部測試
 
 ---
 
