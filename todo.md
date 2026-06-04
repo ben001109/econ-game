@@ -70,7 +70,7 @@
   - 日結、供應商價格/缺貨/交期/補貨 jobs
   - 排行榜、活動、獎勵與 Discord notification queue
 - Bot（Discord Companion）
-  - Companion 指令：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard`、`/event join`
+  - Companion MVP 指令：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard`；`/event join` 留到 C 期社群活動
   - 推播通知：日結、低庫存、供應商特價/缺貨、活動與獎勵提醒
   - 不承載完整 POS/KDS/配方/建造/地圖/市場/全產業鏈 UI
 - Frontend（Next.js）
@@ -96,7 +96,7 @@
   - i18n：Next Intl（或 next-translate）維護 `en/zh`，金額/時區格式化，權限字串同步
 - 管理/測試模組藍圖（依里程碑）：
   - 里程碑 A（MVP）
-    - Admin dashboard：玩家/餐廳檢視、經濟狀態摘要、手動觸發日結、健康狀態橫幅、Demo Bootstrap CTA
+    - Admin dashboard：玩家/餐廳檢視、經濟狀態摘要、手動觸發日結、健康狀態橫幅、Demo Bootstrap CTA（前端整合待做；API 端點已完成）
     - Content tooling：食材、供應商、菜單與事件資料的讀取/檢視，對應 `packages/content`
     - POS/KDS prototype：保留桌位地圖、開單、點餐、票單狀態切換等頁面作為內部測試工具
   - 里程碑 B（庫存/採購）
@@ -141,7 +141,7 @@
 ### 里程碑 A（0–3 週）Godot-first 餐飲經濟原型（優先 P0）
 - Godot：2D management prototype（採購、菜單/價格決策、自動營業、日結、解鎖）與本地存檔
 - Shared packages：建立 `packages/game-core`、`packages/content`、`packages/shared`，將核心經濟/供應鏈規則、內容資料與 API contract 分離
-- DB/API：Prisma 新增餐飲最小已完成實體（Restaurant/Branch/Table/MenuItem/Order/OrderItem/Payment/TaxLine/Tip，保留 `Player/Account/*`）於 `schema=dev`；Ingredient/Vendor/Inventory 作為里程碑 B 或選配 foundation 擴充；提供 Godot/BOT 所需狀態、日結、補貨與身分連結 endpoints
+- DB/API：Prisma 最小餐飲實體沿用 Restaurant/Branch/Table/MenuItem/Order/OrderItem/Payment/TaxLine/Tip（保留 `Player/Account/*`）於 `schema=dev`；Ingredient/Vendor/Inventory 作為里程碑 B 或選配 foundation 擴充；提供 Godot/BOT 所需狀態、日結、補貨與身分連結 endpoints
 - Worker：日結（Sales/COGS/Tip/ServiceCharge 憑證）、供應商價格/缺貨/交期與低庫存通知 queue
 - Bot Companion：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard` MVP 與通知 channel
 - Frontend：admin/dev tooling（Demo bootstrap、內容檢視、健康狀態、POS/KDS 內部測試原型、i18n 切換）
@@ -152,14 +152,14 @@
 - API：採購/驗收、出庫（配方耗用/報廢）、補貨建議
 - Worker：保鮮期/報廢、補貨排程、配方成本滾動
 - 前端：庫存/採購/配方管理 UI
-- Mini-game：週/月排行榜結算、獎勵兌換、Discord 公告整合
+- Mini-game：後端週/月結算、獎勵派發/兌換、基礎排行榜詳情與 Discord 公告整合
 - 驗收：依菜單出貨耗料、到期自動報廢、補貨建議可生成草稿 PO
 
 ### 里程碑 C（6–12 週）拓展與報表
 - 多分店/時段價/修飾、拆併單
 - 角色/權限、審計日誌、觀測面板
 - 報表：銷售/毛利、庫存周轉、員工績效（基礎）
-- Mini-game：跨餐廳競賽、活動賽季、成就徽章與獎勵擴充
+- Mini-game：跨伺服器/社群競賽、活動賽季、成就徽章、分享與社群互動擴充
 
 ---
 
@@ -178,11 +178,11 @@
 - [ ] `shared`：Godot/BOT/API 共用型別、Zod schema、API contract、i18n keys
 - [ ] Godot prototype：2D management UI、本地存檔、採購→自動營業→日結→解鎖一輪 playable loop
 - [x] Prisma schema（dev schema）新增最小餐飲實體：Restaurant/Branch/Table/MenuItem/Order/OrderItem/Payment/TaxLine/Tip（不移除既有 `Player/Account/*`）
-- [x] API `/bootstrap` 端點：一鍵建立示範餐廳/門店/桌位與菜單，便於 Godot prototype、admin tooling 與 POS/KDS 內部測試
+- [x] API `/bootstrap` 端點：一鍵建立示範餐廳/門店/桌位與菜單；前端 Demo Bootstrap CTA 整合另列於 admin/dev tooling 待辦
 - [ ] API endpoints：Godot 狀態讀寫、日結提交/查詢、補貨/供應商 deals、Discord linking；route handlers 只調用 `game-core`
 - [ ] Worker：聚合銷售/小費/服務費與 COGS，寫入 `Ledger*`；排程供應商價格/缺貨/交期與通知 queue
 - [ ] Bot Companion MVP：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard`
-- [x] Frontend 內部測試原型：POS（開單/加菜/結帳）與 KDS 清單頁，僅供 dev/admin 驗證
+- [x] Frontend 粗版內部測試原型：現有 POS（開單/加菜/結帳）與 KDS 清單頁可供 dev/admin 驗證；里程碑 A polish 另列待辦
 - [x] i18n 文案：新增餐飲相關字串鍵（含 POS/KDS 內部測試初稿，不破壞既有鍵）
 
 ### 資料庫與模型（餐飲）
@@ -203,7 +203,7 @@
 - [ ] 日結：Sales/COGS/ServiceCharge/Tip 憑證
 - [ ] 庫存：保鮮期/報廢、配方耗用出庫、盤點差異
 - [ ] 補貨：規則運算與建議 PO 產生
-- [ ] Mini-game 排程：每日/每週/每月排行榜結算、獎勵派發、通知推播、資料封存
+- [ ] Mini-game 排程：每日/每週/每月排行榜結算、獎勵派發、通知推播、資料封存（B 期後端結算/獎勵基礎）
 
 ### Godot（Steam 主遊戲）
 - [ ] 里程碑 A：2D management UI（餐廳狀態、庫存、供應商、菜單/價格、日結結果）
@@ -214,16 +214,17 @@
 
 ### Frontend（admin/dev tooling）
 - [ ] 基礎：UI Kit/Design Token、共用 Layout、API 客戶端 + React Query、i18n 切換與偏好儲存
-- [ ] 里程碑 A - Admin：Demo Bootstrap、玩家/餐廳狀態、健康狀態、手動日結、content 檢視
-- [ ] 里程碑 A - POS/KDS 內部測試：桌位地圖、開單/加菜流程、票單清單、狀態操作（start/serve/bump）
+- [ ] 里程碑 A - Admin polish：Demo Bootstrap CTA（串接已完成 API 端點）、玩家/餐廳狀態、健康狀態、手動日結、content 檢視
+- [ ] 里程碑 A - POS/KDS 內部測試 polish：整理既有粗版原型，補桌位地圖、開單/加菜流程、票單清單、狀態操作（start/serve/bump）
 - [ ] 里程碑 B - 庫存/採購管理：Ingredient/批次列表、低庫存警示、PO 草稿與收貨、成本檢視
 - [ ] 里程碑 B - 內容/平衡工具：Modifier & Option、Recipe、時段價、供應商事件與成本試算
 - [ ] 里程碑 C - 報表/多門店後台：銷售/毛利/庫存儀表板、拆併單測試、班表/權限管理
 - [ ] 品質：Storybook 或 Ladle、Playwright/Cypress E2E、Sentry + Web Vitals 上報
-- [ ] Mini-game tooling：排行榜快照、獎勵兌換稽核、任務進度與活動設定
+- [ ] Mini-game tooling：B 期提供排行榜詳情/獎勵兌換稽核/任務進度；C 期擴充活動設定、成就與分享工具
 
 ### Bot（Discord Companion）
-- [ ] Companion MVP：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard`、`/event join` 串接 API 與 Worker 結果
+- [ ] Companion MVP：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard` 串接 API 與 Worker 結果
+- [ ] Event/community phase：`/event join`、活動報名、社群競賽與賽季互動（C 期）
 - [ ] 通知：日結摘要、低庫存、供應商特價/缺貨、補貨完成、活動開始/結束與獎勵可領取提醒
 - [ ] Discord linking：支援 Discord 帳號與遊戲身分連結、權限檢查、伺服器/頻道偏好與 `en/zh` 本地化回應
 - [ ] Dev test commands：保留 POS/KDS 相關指令作為內部開發測試工具，不作為完整玩家操作介面
