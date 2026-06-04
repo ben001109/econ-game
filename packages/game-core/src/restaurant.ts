@@ -32,26 +32,42 @@ export interface BusinessPeriodResult {
 
 type InventoryLedger = Map<string, InventoryItem>;
 
-const assertNonNegative = (value: number, label: string): void => {
+const assertFinite = (value: number, label: string): void => {
+  if (!Number.isFinite(value)) {
+    throw new RangeError(`${label} must be finite`);
+  }
+};
+
+const assertNonNegativeFinite = (value: number, label: string): void => {
+  assertFinite(value, label);
+
   if (value < 0) {
     throw new RangeError(`${label} cannot be negative`);
   }
 };
 
+const assertPositiveFinite = (value: number, label: string): void => {
+  assertFinite(value, label);
+
+  if (value <= 0) {
+    throw new RangeError(`${label} must be positive`);
+  }
+};
+
 const validateBusinessPeriodInput = (input: BusinessPeriodInput): void => {
-  assertNonNegative(input.cash, 'Cash');
+  assertNonNegativeFinite(input.cash, 'Cash');
 
   input.inventory.forEach((item) => {
-    assertNonNegative(item.quantity, `Inventory item ${item.ingredientId} quantity`);
-    assertNonNegative(item.unitCost, `Inventory item ${item.ingredientId} unitCost`);
+    assertNonNegativeFinite(item.quantity, `Inventory item ${item.ingredientId} quantity`);
+    assertNonNegativeFinite(item.unitCost, `Inventory item ${item.ingredientId} unitCost`);
   });
 
   input.menuItems.forEach((menuItem) => {
-    assertNonNegative(menuItem.price, `Menu item ${menuItem.id} price`);
-    assertNonNegative(menuItem.demand, `Menu item ${menuItem.id} demand`);
+    assertNonNegativeFinite(menuItem.price, `Menu item ${menuItem.id} price`);
+    assertNonNegativeFinite(menuItem.demand, `Menu item ${menuItem.id} demand`);
 
     menuItem.recipe.forEach((ingredient) => {
-      assertNonNegative(
+      assertPositiveFinite(
         ingredient.quantity,
         `Menu item ${menuItem.id} recipe ingredient ${ingredient.ingredientId} quantity`,
       );
@@ -59,8 +75,29 @@ const validateBusinessPeriodInput = (input: BusinessPeriodInput): void => {
   });
 };
 
-const createInventoryLedger = (inventory: InventoryItem[]): InventoryLedger =>
-  new Map(inventory.map((item) => [item.ingredientId, { ...item }]));
+const createInventoryLedger = (inventory: InventoryItem[]): InventoryLedger => {
+  const ledger: InventoryLedger = new Map();
+
+  inventory.forEach((item) => {
+    const existingItem = ledger.get(item.ingredientId);
+
+    if (existingItem === undefined) {
+      ledger.set(item.ingredientId, { ...item });
+      return;
+    }
+
+    const totalQuantity = existingItem.quantity + item.quantity;
+    const totalValue = existingItem.quantity * existingItem.unitCost + item.quantity * item.unitCost;
+
+    ledger.set(item.ingredientId, {
+      ingredientId: item.ingredientId,
+      quantity: totalQuantity,
+      unitCost: totalQuantity === 0 ? 0 : totalValue / totalQuantity,
+    });
+  });
+
+  return ledger;
+};
 
 const aggregateRecipe = (recipe: IngredientQuantity[]): IngredientQuantity[] => {
   const ingredientQuantities = recipe.reduce((quantities, ingredient) => {
@@ -143,6 +180,6 @@ export const simulateBusinessPeriod = (input: BusinessPeriodInput): BusinessPeri
     revenue: totals.revenue,
     costOfGoods: totals.costOfGoods,
     grossProfit: totals.revenue - totals.costOfGoods,
-    inventory: input.inventory.map((item) => inventory.get(item.ingredientId) ?? { ...item }),
+    inventory: [...inventory.values()],
   };
 };
