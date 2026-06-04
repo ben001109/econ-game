@@ -83,39 +83,42 @@
 
 ---
 
-## 4. 前端（Next.js, i18n）
-- 架構/基礎：
-  - Next 14（Pages Router）+ TypeScript；評估里程碑 B 起轉 App Router（Server Actions）可行性
+## 4. 客戶端與管理工具（Godot + Next.js）
+- Godot 主客戶端（Steam-first）：
+  - 2D management prototype：餐廳狀態、庫存摘要、供應商報價、菜單/價格決策、自動營業與日結結果
+  - 本地存檔：離線可玩、可重開讀取、日結與解鎖狀態保存在 local save；雲端同步與 Discord linking 為選配
+  - 共享規則：透過 `packages/game-core` 匯出的 deterministic core loop 驅動採購、消耗、收入、COGS、日結與解鎖
+  - UI 邊界：完整玩家體驗在 Godot；Web 與 Bot 不替代主遊戲操作
+- Frontend（Next.js admin/dev tooling）：
+  - Next 14（Pages Router）+ TypeScript；用於內容管理、營運後台、除錯、Demo bootstrap、內部測試與觀測入口
   - UI：Tailwind + Headless UI 或 Radix；建立共用 Layout、Top Nav、狀態提示（Toast/Modal）
   - 資料層：自訂 API 客戶端（fetch + Zod）與 React Query（或 SWR）管理快取；錯誤統一處理
-  - 狀態：POS/KDS 採用 Zustand（或 Context）存放暫存訂單；支援樂觀更新與離線提醒
   - i18n：Next Intl（或 next-translate）維護 `en/zh`，金額/時區格式化，權限字串同步
-- 模組藍圖（依里程碑）：
+- 管理/測試模組藍圖（依里程碑）：
   - 里程碑 A（MVP）
-    - POS：桌位地圖/搜尋、開單流程、點餐面板、帳單摘要、小費/折扣輸入、Demo Bootstrap CTA
-    - KDS：工位看板、票單狀態切換（start/serve）、退菜預留、音效/視覺提醒
-    - 共用：登入（暫用魔術碼或 Demo 模式）、權限守衛、健康狀態橫幅、Loading Skeleton
-    - Mini-game：nanb 遊戲入口、即時答題 UI、計分與結果彈窗、排行榜預覽卡
+    - Admin dashboard：玩家/餐廳檢視、經濟狀態摘要、手動觸發日結、健康狀態橫幅、Demo Bootstrap CTA
+    - Content tooling：食材、供應商、菜單與事件資料的讀取/檢視，對應 `packages/content`
+    - POS/KDS prototype：保留桌位地圖、開單、點餐、票單狀態切換等頁面作為內部測試工具
   - 里程碑 B（庫存/採購）
     - 庫存：Ingredient 列表、低庫存提醒、批次詳情、Lot 進出紀錄
     - 採購：PO 清單、草稿編輯、收貨驗收、成本統計摘要
     - 菜單/配方：Modifier/Option 編輯、Recipe + 成本試算、時段價設定
-    - Mini-game：獎勵兌換頁、週/月排行頁面、玩家成就牆
   - 里程碑 C（拓展/報表）
-    - 多門店切換、班表/權限 UI、POS 拆併單、報表儀表板（銷售/毛利/庫存周轉）
-    - 行動版最佳化（POS/KDS）、自訂主題與品牌化
+    - 多門店切換、班表/權限 UI、報表儀表板（銷售/毛利/庫存周轉）
+    - POS/KDS 內部測試頁延伸：拆併單、KDS 壓力測試、行動版檢查；仍不是主要玩家入口
     - Mini-game：跨餐廳排行榜、邀請賽/活動、成就徽章展示與分享
 - 體驗與維運：
   - 無障礙（WCAG AA）、鍵盤導覽
   - Storybook 元件庫（或 Ladle）、Chromatic 快照
-  - E2E：Playwright/Cypress 覆蓋 POS/KDS 關鍵路徑，整合 GitHub Actions
+  - E2E：Playwright/Cypress 覆蓋 admin/dev tooling 與 POS/KDS 內部測試關鍵路徑，整合 GitHub Actions
   - 監測：前端 Sentry、性能指標（Web Vitals）上報、版本標記
 
 ---
 
 ## 5. 測試與觀測
 - 測試
-  - 單元（經濟演算、撮合、會計平衡）
+  - 單元（`game-core` 經濟演算、供應鏈消耗、日結、會計平衡）
+  - Godot runtime（本地存檔、重開讀取、核心循環結果與 `game-core` fixture 對齊）
   - 整合（API + DB + Redis，以 Testcontainers 或 docker-compose profile）
   - 場景回放（固定種子/事件腳本）
 - 觀測
@@ -135,13 +138,14 @@
 
 ## 7. 里程碑與驗收標準
 
-### 里程碑 A（0–3 週）餐飲 MVP（優先 P0）
-- DB：Prisma 新增餐飲最小實體（Restaurant/Branch/Table/MenuItem/Order/OrderItem/Payment/TaxLine/Tip）於 `schema=dev`
-- API：POS 最小流程（開單/加菜/結帳）+ KDS 拉單/出餐
-- Worker：日結（Sales/COGS/Tip/ServiceCharge 憑證）
-- 前端：簡易 POS 與 KDS 原型、i18n 切換
-- Mini-game：nanb 基礎對局、個人即時積分、每日排行榜雛型
-- 驗收：一組內用點餐→出餐→結帳→日結→帳務平衡
+### 里程碑 A（0–3 週）Godot-first 餐飲經濟原型（優先 P0）
+- Godot：2D management prototype（採購、菜單/價格決策、自動營業、日結、解鎖）與本地存檔
+- Shared packages：建立 `packages/game-core`、`packages/content`、`packages/shared`，將核心經濟/供應鏈規則、內容資料與 API contract 分離
+- DB/API：Prisma 新增餐飲最小實體（Restaurant/Branch/MenuItem/Ingredient/Vendor/Inventory/Order/Payment/Ledger*）於 `schema=dev`；提供 Godot/BOT 所需狀態、日結、補貨與身分連結 endpoints
+- Worker：日結（Sales/COGS/Tip/ServiceCharge 憑證）、供應商價格/缺貨/交期與低庫存通知 queue
+- Bot Companion：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard` MVP 與通知 channel
+- Frontend：admin/dev tooling（Demo bootstrap、內容檢視、健康狀態、POS/KDS 內部測試原型、i18n 切換）
+- 驗收：Godot 可完成一輪採購→自動營業→日結→庫存/現金/帳務更新→本地存檔重開；API/Worker/BOT 可同步與通知同一輪結果；POS/KDS 僅作內部測試輔助
 
 ### 里程碑 B（3–6 週）庫存與採購
 - DB：Ingredient/Vendor/PO/GoodsReceipt/InventoryLot/StockMovement/Recipe/RecipeComponent
@@ -159,32 +163,39 @@
 
 ---
 
-## 8. 工作分解（可指派的 TODO，已餐飲化）
+## 8. 工作分解（Godot-first foundation，可指派的 TODO）
 
 ### 基礎設置
 - [x] 新增 `.nvmrc`（Node 20）
- - [x] 新增 ESLint/Prettier（TS 設定），對齊 maii-bot 風格
- - [x] GitHub Actions：Lint/Build/測試 + Docker build
+- [x] 新增 ESLint/Prettier（TS 設定），對齊 maii-bot 風格
+- [x] GitHub Actions：Lint/Build/測試 + Docker build
 - [x] docker-compose dev profile（API/Worker 源碼熱更新）
 
-### P0（立即優先，避免阻塞）
+### P0（Godot-first foundation，避免阻塞）
+- [ ] Monorepo packages：建立 `packages/game-core`、`packages/content`、`packages/shared`，並設定 lint/build/test pipeline
+- [ ] `game-core`：採購、菜單/價格、自動營業、庫存消耗、收入/COGS、日結、解鎖的 deterministic core loop
+- [ ] `content`：餐飲第一產業入口資料（食材、NPC 供應商、菜單、事件、初始平衡參數）
+- [ ] `shared`：Godot/BOT/API 共用型別、Zod schema、API contract、i18n keys
+- [ ] Godot prototype：2D management UI、本地存檔、採購→自動營業→日結→解鎖一輪 playable loop
 - [x] Prisma schema（dev schema）新增最小餐飲實體：Restaurant/Branch/Table/MenuItem/Order/OrderItem/Payment/TaxLine/Tip（不移除既有 `Player/Account/*`）
-- [x] API 路由（最小）：開單 POST /orders、加菜 POST /orders/:id/items、結帳 POST /orders/:id/payments、KDS：/kds/tickets 拉單/出餐
-- [x] 前端原型：POS（開單/加菜/結帳）與 KDS 清單頁
-- [x] i18n 文案：新增餐飲相關字串鍵（POS/KDS 初稿，不破壞既有鍵）
-- [ ] 日結 Worker：聚合銷售/小費/服務費與 COGS，寫入 `Ledger*`
+- [ ] API endpoints：Godot 狀態讀寫、日結提交/查詢、補貨/供應商 deals、Discord linking；route handlers 只調用 `game-core`
+- [ ] Worker：聚合銷售/小費/服務費與 COGS，寫入 `Ledger*`；排程供應商價格/缺貨/交期與通知 queue
+- [ ] Bot Companion MVP：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard`
+- [x] Frontend 內部測試原型：POS（開單/加菜/結帳）與 KDS 清單頁，僅供 dev/admin 驗證
+- [x] i18n 文案：新增餐飲相關字串鍵（含 POS/KDS 內部測試初稿，不破壞既有鍵）
 
 ### 資料庫與模型（餐飲）
 - [ ] Ingredient/Vendor/PO/GoodsReceipt/InventoryLot/StockMovement/Recipe/RecipeComponent
 - [ ] ReorderRule（安全存量/補貨天數）
 - [ ] MenuPrice（時段價）、ModifierGroup/Option（修飾/加料）
 
-### API（餐飲）
-- [ ] POS：桌位/帶位、開單/加菜/拆併單、折扣/服務費、小費、結帳
-- [ ] KDS：站點佇列、出餐/退菜/優先序
-- [ ] 採購/庫存：PO/驗收、出庫（配方耗用/報廢/轉移）
-- [ ] i18n 錯誤碼與前端字典對應
-- [ ] 安全：Rate limit、Idempotency-Key（結帳/入庫）
+### API（Godot/BOT sync）
+- [ ] Godot sync：讀寫玩家/餐廳狀態、本地存檔 metadata、日結結果、解鎖進度與雲端同步（選配）
+- [ ] Economy endpoints：採購/庫存、供應商 deals、補貨建議、日結查詢；核心規則由 `packages/game-core` 提供
+- [ ] Discord linking：連結 Discord user/guild/channel 偏好，供 Bot Companion 與通知使用
+- [ ] Internal test endpoints：保留 POS/KDS 開單、票單與出餐 API 作為內部測試工具，避免承載完整玩家 UI 規則
+- [ ] i18n 錯誤碼與 Godot/BOT/Frontend 字典對應
+- [ ] 安全：Rate limit、Idempotency-Key（日結/補貨/入庫）、權限與審計日誌
 - [ ] Mini-game API：`/games/nanb` 對局管理、獎勵發放、排行榜讀寫與快取、作弊偵測 hook
 
 ### Worker（餐飲）
@@ -193,18 +204,22 @@
 - [ ] 補貨：規則運算與建議 PO 產生
 - [ ] Mini-game 排程：每日/每週/每月排行榜結算、獎勵派發、通知推播、資料封存
 
-### 前端（餐飲）
+### Godot（Steam 主遊戲）
+- [ ] 里程碑 A：2D management UI（餐廳狀態、庫存、供應商、菜單/價格、日結結果）
+- [ ] 里程碑 A：本地存檔、讀取/重開驗證、離線 playable core loop
+- [ ] 里程碑 A：串接 `game-core` deterministic loop 或等價輸出，保持與 API/Worker 結算一致
+- [ ] 里程碑 B：供應商價格波動、缺貨、交期、補貨提示與解鎖節奏
+- [ ] 里程碑 C：玩家市場、可玩產業鏈角色、活動與排行榜 UI
+
+### Frontend（admin/dev tooling）
 - [ ] 基礎：UI Kit/Design Token、共用 Layout、API 客戶端 + React Query、i18n 切換與偏好儲存
-- [ ] 里程碑 A - POS：桌位地圖、開單/加菜流程、帳單摘要、小費/折扣、錯誤/離線提示
-- [ ] 里程碑 A - KDS：票單清單、狀態操作（start/serve/bump）、即時刷新、聲光通知
-- [ ] 里程碑 A - 共用：簡易登入/權限守衛、健康狀態橫幅、Demo Bootstrap 手動觸發
-- [ ] 里程碑 B - 庫存/採購：Ingredient/批次列表、低庫存警示、PO 草稿與收貨、成本檢視
-- [ ] 里程碑 B - 菜單/配方：Modifier & Option 編輯、Recipe 管理、時段價設定、成本試算
-- [ ] 里程碑 C - 報表/多門店：銷售/毛利/庫存儀表板、拆併單 UI、班表/權限管理、行動版最佳化
+- [ ] 里程碑 A - Admin：Demo Bootstrap、玩家/餐廳狀態、健康狀態、手動日結、content 檢視
+- [ ] 里程碑 A - POS/KDS 內部測試：桌位地圖、開單/加菜流程、票單清單、狀態操作（start/serve/bump）
+- [ ] 里程碑 B - 庫存/採購管理：Ingredient/批次列表、低庫存警示、PO 草稿與收貨、成本檢視
+- [ ] 里程碑 B - 內容/平衡工具：Modifier & Option、Recipe、時段價、供應商事件與成本試算
+- [ ] 里程碑 C - 報表/多門店後台：銷售/毛利/庫存儀表板、拆併單測試、班表/權限管理
 - [ ] 品質：Storybook 或 Ladle、Playwright/Cypress E2E、Sentry + Web Vitals 上報
-- [ ] 里程碑 A - Mini-game：nanb 遊戲 UI、即時分數、失敗/勝利狀態、排行榜快照
-- [ ] 里程碑 B - Mini-game：獎勵兌換、任務進度、週/月排行榜詳情頁
-- [ ] 里程碑 C - Mini-game：跨伺服器排行榜、活動賽事、社群分享與徽章展示
+- [ ] Mini-game tooling：排行榜快照、獎勵兌換稽核、任務進度與活動設定
 
 ### Bot（Discord Companion）
 - [ ] Companion MVP：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard`、`/event join` 串接 API 與 Worker 結果
@@ -225,9 +240,12 @@
 ---
 
 ## 9. 風險與緩解
+- Godot runtime 風險 → 先做小型 2D management prototype 與本地存檔驗證，再擴充 UI/內容；以固定 seed 對齊 `game-core` 結果
+- Local save / sync 風險 → 本地存檔永遠可用，雲端同步與 Discord linking 作為選配；同步失敗不阻塞 core loop
 - 模型轉向風險 → 優先以 dev schema 新增餐飲實體，保留舊模型以相容，逐步遷移
 - 結帳/帳務正確性 → 單元測試覆蓋稅/折扣/服務費/小費與雙分錄平衡
 - 庫存複雜度 → 先支持批次/報廢/出庫，後續再加盤點/轉移/多倉
+- POS/KDS 定位偏移 → 明確標記為內部測試/admin tooling，不作為主要玩家入口或完整產品 UI
 - i18n 成本 → 統一字串鍵，落入字典維護流程
 
 ---
@@ -235,12 +253,14 @@
 ## 10. 驗證與上線清單
 - [ ] 可重現本地環境（`docker compose up`）
 - [ ] DB schema 版本化與遷移（Prisma）
-- [ ] 基準場景測試（POS 點餐→KDS→結帳→日結；庫存耗用/報廢）
+- [ ] Godot runtime 驗證（採購→自動營業→日結→解鎖→本地存檔重開）
+- [ ] `game-core` fixture 驗證（固定 seed 下庫存耗用、收入/COGS、帳務平衡與 Worker/API 結果一致）
+- [ ] 基準場景測試（Godot core loop→API sync→Worker 日結→BOT 通知；POS/KDS 僅內部測試）
 - [ ] 監控儀表板最小集合到位
 - [ ] 安全掃描（依賴/容器）
 
 補充：
-- [x] API `/bootstrap` 端點：一鍵建立示範餐廳/門店/桌位與菜單，便於 POS/KDS 測試
+- [x] API `/bootstrap` 端點：一鍵建立示範餐廳/門店/桌位與菜單，便於 Godot prototype、admin tooling 與 POS/KDS 內部測試
 
 ---
 
