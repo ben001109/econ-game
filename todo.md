@@ -143,12 +143,12 @@
 - Shared packages：建立 `packages/game-core`、`packages/content`、`packages/shared`，將核心經濟/供應鏈規則、內容資料與 API contract 分離
 - DB/API：Prisma 最小餐飲實體沿用 Restaurant/Branch/Table/MenuItem/Order/OrderItem/Payment/TaxLine/Tip（保留 `Player/Account/*`）於 `schema=dev`；另加入支撐 core loop 的最小 `Ingredient/Vendor/Inventory` foundation（簡化食材、NPC 供應商、庫存餘量），完整 PO/GoodsReceipt/InventoryLot/StockMovement/Recipe/ReorderRule 留給里程碑 B
 - Worker：日結（Sales/COGS/Tip/ServiceCharge 憑證），以及基於最小供應商資料的簡易 supplier deal/shortage tick 與低庫存通知 queue；完整供應商價格/交期/補貨系統留給里程碑 B
-- Bot Companion：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard` MVP 與通知 channel
+- Bot Companion：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard` MVP 與通知 channel；A 期 `/leaderboard` 僅讀取既有/簡單分數摘要，深度排行榜結算與獎勵留給 B 期
 - Frontend：admin/dev tooling（Demo bootstrap、內容檢視、健康狀態、POS/KDS 內部測試原型、i18n 切換）
 - 驗收：Godot 可完成一輪採購→自動營業→日結→庫存/現金/帳務更新→本地存檔重開；API/Worker/BOT 可同步與通知同一輪結果；POS/KDS 僅作內部測試輔助
 
 ### 里程碑 B（3–6 週）庫存與採購
-- DB：Ingredient/Vendor/PO/GoodsReceipt/InventoryLot/StockMovement/Recipe/RecipeComponent
+- DB：完整供應商/採購/庫存擴充（PO/GoodsReceipt/InventoryLot/StockMovement/Recipe/RecipeComponent，必要時擴充 Ingredient/Vendor 欄位）
 - API：採購/驗收、出庫（配方耗用/報廢）、補貨建議
 - Worker：保鮮期/報廢、補貨排程、配方成本滾動
 - 前端：庫存/採購/配方管理 UI
@@ -181,7 +181,7 @@
 - [ ] Godot prototype：2D management UI、本地存檔、採購→自動營業→日結→解鎖一輪 playable loop
 - [ ] API endpoints：Godot 狀態讀寫、日結提交/查詢、補貨/供應商 deals、Discord linking；route handlers 只調用 `game-core`
 - [ ] Worker：聚合銷售/小費/服務費與 COGS，寫入 `Ledger*`；以最小 `Vendor` 資料跑簡易 supplier deal/shortage tick 與通知 queue（完整價格/交期/補貨排程屬里程碑 B）
-- [ ] Bot Companion MVP：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard`
+- [ ] Bot Companion MVP：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard`（A 期 read-only summary）
 
 #### 已完成基礎（保留紀錄）
 - [x] Prisma schema（dev schema）新增最小餐飲實體：Restaurant/Branch/Table/MenuItem/Order/OrderItem/Payment/TaxLine/Tip（不移除既有 `Player/Account/*`）
@@ -205,10 +205,10 @@
 - [ ] 里程碑 A/B - Mini-game API：`/games/nanb` 對局管理、獎勵發放、排行榜讀寫與快取、作弊偵測 hook
 
 ### Worker（餐飲）
-- [ ] 日結：Sales/COGS/ServiceCharge/Tip 憑證
-- [ ] 庫存：保鮮期/報廢、配方耗用出庫、盤點差異
-- [ ] 補貨：規則運算與建議 PO 產生
-- [ ] 里程碑 B - Mini-game 排程：每日/每週/每月排行榜結算、獎勵派發、通知推播、資料封存（後端結算/獎勵基礎）
+- [ ] 里程碑 A：日結 Sales/COGS/ServiceCharge/Tip 憑證，並以最小 `Vendor` 資料執行簡易 supplier deal/shortage tick
+- [ ] 里程碑 B：庫存保鮮期/報廢、配方耗用出庫、盤點差異
+- [ ] 里程碑 B：補貨規則運算與建議 PO 產生
+- [ ] 里程碑 B/C - Mini-game 排程：B 期每日/每週/每月排行榜結算、獎勵派發、通知推播、資料封存；C 期活動/社群競賽排程
 
 ### Godot（Steam 主遊戲）
 - [ ] 里程碑 A：2D management UI（餐廳狀態、庫存、供應商、菜單/價格、日結結果）
@@ -228,7 +228,7 @@
 - [ ] 里程碑 B/C - Mini-game tooling：B 期提供排行榜詳情/獎勵兌換稽核/任務進度；C 期擴充活動設定、成就與分享工具
 
 ### Bot（Discord Companion）
-- [ ] Companion MVP：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard` 串接 API 與 Worker 結果
+- [ ] Companion MVP：`/status`、`/daily`、`/inventory low`、`/supplier deals`、`/restock`、`/leaderboard` 串接 API 與 Worker 結果；`/leaderboard` A 期僅提供 read-only summary
 - [ ] Event/community phase：`/event join`、活動報名、社群競賽與賽季互動（C 期）
 - [ ] 通知：日結摘要、低庫存、供應商特價/缺貨、補貨完成、活動開始/結束與獎勵可領取提醒
 - [ ] Discord linking：支援 Discord 帳號與遊戲身分連結、權限檢查、伺服器/頻道偏好與 `en/zh` 本地化回應
