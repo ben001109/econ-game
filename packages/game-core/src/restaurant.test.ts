@@ -52,3 +52,51 @@ test('simulateBusinessPeriod caps fried rice sales by available ingredients', ()
     inventory: [{ ingredientId: 'rice', quantity: 1, unitCost: 8 }],
   });
 });
+
+test('simulateBusinessPeriod aggregates duplicate recipe entries before capping sales', () => {
+  const result = simulateBusinessPeriod({
+    cash: 0,
+    menuItems: [
+      {
+        id: 'double-noodle-soup',
+        name: 'Double noodle soup',
+        price: 100,
+        demand: 3,
+        recipe: [
+          { ingredientId: 'noodles', quantity: 2 },
+          { ingredientId: 'noodles', quantity: 2 },
+        ],
+      },
+    ],
+    inventory: [{ ingredientId: 'noodles', quantity: 6, unitCost: 5 }],
+  });
+
+  assert.deepEqual(result, {
+    cash: 100,
+    soldItems: 1,
+    revenue: 100,
+    costOfGoods: 20,
+    grossProfit: 80,
+    inventory: [{ ingredientId: 'noodles', quantity: 2, unitCost: 5 }],
+  });
+});
+
+test('simulateBusinessPeriod rejects negative demand', () => {
+  assert.throws(
+    () =>
+      simulateBusinessPeriod({
+        cash: 0,
+        menuItems: [
+          {
+            id: 'fried-rice',
+            name: 'Fried rice',
+            price: 120,
+            demand: -1,
+            recipe: [{ ingredientId: 'rice', quantity: 1 }],
+          },
+        ],
+        inventory: [{ ingredientId: 'rice', quantity: 3, unitCost: 8 }],
+      }),
+    { name: 'RangeError', message: 'Menu item fried-rice demand cannot be negative' },
+  );
+});
