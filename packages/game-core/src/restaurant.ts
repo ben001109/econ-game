@@ -46,6 +46,14 @@ const assertNonNegativeFinite = (value: number, label: string): void => {
   }
 };
 
+const assertNonNegativeInteger = (value: number, label: string): void => {
+  assertNonNegativeFinite(value, label);
+
+  if (!Number.isInteger(value)) {
+    throw new RangeError(`${label} must be an integer`);
+  }
+};
+
 const assertPositiveFinite = (value: number, label: string): void => {
   assertFinite(value, label);
 
@@ -64,7 +72,7 @@ const validateBusinessPeriodInput = (input: BusinessPeriodInput): void => {
 
   input.menuItems.forEach((menuItem) => {
     assertNonNegativeFinite(menuItem.price, `Menu item ${menuItem.id} price`);
-    assertNonNegativeFinite(menuItem.demand, `Menu item ${menuItem.id} demand`);
+    assertNonNegativeInteger(menuItem.demand, `Menu item ${menuItem.id} demand`);
 
     menuItem.recipe.forEach((ingredient) => {
       assertPositiveFinite(

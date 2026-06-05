@@ -101,6 +101,26 @@ test('simulateBusinessPeriod rejects negative demand', () => {
   );
 });
 
+test('simulateBusinessPeriod rejects fractional demand', () => {
+  assert.throws(
+    () =>
+      simulateBusinessPeriod({
+        cash: 0,
+        menuItems: [
+          {
+            id: 'fried-rice',
+            name: 'Fried rice',
+            price: 120,
+            demand: 0.5,
+            recipe: [{ ingredientId: 'rice', quantity: 1 }],
+          },
+        ],
+        inventory: [{ ingredientId: 'rice', quantity: 3, unitCost: 8 }],
+      }),
+    { name: 'RangeError', message: 'Menu item fried-rice demand must be an integer' },
+  );
+});
+
 test('simulateBusinessPeriod rejects NaN and Infinity numeric inputs', () => {
   const baseInput = {
     cash: 0,
