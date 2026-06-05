@@ -1,37 +1,38 @@
 export interface BaseIngredient {
-  id: string;
-  name: string;
-  unit: 'gram' | 'portion' | 'piece';
+  readonly id: string;
+  readonly name: string;
+  readonly unit: 'gram' | 'portion' | 'piece';
 }
 
 export interface BaseSupplier {
-  id: string;
-  name: string;
-  leadTimeDays: number;
-  catalog: {
-    ingredientId: string;
-    unitCost: number;
-    availableQuantity: number;
+  readonly id: string;
+  readonly name: string;
+  readonly leadTimeDays: number;
+  readonly catalog: readonly {
+    readonly ingredientId: string;
+    readonly unitCost: number;
+    readonly availableQuantity: number;
   }[];
 }
 
 export interface BaseMenuItem {
-  id: string;
-  name: string;
-  price: number;
-  recipe: {
-    ingredientId: string;
-    quantity: number;
+  readonly id: string;
+  readonly name: string;
+  readonly price: number;
+  readonly recipe: readonly {
+    readonly ingredientId: string;
+    readonly quantity: number;
   }[];
 }
 
-export const baseIngredients: BaseIngredient[] = [
+export const baseIngredients = [
   { id: 'noodles', name: 'Noodles', unit: 'portion' },
   { id: 'rice', name: 'Rice', unit: 'portion' },
   { id: 'tea', name: 'Tea', unit: 'portion' },
-];
+  { id: 'beef', name: 'Beef', unit: 'portion' },
+] as const satisfies readonly BaseIngredient[];
 
-export const baseSuppliers: BaseSupplier[] = [
+export const baseSuppliers = [
   {
     id: 'morning-market',
     name: 'Morning Market',
@@ -40,16 +41,20 @@ export const baseSuppliers: BaseSupplier[] = [
       { ingredientId: 'noodles', unitCost: 12, availableQuantity: 100 },
       { ingredientId: 'rice', unitCost: 8, availableQuantity: 120 },
       { ingredientId: 'tea', unitCost: 5, availableQuantity: 80 },
+      { ingredientId: 'beef', unitCost: 45, availableQuantity: 60 },
     ],
   },
-];
+] as const satisfies readonly BaseSupplier[];
 
-export const baseMenuItems: BaseMenuItem[] = [
+export const baseMenuItems = [
   {
     id: 'beef-noodles',
     name: 'Beef Noodles',
     price: 180,
-    recipe: [{ ingredientId: 'noodles', quantity: 2 }],
+    recipe: [
+      { ingredientId: 'noodles', quantity: 2 },
+      { ingredientId: 'beef', quantity: 1 },
+    ],
   },
   {
     id: 'fried-rice',
@@ -63,4 +68,4 @@ export const baseMenuItems: BaseMenuItem[] = [
     price: 40,
     recipe: [{ ingredientId: 'tea', quantity: 1 }],
   },
-];
+] as const satisfies readonly BaseMenuItem[];
