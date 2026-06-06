@@ -9,7 +9,7 @@ A current TypeScript service scaffold for a planned Godot-first economic and ind
 
 - Planned Godot primary Steam client direction for the main player experience
 - Current API (TypeScript + Fastify + Prisma) for the restaurant/POS/KDS scaffold; planned Godot/BOT-facing endpoints will be added later
-- Worker (TypeScript + BullMQ) for scheduled economic ticks, settlement, supplier events, and notifications
+- Current Worker (TypeScript + BullMQ) schedules/logs an `econ-tick` heartbeat; settlement, supplier events, and notifications are planned worker jobs
 - PostgreSQL as the source-of-truth persistent database
 - Redis as the cache, queue backend, and event/job coordination layer
 - Frontend admin/dev tooling (Next.js) for content, operations, and internal testing
@@ -28,7 +28,7 @@ Prerequisites:
 
 Interactive console (Node 20+):
 
-```
+```bash
 node scripts/console.mjs
 # Choose option 12 “Setup Wizard” to run the former Docker/local bootstrap flow,
 # seed monitoring secrets (New Relic/Sentry), and generate env files.
@@ -36,7 +36,7 @@ node scripts/console.mjs
 
 Linux-only convenience script (non-interactive) still mirrors the wizard prompts:
 
-```
+```bash
 bash scripts/setup-linux.sh
 ```
 
@@ -73,8 +73,8 @@ Services:
 
 ### Worker（背景工作/排程）
 - Framework: BullMQ + Redis（TypeScript）
-- 用途：定期執行經濟系統 tick、長時間任務、批次運算。
-- 目前功能：每隔一段時間（環境變數 `TICK_INTERVAL_MS`）跑一個 `econ-tick` 工作並記錄心跳；未來將在此計算市場價格、帳務批次等。
+- 用途：目前提供背景排程 scaffold；settlement、supplier events、notifications 與批次運算是 planned worker jobs。
+- 目前功能：每隔一段時間（環境變數 `TICK_INTERVAL_MS`）排程 `econ-tick` queue 的 `tick` job，worker 處理後只記錄 heartbeat-style log。
 
 ### Bot（Discord 機器人）
 - Framework: discord.js（TypeScript）
@@ -95,7 +95,7 @@ Services:
 
 ### PostgreSQL（資料庫）
 - 用途：持久化資料，為系統唯一事實來源（source of truth）。
-- Prisma schema：玩家、帳戶、總分類帳（double-entry）等。
+- Prisma schema：目前是 restaurant/POS/KDS foundation，包含 Restaurant、Branch、Table、MenuItem、Order、OrderItem、Payment、TaxLine、Tip，以及 OrderType、OrderStatus、PaymentMethod enums。
 - 存取：由 API/Worker 經 Prisma 存取。
 
 ### Redis（快取／佇列）
@@ -105,7 +105,7 @@ Services:
 
 ### Shared Packages（共享遊戲邊界）
 - `packages/game-core`：pure gameplay rules、state transitions、economy calculations 與 validation；目前作為 shared rule boundary，後續由 API、Worker、Bot 與 planned Godot endpoints 共用，避免 route handlers 或 companion commands 擁有核心規則。
-- `packages/content`：base content data，例如 ingredients、menu、NPC suppliers、regions、events 與 DLC-style packs。
+- `packages/content`：目前包含 base ingredients、one NPC supplier（Morning Market）與 menu items；regions、events 與 DLC-style packs 是 planned future content。
 - `packages/shared`：API DTOs、status codes 與 shared types，保持 Godot、BOT、Frontend admin/dev tooling 與後端服務的 contract 一致。
 
 ### Adminer（資料庫 UI）
@@ -185,19 +185,25 @@ GitHub Actions runs on push/PR:
 ## Secrets & Env
 
 - Do not commit secrets. Place sensitive values in `.env.local` per service; these files are git-ignored.
-- Compose overlays env files for API, worker, and frontend: `.env` then `.env.local` (overrides). Bot Compose services currently load only `services/bot/.env.local` because `services/bot/.env` is commented out in `docker-compose.yml`.
-- Examples are provided as `services/*/.env.example` — copy to `.env.local` and fill values.
+- API, worker, and frontend Compose services require their service `.env` files because `docker-compose.yml` lists them in `env_file`; copy each `.env.example` to `.env` first, then add optional `.env.local` overrides.
+- Bot Compose services currently load only `services/bot/.env.local` because `services/bot/.env` is commented out in `docker-compose.yml`; create `services/bot/.env.local` from its example and fill the token/API URL values there.
+- Examples are provided as `services/*/.env.example`.
 
-Discord Bot Token example (worker):
+API/worker/frontend Compose env setup:
 
-```
-cp services/worker/.env.example services/worker/.env.local
-echo "DISCORD_BOT_TOKEN=YOUR_NEW_TOKEN" >> services/worker/.env.local
+```bash
+cp services/api/.env.example services/api/.env
+cp services/worker/.env.example services/worker/.env
+cp services/frontend/.env.example services/frontend/.env
+# Optional local overrides:
+# cp services/api/.env.example services/api/.env.local
+# cp services/worker/.env.example services/worker/.env.local
+# cp services/frontend/.env.example services/frontend/.env.local
 ```
 
 Discord Bot service:
 
-```
+```bash
 cp services/bot/.env.example services/bot/.env.local
 echo "DISCORD_BOT_TOKEN=YOUR_NEW_TOKEN" >> services/bot/.env.local
 # Dev profile: bot-dev calls api-dev inside Compose
@@ -212,8 +218,8 @@ GitHub Actions: store secrets under Repo → Settings → Secrets and variables 
 
 - Planned client direction: Godot/Steam is the primary client. The planned Godot application will own startup, UI flow, runtime state, and the main restaurant management loop.
 - Planned companion direction: Discord bot stays companion-only for lightweight operations, notifications, leaderboards, and community events; current `/pos` and `/kds` commands are internal dev/test tools.
-- Architecture: modular monorepo with API + Worker handling persistence, sync, jobs, and settlement; `packages/game-core` owns gameplay rules and deterministic state transitions; Postgres is the source of truth; Redis is cache + queue.
-- Shared boundaries: `packages/content` carries ingredients, menu data, NPC supplier data, regions, events, and DLC-style packs; `packages/shared` carries DTOs, status codes, and shared types.
+- Architecture: modular monorepo with API + Worker handling the current restaurant/POS/KDS scaffold and heartbeat jobs; planned settlement/supplier jobs will build on `packages/game-core` rules and deterministic state transitions. Postgres is the source of truth; Redis is cache + queue.
+- Shared boundaries: `packages/content` currently carries ingredients, menu data, and one NPC supplier; planned content includes regions, events, and DLC-style packs. `packages/shared` carries DTOs, status codes, and shared types.
 - Economics: starts with the restaurant loop and NPC supplier procurement, then expands into supplier risk, regional variation, player markets, and playable industry roles such as farms, fisheries, logistics, wholesalers, and central kitchens.
 - i18n: frontend admin/dev tooling demonstrates locale routing and string catalogs; backend returns code-based messages for Godot/BOT/Frontend localization.
 
