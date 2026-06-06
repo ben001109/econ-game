@@ -2,6 +2,7 @@
   src="https://github-readme-stats.hackclub.dev/api/wakatime?username=813&api_domain=hackatime.hackclub.com&&custom_title=Hackatime+Stats&layout=compact&cache_seconds=0&langs_count=8&theme=transparent"
   alt="Ben001109 WakaTime Activity"
 />
+
 # Econ Game (Godot-first Economic Simulation)
 
 A Godot-first economic and industry-chain simulation game monorepo. Restaurants are the first playable business loop, with NPC suppliers first and a roadmap toward supplier risk, player markets, and playable industry roles. Includes:
@@ -21,6 +22,7 @@ A Godot-first economic and industry-chain simulation game monorepo. Restaurants 
 Prerequisites:
 
 - Docker + Docker Compose
+- Node 20+ for the interactive console, setup wizard, and local tooling
 
 ## Setup
 
@@ -38,12 +40,14 @@ Linux-only convenience script (non-interactive) still mirrors the wizard prompts
 bash scripts/setup-linux.sh
 ```
 
-Run:
+Run the dev profile services:
 
 ```bash
 cd econ-game
-docker compose up --build
+docker compose --profile dev up --build -d postgres redis api-dev worker-dev frontend-dev bot-dev adminer redis-commander
 ```
+
+The default Compose services only start Postgres, Redis, Adminer, and Redis Commander. App services live behind profiles: use `--profile dev` for hot-reload development or `--profile prod` for built service images.
 
 Services:
 
@@ -65,7 +69,7 @@ Services:
 ### API（後端服務）
 - Framework: Fastify + Prisma（TypeScript）
 - 用途：提供 REST API，處理業務邏輯與資料存取。
-- 目前功能：建立玩家（`POST /players`）、健康檢查（`GET /health`）。
+- 目前功能：健康檢查（`GET /health`）、餐廳/菜單瀏覽（`GET /restaurants`, `GET /menus`）、Demo bootstrap（`POST /bootstrap`）、POS 訂單/加菜/付款端點（`POST /orders`, `POST /orders/:id/items`, `POST /orders/:id/payments`）、KDS tickets/actions（`GET /kds/tickets`, `POST /kds/tickets/:id/start`, `POST /kds/tickets/:id/serve`）。
 - 文件：Swagger UI at `/docs`。
 
 ### Worker（背景工作/排程）
@@ -79,7 +83,10 @@ Services:
 - 邊界：不承載完整 POS/KDS、配方編輯、建造/地圖、玩家市場或全產業鏈管理 UI。
 - 指令：
   - `/ping`：回應 Pong
-  - `/init`：為目前 Discord 使用者建立玩家（呼叫 API 的 `POST /players`）
+  - `/ops`：健康檢查與 demo bootstrap 等營運/開發輔助
+  - `/pos`：目前的內部 dev/test POS 指令，用於驗證訂單、加菜與付款流程
+  - `/kds`：目前的內部 dev/test KDS 指令，用於檢視、start、serve tickets
+- 產品方向：未來面向玩家的 bot 仍維持 companion-only，聚焦狀態查詢、低庫存、供應商 deals、補貨、leaderboards、notifications 與 community events。
 - i18n：支援 en/zh 簡單字串。
 - 設定：需要 `DISCORD_BOT_TOKEN`；可選用 `GUILD_ID` 以在指定伺服器快速註冊指令（開發便利）。
 
@@ -110,8 +117,9 @@ Services:
 - 用途：可視化檢視 Redis keys/values。
 
 ### Docker Compose（本地環境/Dev Profile）
-- 一般模式：啟動 `api`、`worker`、`frontend`、`postgres`、`redis` 等服務。
+- 無 profile：啟動 `postgres`、`redis`、Adminer 與 Redis Commander 等共用基礎服務。
 - Dev Profile：`api-dev`、`worker-dev`、`frontend-dev`、`bot-dev` 以 hot reload 執行，利於快速開發；支援 Adminer 與 Redis Commander。
+- Prod Profile：`api`、`worker`、`frontend`、`bot` 使用各服務 Dockerfile 建置後執行。
 
 ## Local Development (iterate API/worker)
 
@@ -149,19 +157,28 @@ Alternatively, run API/Worker directly on your host (Node 20) and point to the C
 
 ## Lint & Format
 
-Each service has lint/format scripts:
+Services have lint and format scripts:
 
 ```bash
 cd services/api && npm run lint && npm run format
 cd services/worker && npm run lint && npm run format
 cd services/frontend && npm run lint && npm run format
+cd services/bot && npm run lint && npm run format
+```
+
+Shared packages participate in build/lint/test where scripts exist. Formatting scripts are not defined for every package, so use the package-specific scripts accurately:
+
+```bash
+cd packages/game-core && npm run lint && npm run build && npm test
+cd packages/content && npm run lint && npm run build
+cd packages/shared && npm run lint && npm run build
 ```
 
 ## CI
 
 GitHub Actions runs on push/PR:
-- Node job: installs deps, lints and builds for api/worker/frontend.
-- Docker job: builds images for each service (no push).
+- Node jobs: install deps, lint, and build `api`, `worker`, `frontend`, `bot`, plus `packages/game-core`, `packages/content`, and `packages/shared` on Linux and Windows matrices.
+- Docker job: builds service images for `api`, `worker`, `frontend`, and `bot` only (no push); shared packages are validated by the Node matrix.
 
 ## Secrets & Env
 
