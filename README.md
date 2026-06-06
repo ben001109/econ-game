@@ -2,15 +2,18 @@
   src="https://github-readme-stats.hackclub.dev/api/wakatime?username=813&api_domain=hackatime.hackclub.com&&custom_title=Hackatime+Stats&layout=compact&cache_seconds=0&langs_count=8&theme=transparent"
   alt="Ben001109 WakaTime Activity"
 />
-# Econ Game (Containerized Scaffold)
+# Econ Game (Godot-first Economic Simulation)
 
-A starter monorepo for a tycoon/management game with a real-world-like economic system. Includes:
+A Godot-first economic and industry-chain simulation game monorepo. Restaurants are the first playable business loop, with NPC suppliers first and a roadmap toward supplier risk, player markets, and playable industry roles. Includes:
 
-- API (TypeScript + Fastify + Prisma)
-- Worker (TypeScript + BullMQ for scheduled economic ticks)
-- PostgreSQL (persistent DB)
-- Redis (cache + queue backend)
-- Frontend (Next.js with basic i18n stub)
+- Godot primary Steam client runtime for the main player experience
+- API (TypeScript + Fastify + Prisma) for persistence, sync, and Godot/BOT-facing endpoints
+- Worker (TypeScript + BullMQ) for scheduled economic ticks, settlement, supplier events, and notifications
+- PostgreSQL as the source-of-truth persistent database
+- Redis as the cache, queue backend, and event/job coordination layer
+- Frontend admin/dev tooling (Next.js) for content, operations, and internal testing
+- Discord bot companion for lightweight operations, notifications, leaderboards, and community events
+- Shared packages for gameplay rules, content data, and API contracts
 - Adminer (DB UI) + Redis Commander (Redis UI)
 
 ## Quick Start
@@ -72,7 +75,8 @@ Services:
 
 ### Bot（Discord 機器人）
 - Framework: discord.js（TypeScript）
-- 用途：透過 Discord slash commands 與遊戲互動、呼叫 API 以管理玩家資料。
+- 用途：Discord BOT companion，提供輕量操作、通知、leaderboards 與 community events；主要玩家體驗仍由 Godot/Steam 承載。
+- 邊界：不承載完整 POS/KDS、配方編輯、建造/地圖、玩家市場或全產業鏈管理 UI。
 - 指令：
   - `/ping`：回應 Pong
   - `/init`：為目前 Discord 使用者建立玩家（呼叫 API 的 `POST /players`）
@@ -81,7 +85,7 @@ Services:
 
 ### Frontend（前端）
 - Framework: Next.js（TypeScript）
-- 用途：玩家與管理 UI（目前為基本 i18n 範例與骨架）。未來會串接 API 呈現市場、資產、訂單等資訊。
+- 用途：admin/dev tooling，用於內容、營運、除錯、Demo bootstrap 與內部測試；不是主要玩家入口。
 
 ### PostgreSQL（資料庫）
 - 用途：持久化資料，為系統唯一事實來源（source of truth）。
@@ -92,6 +96,11 @@ Services:
 - 用途：
   - BullMQ 佇列後端（Worker 用於背景任務、排程）
   - 之後可加入快取、發布/訂閱等用途
+
+### Shared Packages（共享遊戲邊界）
+- `packages/game-core`：pure gameplay rules、state transitions、economy calculations 與 validation；由 API、Worker、Bot 與 Godot-facing endpoints 共用，避免 route handlers 或 companion commands 擁有核心規則。
+- `packages/content`：base content data，例如 ingredients、menu、NPC suppliers、regions、events 與 DLC-style packs。
+- `packages/shared`：API DTOs、status codes 與 shared types，保持 Godot、BOT、Frontend admin/dev tooling 與後端服務的 contract 一致。
 
 ### Adminer（資料庫 UI）
 - 用途：瀏覽/查詢 Postgres 內容（方便開發/除錯）。
@@ -180,15 +189,19 @@ GitHub Actions: store secrets under Repo → Settings → Secrets and variables 
 
 ## Tech Overview
 
-- Architecture: modular monolith (API + Worker), evented via Redis/BullMQ. Postgres is source-of-truth; Redis is cache + queue.
-- Economics: double-entry ledger tables to guarantee accounting correctness; worker schedules periodic ticks to evolve markets.
-- i18n: frontend demonstrates locale routing and string catalogs; backend returns code-based messages for client-side localization.
+- Client direction: Godot/Steam is the primary client. The Godot application owns startup, UI flow, runtime state, and the main restaurant management loop.
+- Companion direction: Discord bot stays companion-only for lightweight operations, notifications, leaderboards, and community events.
+- Architecture: modular monorepo with API + Worker handling persistence, sync, jobs, and settlement; `packages/game-core` owns gameplay rules and deterministic state transitions; Postgres is the source of truth; Redis is cache + queue.
+- Shared boundaries: `packages/content` carries ingredients, menu data, NPC supplier data, regions, events, and DLC-style packs; `packages/shared` carries DTOs, status codes, and shared types.
+- Economics: starts with the restaurant loop and NPC supplier procurement, then expands into supplier risk, regional variation, player markets, and playable industry roles such as farms, fisheries, logistics, wholesalers, and central kitchens.
+- i18n: frontend admin/dev tooling demonstrates locale routing and string catalogs; backend returns code-based messages for Godot/BOT/Frontend localization.
 
 ## Next Steps
 
-- Implement domain modules (markets, commodities, production chains).
-- Add auth/session, rate limiting, and per-locale pricing/tax models.
-- Introduce event sourcing and snapshotting for audit/history at scale.
+- Extract restaurant simulation and supplier actions into `packages/game-core` so API, Worker, Bot, and Godot-facing endpoints share one rule boundary.
+- Add Godot-facing endpoints for restaurant state, supplier deals, restock actions, settlement results, unlock progress, and save/sync metadata.
+- Keep the Discord bot focused on companion commands such as `/status`, `/daily`, `/inventory low`, `/supplier deals`, `/restock`, `/leaderboard`, and event notifications.
+- Continue API + Worker persistence/jobs around Postgres source-of-truth and Redis cache/queue semantics.
 
 ## Bun + Pterodactyl
 
