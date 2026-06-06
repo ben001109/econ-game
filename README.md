@@ -103,7 +103,7 @@ Services:
 
 - 用途：持久化資料，為系統唯一事實來源（source of truth）。
 - Prisma schema：目前是 restaurant/POS/KDS foundation，包含 Restaurant、Branch、Table、MenuItem、Order、OrderItem、Payment、TaxLine、Tip，以及 OrderType、OrderStatus、PaymentMethod enums。
-- 存取：由 API/Worker 經 Prisma 存取。
+- 存取：目前由 API 經 Prisma 存取；Worker 現階段只使用 Redis/BullMQ heartbeat，planned settlement/supplier jobs 才會需要 DB/Prisma access。
 
 ### Redis（快取／佇列）
 
@@ -153,7 +153,7 @@ docker compose --profile dev up --build -d postgres redis api-dev worker-dev fro
 docker compose rm -s -f api-dev worker-dev frontend-dev bot-dev
 ```
 
-Alternatively, run API/Worker directly on your host (Node 20) and point to the Compose Postgres/Redis using the provided `.env` files in each service.
+Alternatively, run API/Worker directly on your host (Node 20) while Postgres/Redis stay in Compose: copy the service env files first, then change Docker service hostnames to localhost (`postgres` -> `localhost`, `redis` -> `localhost`) as shown in the Windows/local notes below.
 
 When running `bot-dev` in the dev profile, set `API_BASE_URL=http://api-dev:4000` in `services/bot/.env.local` because `bot-dev` depends on the `api-dev` service name inside the Compose network. For the prod profile use `http://api:4000`; for the Bun profile use `http://api-bun:4000`.
 
