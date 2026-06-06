@@ -30,8 +30,9 @@ Interactive console (Node 20+):
 
 ```bash
 node scripts/console.mjs
-# Choose option 12 “Setup Wizard” to run the former Docker/local bootstrap flow,
-# seed monitoring secrets (New Relic/Sentry), and generate env files.
+# Before Docker/dev Compose, create required env files from examples,
+# or use console env-file options first if available.
+# Then run the setup/dev workflow from the console.
 ```
 
 Linux-only convenience script (non-interactive) still mirrors the wizard prompts:
@@ -91,7 +92,7 @@ Services:
   - `/kds`：目前的內部 dev/test KDS 指令，用於檢視、start、serve tickets
 - 產品方向：planned future bot 仍維持 companion-only，聚焦狀態查詢、低庫存、供應商 deals、補貨、leaderboards、notifications 與 community events。
 - i18n：支援 en/zh 簡單字串。
-- 設定：需要 `DISCORD_BOT_TOKEN`；可選用 `GUILD_ID` 以在指定伺服器快速註冊指令（開發便利）。
+- 設定：需要 `DISCORD_BOT_TOKEN`；`GUILD_ID` 已定義為 future registration flow 使用，但 current runtime cleanup prevents command serving until bot startup is fixed。
 
 ### Frontend（前端）
 
@@ -189,6 +190,7 @@ Shared packages participate in build/lint/test where scripts exist. Formatting s
 ## CI
 
 GitHub Actions runs on push/PR:
+
 - Current Node CI jobs: install deps, lint, and build `api`, `worker`, `frontend`, `bot`, plus `packages/game-core`, `packages/content`, and `packages/shared` on Linux and Windows matrices.
 - Current Docker CI job: builds service images for `api`, `worker`, `frontend`, and `bot` only with `push: false`; shared packages are validated by the Node matrix.
 - Roadmap CI work may add package tests and image publishing/push steps when release automation is ready.
@@ -217,7 +219,8 @@ cp services/bot/.env.example services/bot/.env.local
 # Dev profile: API_BASE_URL=http://api-dev:4000
 # Prod profile: API_BASE_URL=http://api:4000
 # Bun profile: API_BASE_URL=http://api-bun:4000
-# GUILD_ID= can be set for fast slash-command updates in one guild.
+# GUILD_ID= is reserved for future guild-scoped registration;
+# current runtime cleanup prevents command serving until bot startup is fixed.
 ```
 
 GitHub Actions: store secrets under Repo → Settings → Secrets and variables → Actions, e.g. `DISCORD_BOT_TOKEN`. If a job needs it, inject via `env: DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}`.
@@ -260,7 +263,7 @@ Local with Bun:
 Pterodactyl (recommended gist):
 
 - Image: choose a Bun yolk (e.g. a `bun` image from pterodactyl/yolks). Set your env vars (e.g. `DATABASE_URL`, `REDIS_URL`, `DISCORD_BOT_TOKEN`, `PORT`).
-- Installer: Git clone this repo into the server directory (or upload) and run `bun install` on first boot.
+- Installer: Git clone this repo into the server directory (or upload), set `WORK_DIR` to the target service directory, and run install/start commands inside that service directory.
 - Startup command examples (per service directory):
   - API: `bun install --production && bun run bun:start`
   - Worker: `bun install --production && bun run bun:start`
@@ -268,5 +271,6 @@ Pterodactyl (recommended gist):
   - Frontend: `bun install --production && bun run bun:build && bun run bun:start`
 
 Notes:
+
 - API will auto-run Prisma generate + db push via `bun:setup` before starting.
 - Ensure Postgres/Redis are reachable from your Pterodactyl node; set correct URLs in env.
