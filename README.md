@@ -68,7 +68,7 @@ Services:
 ### API（後端服務）
 - Framework: Fastify + Prisma（TypeScript）
 - 用途：目前提供 restaurant/POS/KDS scaffold 的 REST API，處理業務邏輯與資料存取；planned Godot/BOT-facing endpoints 會在後續接上 shared/game-core 邊界。
-- 目前功能：健康檢查（`GET /health`）、餐廳/菜單瀏覽（`GET /restaurants`, `GET /menus`）、Demo bootstrap（`POST /bootstrap`）、POS 訂單/加菜/付款端點（`POST /orders`, `POST /orders/:id/items`, `POST /orders/:id/payments`）、KDS tickets/actions（`GET /kds/tickets`, `POST /kds/tickets/:id/start`, `POST /kds/tickets/:id/serve`）。
+- 目前功能：健康檢查（`GET /health`）、餐廳/菜單瀏覽（`GET /restaurants`, `GET /menus`）、Demo bootstrap（`POST /bootstrap`）、POS 訂單/加菜/付款/查詢端點（`POST /orders`, `POST /orders/:id/items`, `POST /orders/:id/payments`, `GET /orders/:id`）、KDS tickets/actions（`GET /kds/tickets`, `POST /kds/tickets/:id/start`, `POST /kds/tickets/:id/serve`）。
 - 文件：Swagger UI at `/docs`。
 
 ### Worker（背景工作/排程）
@@ -161,18 +161,18 @@ When running `bot-dev` in the dev profile, set `API_BASE_URL=http://api-dev:4000
 Services have lint and format scripts:
 
 ```bash
-cd services/api && npm run lint && npm run format
-cd services/worker && npm run lint && npm run format
-cd services/frontend && npm run lint && npm run format
-cd services/bot && npm run lint && npm run format
+(cd services/api && npm run lint && npm run format)
+(cd services/worker && npm run lint && npm run format)
+(cd services/frontend && npm run lint && npm run format)
+(cd services/bot && npm run lint && npm run format)
 ```
 
 Shared packages participate in build/lint/test where scripts exist. Formatting scripts are not defined for every package, so use the package-specific scripts accurately:
 
 ```bash
-cd packages/game-core && npm run lint && npm run build && npm test
-cd packages/content && npm run lint && npm run build
-cd packages/shared && npm run lint && npm run build
+(cd packages/game-core && npm run lint && npm run build && npm test)
+(cd packages/content && npm run lint && npm run build)
+(cd packages/shared && npm run lint && npm run build)
 ```
 
 ## CI
@@ -185,7 +185,7 @@ GitHub Actions runs on push/PR:
 ## Secrets & Env
 
 - Do not commit secrets. Place sensitive values in `.env.local` per service; these files are git-ignored.
-- API, worker, and frontend Compose services require their service `.env` files because `docker-compose.yml` lists them in `env_file`; copy each `.env.example` to `.env` first, then add optional `.env.local` overrides.
+- API, worker, and frontend Compose services require both their service `.env` and `.env.local` files because `docker-compose.yml` lists both in `env_file`; create `.env` from each `.env.example` and create `.env.local` files even if they are empty local overrides.
 - Bot Compose services currently load only `services/bot/.env.local` because `services/bot/.env` is commented out in `docker-compose.yml`; create `services/bot/.env.local` from its example and fill the token/API URL values there.
 - Examples are provided as `services/*/.env.example`.
 
@@ -195,21 +195,18 @@ API/worker/frontend Compose env setup:
 cp services/api/.env.example services/api/.env
 cp services/worker/.env.example services/worker/.env
 cp services/frontend/.env.example services/frontend/.env
-# Optional local overrides:
-# cp services/api/.env.example services/api/.env.local
-# cp services/worker/.env.example services/worker/.env.local
-# cp services/frontend/.env.example services/frontend/.env.local
+touch services/api/.env.local services/worker/.env.local services/frontend/.env.local
 ```
 
 Discord Bot service:
 
 ```bash
 cp services/bot/.env.example services/bot/.env.local
-echo "DISCORD_BOT_TOKEN=YOUR_NEW_TOKEN" >> services/bot/.env.local
-# Dev profile: bot-dev calls api-dev inside Compose
-echo "API_BASE_URL=http://api-dev:4000" >> services/bot/.env.local
-# Optional: fast slash-command updates in one guild
-# echo "GUILD_ID=YOUR_DEV_GUILD_ID" >> services/bot/.env.local
+# Edit existing DISCORD_BOT_TOKEN= and API_BASE_URL= values in services/bot/.env.local.
+# Dev profile: API_BASE_URL=http://api-dev:4000
+# Prod profile: API_BASE_URL=http://api:4000
+# Bun profile: API_BASE_URL=http://api-bun:4000
+# GUILD_ID= can be set for fast slash-command updates in one guild.
 ```
 
 GitHub Actions: store secrets under Repo → Settings → Secrets and variables → Actions, e.g. `DISCORD_BOT_TOKEN`. If a job needs it, inject via `env: DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}`.
@@ -243,10 +240,10 @@ You can run services with Bun (lighter, faster cold starts) and deploy on Pterod
 Local with Bun:
 
 ```bash
-cd services/api && bun install && bun run bun:start
-cd services/worker && bun install && bun run bun:start
-cd services/bot && bun install && bun run bun:start
-cd services/frontend && bun install && bun run bun:build && bun run bun:start
+(cd services/api && bun install && bun run bun:start)
+(cd services/worker && bun install && bun run bun:start)
+(cd services/bot && bun install && bun run bun:start)
+(cd services/frontend && bun install && bun run bun:build && bun run bun:start)
 ```
 
 Pterodactyl (recommended gist):
