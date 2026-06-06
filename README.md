@@ -276,3 +276,4 @@ Notes:
 - API will auto-run Prisma generate + db push via `bun:setup` before starting.
 - Ensure Postgres/Redis are reachable from your Pterodactyl node; set correct URLs in env.
 - Bot has no HTTP port; do not set `PORT` for it unless a future bot HTTP listener is added. Its `API_BASE_URL` should not default to `localhost` unless the API is colocated on the same server/network namespace.
+- Current bot egg note: `pterodactyl/eggs/econ_bot_bun.json` exposes `DISCORD_BOT_TOKEN` and `GUILD_ID`, but not `API_BASE_URL`. Before using that egg, add an `API_BASE_URL` variable in the panel/egg (or update the egg) because the bot default is `http://localhost:4000`, which is usually wrong on Pterodactyl.
