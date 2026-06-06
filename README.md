@@ -58,7 +58,7 @@ Services:
 
 ## Logging
 
-- API, worker, and bot now stream their pino output to both the terminal and rotating `.log` files under `logs/` (`*-dev.log` when `NODE_ENV !== production`).
+- API, worker, and bot write structured pino output to both the terminal and fixed `.log` files under `logs/` (`*-dev.log` when `NODE_ENV !== production`). Docker Compose commands also append service stdout to files in `logs/` via `tee`.
 - Override the destination directory with `LOG_DIR` or point to an exact file with `LOG_FILE`. Paths can be absolute or resolved relative to the service directory.
 - Use `LOG_TO_FILE=false` (or `0`/`off`) to disable file writes entirely; helpful for ephemeral CI environments.
 - `LOG_LEVEL` controls both console and file verbosity, while `LOG_FILE_SUFFIX` lets you customise the filename suffix if the `-dev` default is not desired.
@@ -143,6 +143,8 @@ docker compose rm -s -f api-dev worker-dev frontend-dev bot-dev
 
 Alternatively, run API/Worker directly on your host (Node 20) and point to the Compose Postgres/Redis using the provided `.env` files in each service.
 
+When running `bot-dev` in the dev profile, set `API_BASE_URL=http://api-dev:4000` in `services/bot/.env.local` because `bot-dev` depends on the `api-dev` service name inside the Compose network. For the prod profile use `http://api:4000`; for the Bun profile use `http://api-bun:4000`.
+
 ### Windows Notes (no Docker)
 
 - Use local installs of Postgres/Redis:
@@ -183,7 +185,7 @@ GitHub Actions runs on push/PR:
 ## Secrets & Env
 
 - Do not commit secrets. Place sensitive values in `.env.local` per service; these files are git-ignored.
-- Compose overlays service envs: each service loads `.env` then `.env.local` (overrides).
+- Compose overlays env files for API, worker, and frontend: `.env` then `.env.local` (overrides). Bot Compose services currently load only `services/bot/.env.local` because `services/bot/.env` is commented out in `docker-compose.yml`.
 - Examples are provided as `services/*/.env.example` — copy to `.env.local` and fill values.
 
 Discord Bot Token example (worker):
@@ -198,6 +200,8 @@ Discord Bot service:
 ```
 cp services/bot/.env.example services/bot/.env.local
 echo "DISCORD_BOT_TOKEN=YOUR_NEW_TOKEN" >> services/bot/.env.local
+# Dev profile: bot-dev calls api-dev inside Compose
+echo "API_BASE_URL=http://api-dev:4000" >> services/bot/.env.local
 # Optional: fast slash-command updates in one guild
 # echo "GUILD_ID=YOUR_DEV_GUILD_ID" >> services/bot/.env.local
 ```
