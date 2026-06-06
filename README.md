@@ -92,7 +92,7 @@ Services:
   - `/kds`：目前的內部 dev/test KDS 指令，用於檢視、start、serve tickets
 - 產品方向：planned future bot 仍維持 companion-only，聚焦狀態查詢、低庫存、供應商 deals、補貨、leaderboards、notifications 與 community events。
 - i18n：支援 en/zh 簡單字串。
-- 設定：需要 `DISCORD_BOT_TOKEN`；`GUILD_ID` 已定義為 future registration flow 使用，但 current runtime cleanup prevents command serving until bot startup is fixed。
+- 設定：需要 `DISCORD_BOT_TOKEN`；registration handler supports `GUILD_ID` for guild-scoped slash command registration, but the earlier cleanup startup currently clears commands and exits, so that cleanup must be fixed/removed before normal command serving。
 
 ### Frontend（前端）
 
@@ -220,8 +220,8 @@ cp services/bot/.env.example services/bot/.env.local
 # Dev profile: API_BASE_URL=http://api-dev:4000
 # Prod profile: API_BASE_URL=http://api:4000
 # Bun profile: API_BASE_URL=http://api-bun:4000
-# GUILD_ID= is reserved for future guild-scoped registration;
-# current runtime cleanup prevents command serving until bot startup is fixed.
+# GUILD_ID= is supported by the registration handler for guild-scoped commands,
+# but current runtime cleanup must be fixed/removed before normal serving.
 ```
 
 GitHub Actions: store secrets under Repo → Settings → Secrets and variables → Actions, e.g. `DISCORD_BOT_TOKEN`. If a job needs it, inject via `env: DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}`.
@@ -263,7 +263,7 @@ Local with Bun:
 
 Pterodactyl (recommended gist):
 
-- Image: choose a Bun yolk (e.g. a `bun` image from pterodactyl/yolks). Set your env vars (e.g. `DATABASE_URL`, `REDIS_URL`, `DISCORD_BOT_TOKEN`, `PORT`).
+- Image: choose a Bun yolk (e.g. a `bun` image from pterodactyl/yolks). Set service-specific env vars: API needs `DATABASE_URL`, `REDIS_URL`, and `PORT`; frontend uses its configured port/scripts; worker needs queue/database URLs as applicable; bot needs `DISCORD_BOT_TOKEN` and `API_BASE_URL` pointing to a reachable API service.
 - Installer: Git clone this repo into the server directory (or upload), set `WORK_DIR` to the target service directory, and run install/start commands inside that service directory.
 - Startup command examples (per service directory):
   - API: `bun install --production && bun run bun:start`
@@ -275,3 +275,4 @@ Notes:
 
 - API will auto-run Prisma generate + db push via `bun:setup` before starting.
 - Ensure Postgres/Redis are reachable from your Pterodactyl node; set correct URLs in env.
+- Bot has no HTTP port; do not set `PORT` for it unless a future bot HTTP listener is added. Its `API_BASE_URL` should not default to `localhost` unless the API is colocated on the same server/network namespace.
