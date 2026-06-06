@@ -13,7 +13,7 @@ A current TypeScript service scaffold for a planned Godot-first economic and ind
 - PostgreSQL as the source-of-truth persistent database
 - Redis as the cache, queue backend, and event/job coordination layer
 - Frontend admin/dev tooling (Next.js) for content, operations, and internal testing
-- Current Discord bot dev/test commands, with planned companion scope for lightweight operations, notifications, leaderboards, and community events
+- Current Discord bot command modules exist for dev/test flows, but the runtime currently clears slash commands and exits on startup; planned companion scope covers lightweight operations, notifications, leaderboards, and community events
 - Shared packages for gameplay rules, content data, and API contracts
 - Adminer (DB UI) + Redis Commander (Redis UI)
 
@@ -54,7 +54,7 @@ Services:
 - Frontend: http://localhost:3000
 - Adminer: http://localhost:8080 (connect to `postgres`, user `game`, pass `gamepass`, DB `game`)
 - Redis Commander: http://localhost:8081
-- Bot: Discord bot (no HTTP port; connects to Discord)
+- Bot: Discord bot runtime (no HTTP port; currently clears slash commands and exits on startup)
 
 ## Logging
 
@@ -66,56 +66,67 @@ Services:
 ## Components (各服務用途)
 
 ### API（後端服務）
+
 - Framework: Fastify + Prisma（TypeScript）
 - 用途：目前提供 restaurant/POS/KDS scaffold 的 REST API，處理業務邏輯與資料存取；planned Godot/BOT-facing endpoints 會在後續接上 shared/game-core 邊界。
 - 目前功能：健康檢查（`GET /health`）、餐廳/菜單瀏覽（`GET /restaurants`, `GET /menus`）、Demo bootstrap（`POST /bootstrap`）、POS 訂單/加菜/付款/查詢端點（`POST /orders`, `POST /orders/:id/items`, `POST /orders/:id/payments`, `GET /orders/:id`）、KDS tickets/actions（`GET /kds/tickets`, `POST /kds/tickets/:id/start`, `POST /kds/tickets/:id/serve`）。
 - 文件：Swagger UI at `/docs`。
 
 ### Worker（背景工作/排程）
+
 - Framework: BullMQ + Redis（TypeScript）
 - 用途：目前提供背景排程 scaffold；settlement、supplier events、notifications 與批次運算是 planned worker jobs。
 - 目前功能：每隔一段時間（環境變數 `TICK_INTERVAL_MS`）排程 `econ-tick` queue 的 `tick` job，worker 處理後只記錄 heartbeat-style log。
 
 ### Bot（Discord 機器人）
+
 - Framework: discord.js（TypeScript）
-- 用途：目前提供 Discord dev/test commands；planned BOT companion 方向是輕量操作、notifications、leaderboards 與 community events，主要玩家體驗將由 Godot/Steam 承載。
+- Runtime state：`/ping`、`/ops`、`/pos`、`/kds` command modules exist, but current startup cleanup clears slash commands for guild/global scopes and exits, so companion behavior is not operational yet.
+- 用途：planned BOT companion 方向是輕量操作、notifications、leaderboards 與 community events，主要玩家體驗將由 Godot/Steam 承載。
 - 邊界：不承載完整 POS/KDS、配方編輯、建造/地圖、玩家市場或全產業鏈管理 UI。
-- 指令：
+- Command modules：
   - `/ping`：回應 Pong
   - `/ops`：健康檢查與 demo bootstrap 等營運/開發輔助
   - `/pos`：目前的內部 dev/test POS 指令，用於驗證訂單、加菜與付款流程
   - `/kds`：目前的內部 dev/test KDS 指令，用於檢視、start、serve tickets
-- 產品方向：未來面向玩家的 bot 仍維持 companion-only，聚焦狀態查詢、低庫存、供應商 deals、補貨、leaderboards、notifications 與 community events。
+- 產品方向：planned future bot 仍維持 companion-only，聚焦狀態查詢、低庫存、供應商 deals、補貨、leaderboards、notifications 與 community events。
 - i18n：支援 en/zh 簡單字串。
 - 設定：需要 `DISCORD_BOT_TOKEN`；可選用 `GUILD_ID` 以在指定伺服器快速註冊指令（開發便利）。
 
 ### Frontend（前端）
+
 - Framework: Next.js（TypeScript）
 - 用途：admin/dev tooling，用於內容、營運、除錯、Demo bootstrap 與內部測試；不是主要玩家入口。
 
 ### PostgreSQL（資料庫）
+
 - 用途：持久化資料，為系統唯一事實來源（source of truth）。
 - Prisma schema：目前是 restaurant/POS/KDS foundation，包含 Restaurant、Branch、Table、MenuItem、Order、OrderItem、Payment、TaxLine、Tip，以及 OrderType、OrderStatus、PaymentMethod enums。
 - 存取：由 API/Worker 經 Prisma 存取。
 
 ### Redis（快取／佇列）
+
 - 用途：
   - BullMQ 佇列後端（Worker 用於背景任務、排程）
   - 之後可加入快取、發布/訂閱等用途
 
 ### Shared Packages（共享遊戲邊界）
+
 - `packages/game-core`：pure gameplay rules、state transitions、economy calculations 與 validation；目前作為 shared rule boundary，後續由 API、Worker、Bot 與 planned Godot endpoints 共用，避免 route handlers 或 companion commands 擁有核心規則。
 - `packages/content`：目前包含 base ingredients、one NPC supplier（Morning Market）與 menu items；regions、events 與 DLC-style packs 是 planned future content。
 - `packages/shared`：API DTOs、status codes 與 shared types，保持 Godot、BOT、Frontend admin/dev tooling 與後端服務的 contract 一致。
 
 ### Adminer（資料庫 UI）
+
 - 用途：瀏覽/查詢 Postgres 內容（方便開發/除錯）。
 - 連線資訊：連到 `postgres`，使用者 `game`、密碼 `gamepass`、DB `game`。
 
 ### Redis Commander（Redis UI）
+
 - 用途：可視化檢視 Redis keys/values。
 
 ### Docker Compose（本地環境/Dev Profile）
+
 - 無 profile：啟動 `postgres`、`redis`、Adminer 與 Redis Commander 等共用基礎服務。
 - Dev Profile：`api-dev`、`worker-dev`、`frontend-dev`、`bot-dev` 以 hot reload 執行，利於快速開發；支援 Adminer 與 Redis Commander。
 - Prod Profile：`api`、`worker`、`frontend`、`bot` 使用各服務 Dockerfile 建置後執行。
