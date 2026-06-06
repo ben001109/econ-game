@@ -5,15 +5,15 @@
 
 # Econ Game (Godot-first Economic Simulation)
 
-A Godot-first economic and industry-chain simulation game monorepo. Restaurants are the first playable business loop, with NPC suppliers first and a roadmap toward supplier risk, player markets, and playable industry roles. Includes:
+A current TypeScript service scaffold for a planned Godot-first economic and industry-chain simulation game. Restaurants are the first playable business loop, with NPC suppliers first and a roadmap toward supplier risk, player markets, and playable industry roles. Includes:
 
-- Godot primary Steam client runtime for the main player experience
-- API (TypeScript + Fastify + Prisma) for persistence, sync, and Godot/BOT-facing endpoints
+- Planned Godot primary Steam client direction for the main player experience
+- Current API (TypeScript + Fastify + Prisma) for the restaurant/POS/KDS scaffold; planned Godot/BOT-facing endpoints will be added later
 - Worker (TypeScript + BullMQ) for scheduled economic ticks, settlement, supplier events, and notifications
 - PostgreSQL as the source-of-truth persistent database
 - Redis as the cache, queue backend, and event/job coordination layer
 - Frontend admin/dev tooling (Next.js) for content, operations, and internal testing
-- Discord bot companion for lightweight operations, notifications, leaderboards, and community events
+- Current Discord bot dev/test commands, with planned companion scope for lightweight operations, notifications, leaderboards, and community events
 - Shared packages for gameplay rules, content data, and API contracts
 - Adminer (DB UI) + Redis Commander (Redis UI)
 
@@ -43,7 +43,6 @@ bash scripts/setup-linux.sh
 Run the dev profile services:
 
 ```bash
-cd econ-game
 docker compose --profile dev up --build -d postgres redis api-dev worker-dev frontend-dev bot-dev adminer redis-commander
 ```
 
@@ -68,7 +67,7 @@ Services:
 
 ### API（後端服務）
 - Framework: Fastify + Prisma（TypeScript）
-- 用途：提供 REST API，處理業務邏輯與資料存取。
+- 用途：目前提供 restaurant/POS/KDS scaffold 的 REST API，處理業務邏輯與資料存取；planned Godot/BOT-facing endpoints 會在後續接上 shared/game-core 邊界。
 - 目前功能：健康檢查（`GET /health`）、餐廳/菜單瀏覽（`GET /restaurants`, `GET /menus`）、Demo bootstrap（`POST /bootstrap`）、POS 訂單/加菜/付款端點（`POST /orders`, `POST /orders/:id/items`, `POST /orders/:id/payments`）、KDS tickets/actions（`GET /kds/tickets`, `POST /kds/tickets/:id/start`, `POST /kds/tickets/:id/serve`）。
 - 文件：Swagger UI at `/docs`。
 
@@ -79,7 +78,7 @@ Services:
 
 ### Bot（Discord 機器人）
 - Framework: discord.js（TypeScript）
-- 用途：Discord BOT companion，提供輕量操作、通知、leaderboards 與 community events；主要玩家體驗仍由 Godot/Steam 承載。
+- 用途：目前提供 Discord dev/test commands；planned BOT companion 方向是輕量操作、notifications、leaderboards 與 community events，主要玩家體驗將由 Godot/Steam 承載。
 - 邊界：不承載完整 POS/KDS、配方編輯、建造/地圖、玩家市場或全產業鏈管理 UI。
 - 指令：
   - `/ping`：回應 Pong
@@ -105,7 +104,7 @@ Services:
   - 之後可加入快取、發布/訂閱等用途
 
 ### Shared Packages（共享遊戲邊界）
-- `packages/game-core`：pure gameplay rules、state transitions、economy calculations 與 validation；由 API、Worker、Bot 與 Godot-facing endpoints 共用，避免 route handlers 或 companion commands 擁有核心規則。
+- `packages/game-core`：pure gameplay rules、state transitions、economy calculations 與 validation；目前作為 shared rule boundary，後續由 API、Worker、Bot 與 planned Godot endpoints 共用，避免 route handlers 或 companion commands 擁有核心規則。
 - `packages/content`：base content data，例如 ingredients、menu、NPC suppliers、regions、events 與 DLC-style packs。
 - `packages/shared`：API DTOs、status codes 與 shared types，保持 Godot、BOT、Frontend admin/dev tooling 與後端服務的 contract 一致。
 
@@ -177,8 +176,9 @@ cd packages/shared && npm run lint && npm run build
 ## CI
 
 GitHub Actions runs on push/PR:
-- Node jobs: install deps, lint, and build `api`, `worker`, `frontend`, `bot`, plus `packages/game-core`, `packages/content`, and `packages/shared` on Linux and Windows matrices.
-- Docker job: builds service images for `api`, `worker`, `frontend`, and `bot` only (no push); shared packages are validated by the Node matrix.
+- Current Node CI jobs: install deps, lint, and build `api`, `worker`, `frontend`, `bot`, plus `packages/game-core`, `packages/content`, and `packages/shared` on Linux and Windows matrices.
+- Current Docker CI job: builds service images for `api`, `worker`, `frontend`, and `bot` only with `push: false`; shared packages are validated by the Node matrix.
+- Roadmap CI work may add package tests and image publishing/push steps when release automation is ready.
 
 ## Secrets & Env
 
@@ -206,8 +206,8 @@ GitHub Actions: store secrets under Repo → Settings → Secrets and variables 
 
 ## Tech Overview
 
-- Client direction: Godot/Steam is the primary client. The Godot application owns startup, UI flow, runtime state, and the main restaurant management loop.
-- Companion direction: Discord bot stays companion-only for lightweight operations, notifications, leaderboards, and community events.
+- Planned client direction: Godot/Steam is the primary client. The planned Godot application will own startup, UI flow, runtime state, and the main restaurant management loop.
+- Planned companion direction: Discord bot stays companion-only for lightweight operations, notifications, leaderboards, and community events; current `/pos` and `/kds` commands are internal dev/test tools.
 - Architecture: modular monorepo with API + Worker handling persistence, sync, jobs, and settlement; `packages/game-core` owns gameplay rules and deterministic state transitions; Postgres is the source of truth; Redis is cache + queue.
 - Shared boundaries: `packages/content` carries ingredients, menu data, NPC supplier data, regions, events, and DLC-style packs; `packages/shared` carries DTOs, status codes, and shared types.
 - Economics: starts with the restaurant loop and NPC supplier procurement, then expands into supplier risk, regional variation, player markets, and playable industry roles such as farms, fisheries, logistics, wholesalers, and central kitchens.
@@ -215,9 +215,9 @@ GitHub Actions: store secrets under Repo → Settings → Secrets and variables 
 
 ## Next Steps
 
-- Extract restaurant simulation and supplier actions into `packages/game-core` so API, Worker, Bot, and Godot-facing endpoints share one rule boundary.
-- Add Godot-facing endpoints for restaurant state, supplier deals, restock actions, settlement results, unlock progress, and save/sync metadata.
-- Keep the Discord bot focused on companion commands such as `/status`, `/daily`, `/inventory low`, `/supplier deals`, `/restock`, `/leaderboard`, and event notifications.
+- Continue extracting restaurant simulation and supplier actions into `packages/game-core` so API, Worker, Bot, and planned Godot-facing endpoints share one rule boundary.
+- Add planned Godot-facing endpoints for restaurant state, supplier deals, restock actions, settlement results, unlock progress, and save/sync metadata.
+- Keep future product Discord bot scope focused on companion commands such as `/status`, `/daily`, `/inventory low`, `/supplier deals`, `/restock`, `/leaderboard`, and event notifications.
 - Continue API + Worker persistence/jobs around Postgres source-of-truth and Redis cache/queue semantics.
 
 ## Bun + Pterodactyl
