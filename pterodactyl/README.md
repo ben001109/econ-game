@@ -15,11 +15,11 @@ Detailed setup
    - In `Server Owner` and `Description`, fill in whatever helps you recognize the service later.
 4. After the server is created, open the `Startup` tab and adjust:
    - `WORK_DIR` to the service folder (see table below) if the repository root is mounted.
-   - Any required environment variables. At minimum the API needs `DATABASE_URL`, `REDIS_URL`, and `PORT`; the worker needs queue endpoints; the bot needs Discord credentials.
+   - Any required environment variables. At minimum the API needs `DATABASE_URL`, `REDIS_URL`, and `PORT`; the worker needs queue endpoints; the bot needs `DISCORD_BOT_TOKEN` plus `API_BASE_URL`; the frontend needs `NEXT_PUBLIC_API_URL` if the API is not localhost or reverse-proxied to the same origin.
 5. Deploy the application code:
    - If you cloned the whole repository into the node, point the server's SFTP path to the repo root; the egg runs from that working directory.
    - If you only upload a single service, keep `WORK_DIR` as `.` and upload the corresponding `services/<name>` contents via SFTP.
-6. Start the server. On first boot the egg runs `bun install --production` and any service-specific bootstrap (`bun prisma generate` / `db push` for the API). Watch the console to confirm each step completes.
+6. Start the server. On first boot the frontend egg runs a full `bun install` before `bun run bun:build` so Next/TypeScript build tooling from devDependencies is available. API, worker, and bot eggs can use `bun install --production`, then any service-specific bootstrap (`bun prisma generate` / `db push` for the API). Watch the console to confirm each step completes.
 7. Once the server is running, hit the service's HTTP port (or relevant queue/bot endpoints) to verify it responds, then enable automatic restarts or schedules as needed.
 
 Recommended WORK_DIR values
@@ -33,7 +33,9 @@ Startup defaults
 - Frontend: `START_CMD=bun:start` (build runs before start via egg command)
 
 Notes
-- Eggs run `bun install --production` on startup; API runs Prisma generate/db push via its `bun:start` script.
+- Frontend runs a full `bun install` before build; API, worker, and bot can use `bun install --production` on startup. API runs Prisma generate/db push via its `bun:start` script.
+- Bot deployments need `DISCORD_BOT_TOKEN` and `API_BASE_URL` (default `http://localhost:4000`) so commands can call the API.
+- Frontend deployments need `NEXT_PUBLIC_API_URL` (default `http://localhost:4000`) when the API is not localhost or reverse-proxied to the same origin; the value is baked into the frontend build/runtime.
 - Ensure your DB/Redis endpoints are reachable from the node that hosts the server.
 - For production, set `NODE_ENV=production` and provide any external API keys in the Startup tab.
 - If migrations or seed data are required, add a Pterodactyl schedule to run the corresponding `bun` script after deploys.

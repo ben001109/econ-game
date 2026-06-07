@@ -263,7 +263,7 @@ Local with Bun:
 
 Pterodactyl (recommended gist):
 
-- Image: choose a Bun yolk (e.g. a `bun` image from pterodactyl/yolks). Set service-specific env vars: API needs `DATABASE_URL`, `REDIS_URL`, and `PORT`; frontend uses its configured port/scripts; worker needs queue/database URLs as applicable; bot needs `DISCORD_BOT_TOKEN` and `API_BASE_URL` pointing to a reachable API service.
+- Image: choose a Bun yolk (e.g. a `bun` image from pterodactyl/yolks). Set service-specific env vars: API needs `DATABASE_URL`, `REDIS_URL`, and `PORT`; frontend needs `NEXT_PUBLIC_API_URL` if the API is not localhost or reverse-proxied; worker needs queue/database URLs as applicable; bot needs `DISCORD_BOT_TOKEN` and `API_BASE_URL` pointing to a reachable API service.
 - Installer: Git clone this repo into the server directory (or upload), set `WORK_DIR` to the target service directory, and run install/start commands inside that service directory.
 - Startup command examples (per service directory):
   - API: `bun install --production && bun run bun:start`
@@ -275,5 +275,5 @@ Notes:
 
 - API will auto-run Prisma generate + db push via `bun:setup` before starting.
 - Ensure Postgres/Redis are reachable from your Pterodactyl node; set correct URLs in env.
-- Bot has no HTTP port; do not set `PORT` for it unless a future bot HTTP listener is added. Its `API_BASE_URL` should not default to `localhost` unless the API is colocated on the same server/network namespace.
-- Current bot egg note: `pterodactyl/eggs/econ_bot_bun.json` exposes `DISCORD_BOT_TOKEN` and `GUILD_ID`, but not `API_BASE_URL`. Before using that egg, add an `API_BASE_URL` variable in the panel/egg (or update the egg) because the bot default is `http://localhost:4000`, which is usually wrong on Pterodactyl.
+- Bot has no HTTP port; do not set `PORT` for it unless a future bot HTTP listener is added. Its `API_BASE_URL` should not use `localhost` unless the API is colocated on the same server/network namespace.
+- The frontend build needs a full `bun install` before `bun run bun:build` because Next/TypeScript build tooling lives in devDependencies.
