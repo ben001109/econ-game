@@ -192,9 +192,9 @@ Shared packages participate in build/lint/test where scripts exist. Formatting s
 
 GitHub Actions runs on push/PR:
 
-- Current Node CI jobs: install deps, lint, and build `api`, `worker`, `frontend`, `bot`, plus `packages/game-core`, `packages/content`, and `packages/shared` on Linux and Windows matrices.
+- Current Node CI jobs: install deps, lint, run tests if present, and build `api`, `worker`, `frontend`, `bot`, plus `packages/game-core`, `packages/content`, and `packages/shared` on Linux and Windows matrices.
 - Current Docker CI job: builds service images for `api`, `worker`, `frontend`, and `bot` only with `push: false`; shared packages are validated by the Node matrix.
-- Roadmap CI work may add package tests and image publishing/push steps when release automation is ready.
+- Roadmap CI work may add image publishing/push steps when release automation is ready.
 
 ## Secrets & Env
 
@@ -269,7 +269,7 @@ Pterodactyl (recommended gist):
   - API: `bun install --production && bun run bun:start`
   - Worker: `bun install --production && bun run bun:start`
   - Bot: `bun install --production && bun run bun:start`
-  - Frontend: `bun install --production && bun run bun:build && bun run bun:start`
+  - Frontend: `bun install && bun run bun:build && bun run bun:start`
 
 Notes:
 
