@@ -16,7 +16,7 @@
    - In `Server Owner` and `Description`, fill in whatever helps you recognize the service later.
 4. After the server is created, open the `Startup` tab and adjust:
    - `WORK_DIR` to the service folder (see table below) when the whole repo is cloned or mounted. Use `WORK_DIR=.` only for single-service uploads.
-   - Any required environment variables. At minimum the API needs `DATABASE_URL`, `REDIS_URL`, and `PORT`; the worker needs queue endpoints; the bot needs `DISCORD_BOT_TOKEN` plus `API_BASE_URL`; the frontend needs `NEXT_PUBLIC_API_URL` if the API is not localhost or reverse-proxied to the same origin.
+   - Any required environment variables. At minimum the API needs `DATABASE_URL`, `REDIS_URL`, and `PORT`; the worker needs queue endpoints; the bot needs `DISCORD_BOT_TOKEN` plus `API_BASE_URL`; the frontend needs `NEXT_PUBLIC_API_URL` before `bun run bun:build` if the API is not localhost or reverse-proxied to the same origin.
    - For API, worker, and bot single-service uploads with `WORK_DIR=.`, set `LOG_DIR=./logs` or `LOG_TO_FILE=false` so log files stay inside the server directory or are disabled.
 5. Deploy the application code:
    - If you cloned the whole repository into the node, point the server's SFTP path to the repo root and set `WORK_DIR` to that server's service folder, such as `services/api`.
@@ -32,7 +32,7 @@
 
 ## Startup defaults
 - API/Worker/Bot: `START_CMD=bun:start` (defined in each service package.json)
-- Frontend: `START_CMD=bun:start` (build runs before start via egg command)
+- Frontend: build runs before start via the egg command, then starts with `bunx next start -p {{PORT}}` so the Pterodactyl `PORT` variable controls the listener.
 
 ## Logging variables
 - API, worker, and bot eggs expose `LOG_DIR` (default `../../logs`) and `LOG_TO_FILE` (default empty, which enables file logging). Set `LOG_DIR=./logs` for single-service uploads with `WORK_DIR=.` to keep logs under the Pterodactyl server directory.
@@ -41,7 +41,7 @@
 ## Notes
 - Frontend runs a full `bun install` before build; API, worker, and bot can use `bun install --production` on startup. API runs Prisma generate/db push via its `bun:start` script.
 - Bot deployments need `DISCORD_BOT_TOKEN` and `API_BASE_URL` (default `http://localhost:4000`) so commands can call the API.
-- Frontend deployments need `NEXT_PUBLIC_API_URL` (default `http://localhost:4000`) when the API is not localhost or reverse-proxied to the same origin; the value is baked into the frontend build/runtime.
+- Frontend deployments need `NEXT_PUBLIC_API_URL` (default `http://localhost:4000`) when the API is not localhost or reverse-proxied to the same origin; Next.js bakes this public value into the browser bundle during `bun run bun:build`, so set it before the build runs.
 - Ensure your DB/Redis endpoints are reachable from the node that hosts the server.
 - For production, set `NODE_ENV=production` and provide any external API keys in the Startup tab.
 - If migrations or seed data are required, add a Pterodactyl schedule to run the corresponding `bun` script after deploys.

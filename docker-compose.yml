@@ -256,6 +256,8 @@ services:
     build:
       context: ./services/frontend
       dockerfile: Dockerfile.bun
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
     command: sh -c "bunx next start -p 3000 | tee -a /logs/frontend-bun.log"
     env_file:
       - ./services/frontend/.env

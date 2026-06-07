@@ -193,7 +193,7 @@ Shared packages participate in build/lint/test where scripts exist. Formatting s
 GitHub Actions runs on push/PR:
 
 - Current Node CI jobs: install deps, lint, run tests if present, and build `api`, `worker`, `frontend`, `bot`, plus `packages/game-core`, `packages/content`, and `packages/shared` on Linux and Windows matrices.
-- Current Docker CI job: builds service images for `api`, `worker`, `frontend`, and `bot` only with `push: false`; shared packages are validated by the Node matrix.
+- Current Docker CI job: builds default and Bun service images for `api`, `worker`, `frontend`, and `bot` with `push: false`; shared packages are validated by the Node matrix.
 - Roadmap CI work may add image publishing/push steps when release automation is ready.
 
 ## Secrets & Env
@@ -263,17 +263,17 @@ Local with Bun:
 
 Pterodactyl (recommended gist):
 
-- Image: choose a Bun yolk (e.g. a `bun` image from pterodactyl/yolks). Set service-specific env vars: API needs `DATABASE_URL`, `REDIS_URL`, and `PORT`; frontend needs `NEXT_PUBLIC_API_URL` if the API is not localhost or reverse-proxied; worker needs queue/database URLs as applicable; bot needs `DISCORD_BOT_TOKEN` and `API_BASE_URL` pointing to a reachable API service.
+- Image: choose a Bun yolk (e.g. a `bun` image from pterodactyl/yolks). Set service-specific env vars: API needs `DATABASE_URL`, `REDIS_URL`, and `PORT`; frontend needs `NEXT_PUBLIC_API_URL` set before build if the API is not localhost or reverse-proxied, and its egg starts Next with `bunx next start -p {{PORT}}`; worker needs queue/database URLs as applicable; bot needs `DISCORD_BOT_TOKEN` and `API_BASE_URL` pointing to a reachable API service.
 - Installer: Git clone this repo into the server directory (or upload), set `WORK_DIR` to the target service directory, and run install/start commands inside that service directory.
 - Startup command examples (per service directory):
   - API: `bun install --production && bun run bun:start`
   - Worker: `bun install --production && bun run bun:start`
   - Bot: `bun install --production && bun run bun:start`
-  - Frontend: `bun install && bun run bun:build && bun run bun:start`
+  - Frontend: `bun install && bun run bun:build && bunx next start -p {{PORT}}`
 
 Notes:
 
 - API will auto-run Prisma generate + db push via `bun:setup` before starting.
 - Ensure Postgres/Redis are reachable from your Pterodactyl node; set correct URLs in env.
 - Bot has no HTTP port; do not set `PORT` for it unless a future bot HTTP listener is added. Its `API_BASE_URL` should not use `localhost` unless the API is colocated on the same server/network namespace.
-- The frontend build needs a full `bun install` before `bun run bun:build` because Next/TypeScript build tooling lives in devDependencies.
+- The frontend build needs a full `bun install` before `bun run bun:build` because Next/TypeScript build tooling lives in devDependencies. `NEXT_PUBLIC_API_URL` is a Next.js public build-time value, so Docker Compose passes it as a Bun frontend build arg (`${NEXT_PUBLIC_API_URL:-http://localhost:4000}`) and Pterodactyl users must set it before the egg runs the build.
