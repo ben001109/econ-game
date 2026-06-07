@@ -27,6 +27,8 @@ services:
     build: ./services/api
     profiles: [ "prod" ]
     command: sh -c "npx prisma db push && node dist/index.js | tee -a /logs/api.log"
+    environment:
+      LOG_TO_FILE: "false"
     env_file:
       - ./services/api/.env
       - ./services/api/.env.local
@@ -44,6 +46,8 @@ services:
     build: ./services/worker
     profiles: [ "prod" ]
     command: sh -c "node dist/index.js | tee -a /logs/worker.log"
+    environment:
+      LOG_TO_FILE: "false"
     env_file:
       - ./services/worker/.env
       - ./services/worker/.env.local
@@ -74,6 +78,8 @@ services:
     build: ./services/bot
     profiles: [ "prod" ]
     command: sh -c "node dist/index.js | tee -a /logs/bot.log"
+    environment:
+      LOG_TO_FILE: "false"
     env_file:
       #- ./services/bot/.env
       - ./services/bot/.env.local
@@ -123,6 +129,7 @@ services:
       NODE_ENV: development
       # Use a separate Prisma schema for dev to isolate tables
       DATABASE_URL: postgresql://game:gamepass@postgres:5432/game?schema=dev
+      LOG_TO_FILE: "false"
     env_file:
       - ./services/api/.env
       - ./services/api/.env.local
@@ -148,6 +155,7 @@ services:
       NODE_ENV: development
       # Match API dev DB schema for isolation
       DATABASE_URL: postgresql://game:gamepass@postgres:5432/game?schema=dev
+      LOG_TO_FILE: "false"
     env_file:
       - ./services/worker/.env
       - ./services/worker/.env.local
@@ -188,6 +196,7 @@ services:
     command: sh -c "npm install && (npm run dev | tee -a /logs/bot-dev.log)"
     environment:
       NODE_ENV: development
+      LOG_TO_FILE: "false"
     env_file:
       # - ./services/bot/.env
       - ./services/bot/.env.local
@@ -208,6 +217,8 @@ services:
       context: ./services/api
       dockerfile: Dockerfile.bun
     command: sh -c "bun run bun:start | tee -a /logs/api-bun.log"
+    environment:
+      LOG_TO_FILE: "false"
     env_file:
       - ./services/api/.env
       - ./services/api/.env.local
@@ -227,6 +238,8 @@ services:
       context: ./services/worker
       dockerfile: Dockerfile.bun
     command: sh -c "bun run bun:start | tee -a /logs/worker-bun.log"
+    environment:
+      LOG_TO_FILE: "false"
     env_file:
       - ./services/worker/.env
       - ./services/worker/.env.local
@@ -261,6 +274,8 @@ services:
       context: ./services/bot
       dockerfile: Dockerfile.bun
     command: sh -c "bun run bun:start | tee -a /logs/bot-bun.log"
+    environment:
+      LOG_TO_FILE: "false"
     env_file:
       # - ./services/bot/.env
       - ./services/bot/.env.local

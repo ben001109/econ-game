@@ -3,7 +3,7 @@
 ## Usage
 - Import one of the JSON eggs under `pterodactyl/eggs/` into your panel.
 - Pick a Bun yolk image (e.g. `ghcr.io/parkervcp/yolks:bun_latest`).
-- Set `WORK_DIR` to the service folder if you clone the whole repo, or leave `.` if you upload only that service.
+- If you clone or mount the whole repo, set `WORK_DIR` to `services/api`, `services/worker`, `services/bot`, or `services/frontend`. Leave `WORK_DIR=.` only when you upload a single service directory.
 - When uploading a single service with `WORK_DIR=.`, set `LOG_DIR=./logs` or `LOG_TO_FILE=false` for API, worker, and bot deployments. Their logger defaults write to `../../logs`, which is correct from `services/<name>` in a full repo but resolves outside the Pterodactyl server directory when only service contents are uploaded.
 - Set environment variables as needed (e.g. API: `DATABASE_URL`, `REDIS_URL`, `PORT`).
 
@@ -15,11 +15,11 @@
    - Leave `Default Startup Command` as provided unless you have a custom script.
    - In `Server Owner` and `Description`, fill in whatever helps you recognize the service later.
 4. After the server is created, open the `Startup` tab and adjust:
-   - `WORK_DIR` to the service folder (see table below) if the repository root is mounted.
+   - `WORK_DIR` to the service folder (see table below) when the whole repo is cloned or mounted. Use `WORK_DIR=.` only for single-service uploads.
    - Any required environment variables. At minimum the API needs `DATABASE_URL`, `REDIS_URL`, and `PORT`; the worker needs queue endpoints; the bot needs `DISCORD_BOT_TOKEN` plus `API_BASE_URL`; the frontend needs `NEXT_PUBLIC_API_URL` if the API is not localhost or reverse-proxied to the same origin.
    - For API, worker, and bot single-service uploads with `WORK_DIR=.`, set `LOG_DIR=./logs` or `LOG_TO_FILE=false` so log files stay inside the server directory or are disabled.
 5. Deploy the application code:
-   - If you cloned the whole repository into the node, point the server's SFTP path to the repo root; the egg runs from that working directory.
+   - If you cloned the whole repository into the node, point the server's SFTP path to the repo root and set `WORK_DIR` to that server's service folder, such as `services/api`.
    - If you only upload a single service, keep `WORK_DIR` as `.` and upload the corresponding `services/<name>` contents via SFTP. For API, worker, and bot single-service uploads, also set `LOG_DIR=./logs` or `LOG_TO_FILE=false`; otherwise the default `../../logs` path can resolve outside the server directory.
 6. Start the server. On first boot the frontend egg runs a full `bun install` before `bun run bun:build` so Next/TypeScript build tooling from devDependencies is available. API, worker, and bot eggs can use `bun install --production`, then any service-specific bootstrap (`bun prisma generate` / `db push` for the API). Watch the console to confirm each step completes.
 7. Once the server is running, hit the service's HTTP port (or relevant queue/bot endpoints) to verify it responds, then enable automatic restarts or schedules as needed.

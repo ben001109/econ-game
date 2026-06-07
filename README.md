@@ -59,7 +59,7 @@ Services:
 
 ## Logging
 
-- API, worker, and bot write structured pino output to both the terminal and fixed `.log` files under `logs/` (`*-dev.log` when `NODE_ENV !== production`). Docker Compose commands also append service stdout to files in `logs/` via `tee`.
+- API, worker, and bot write structured pino output to both the terminal and fixed `.log` files under `logs/` (`*-dev.log` when `NODE_ENV !== production`) for direct host runs. Docker Compose disables in-process file logging for those app services because their stdout is already appended to files in `logs/` via `tee`.
 - Override the destination directory with `LOG_DIR` or point to an exact file with `LOG_FILE`. Paths can be absolute or resolved relative to the service directory.
 - Use `LOG_TO_FILE=false` (or `0`/`off`) to disable file writes entirely; helpful for ephemeral CI environments.
 - `LOG_LEVEL` controls both console and file verbosity, while `LOG_FILE_SUFFIX` lets you customise the filename suffix if the `-dev` default is not desired.
