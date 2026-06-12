@@ -230,7 +230,7 @@ export async function execute(
     }
 
     await interaction.editReply(t('unknown_subcommand'));
-  } catch (err) {
+  } catch (_err) {
     await interaction.editReply(t('error_execute'));
   }
 }

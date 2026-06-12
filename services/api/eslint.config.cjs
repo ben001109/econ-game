@@ -3,6 +3,11 @@ const tsPlugin = require('@typescript-eslint/eslint-plugin');
 
 module.exports = [
   {
+    linterOptions: {
+      reportUnusedDisableDirectives: false,
+    },
+  },
+  {
     ignores: ['dist/**', 'node_modules/**'],
   },
   {
