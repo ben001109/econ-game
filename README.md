@@ -200,6 +200,7 @@ GitHub Actions runs on push/PR:
 
 - Do not commit secrets. Place sensitive values in `.env.local` per service; these files are git-ignored.
 - API, worker, and frontend Compose services require both their service `.env` and `.env.local` files because `docker-compose.yml` lists both in `env_file`; create `.env` from each `.env.example` and create `.env.local` files even if they are empty local overrides.
+- For `frontend-bun`, `NEXT_PUBLIC_API_URL` is different from normal runtime env because Next.js bakes `NEXT_PUBLIC_*` values into browser code during the Docker image build. Compose passes it through `build.args` using root Compose interpolation (`${NEXT_PUBLIC_API_URL:-http://localhost:4000}`), so editing only `services/frontend/.env` or `.env.local` is not enough for the Bun image. Before running `docker compose --profile bun build frontend-bun` or `docker compose --profile bun up --build frontend-bun`, either export it in your shell (`export NEXT_PUBLIC_API_URL=http://localhost:4000`) or define it in the root Compose `.env` file.
 - Bot Compose services currently load only `services/bot/.env.local` because `services/bot/.env` is commented out in `docker-compose.yml`; create `services/bot/.env.local` from its example and fill the token/API URL values there.
 - Examples are provided as `services/*/.env.example`.
 
@@ -276,4 +277,4 @@ Notes:
 - API will auto-run Prisma generate + db push via `bun:setup` before starting.
 - Ensure required Postgres/Redis services are reachable from your Pterodactyl node; current API runtime needs `DATABASE_URL` and `PORT`, while worker queue processing needs `REDIS_URL`.
 - Bot has no HTTP port; do not set `PORT` for it unless a future bot HTTP listener is added. Its `API_BASE_URL` should not use `localhost` unless the API is colocated on the same server/network namespace.
-- The frontend build needs a full `bun install` before `bun run bun:build` because Next/TypeScript build tooling lives in devDependencies. `NEXT_PUBLIC_API_URL` is a Next.js public build-time value, so Docker Compose passes it as a Bun frontend build arg (`${NEXT_PUBLIC_API_URL:-http://localhost:4000}`) and Pterodactyl users must set it before the egg runs the build.
+- The frontend build needs a full `bun install` before `bun run bun:build` because Next/TypeScript build tooling lives in devDependencies. `NEXT_PUBLIC_API_URL` is a Next.js public build-time value, so Docker Compose passes it as a Bun frontend build arg (`${NEXT_PUBLIC_API_URL:-http://localhost:4000}`) from the shell or root Compose `.env`; service-level `services/frontend/.env` and `.env.local` are runtime `env_file` inputs and do not change the already-built browser bundle. Pterodactyl users must also set it before the egg runs the build.
