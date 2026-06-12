@@ -263,7 +263,7 @@ Local with Bun:
 
 Pterodactyl (recommended gist):
 
-- Image: choose a Bun yolk (e.g. a `bun` image from pterodactyl/yolks). Set service-specific env vars: API needs `DATABASE_URL`, `REDIS_URL`, and `PORT`; frontend needs `NEXT_PUBLIC_API_URL` set before build if the API is not localhost or reverse-proxied, and its egg starts Next with `bunx next start -p {{PORT}}`; worker needs queue/database URLs as applicable; bot needs `DISCORD_BOT_TOKEN` and `API_BASE_URL` pointing to a reachable API service.
+- Image: choose a Bun yolk (e.g. a `bun` image from pterodactyl/yolks). Set service-specific env vars: API needs `DATABASE_URL` and `PORT` (`REDIS_URL` is optional/future for API); frontend needs `NEXT_PUBLIC_API_URL` set before build if the API is not localhost or reverse-proxied, and its egg starts Next with `bunx next start -p {{PORT}}`; worker needs `REDIS_URL` plus database settings as applicable; bot needs `DISCORD_BOT_TOKEN` and `API_BASE_URL` pointing to a reachable API service once normal startup serving is fixed.
 - Installer: Git clone this repo into the server directory (or upload), set `WORK_DIR` to the target service directory, and run install/start commands inside that service directory.
 - Startup command examples (per service directory):
   - API: `bun install --production && bun run bun:start`
@@ -274,6 +274,6 @@ Pterodactyl (recommended gist):
 Notes:
 
 - API will auto-run Prisma generate + db push via `bun:setup` before starting.
-- Ensure Postgres/Redis are reachable from your Pterodactyl node; set correct URLs in env.
+- Ensure required Postgres/Redis services are reachable from your Pterodactyl node; current API runtime needs `DATABASE_URL` and `PORT`, while worker queue processing needs `REDIS_URL`.
 - Bot has no HTTP port; do not set `PORT` for it unless a future bot HTTP listener is added. Its `API_BASE_URL` should not use `localhost` unless the API is colocated on the same server/network namespace.
 - The frontend build needs a full `bun install` before `bun run bun:build` because Next/TypeScript build tooling lives in devDependencies. `NEXT_PUBLIC_API_URL` is a Next.js public build-time value, so Docker Compose passes it as a Bun frontend build arg (`${NEXT_PUBLIC_API_URL:-http://localhost:4000}`) and Pterodactyl users must set it before the egg runs the build.
