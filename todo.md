@@ -90,7 +90,7 @@
   - 共享規則：透過 `packages/game-core` 匯出的 deterministic core loop 驅動採購、消耗、收入、COGS、日結與解鎖
   - UI 邊界：完整玩家體驗在 Godot；Web 與 Bot 不替代主遊戲操作
 - Frontend（Next.js admin/dev tooling）：
-  - Next 14（Pages Router）+ TypeScript；用於內容管理、營運後台、除錯、Demo bootstrap、內部測試與觀測入口
+  - Next 16（Pages Router）+ TypeScript；用於內容管理、營運後台、除錯、Demo bootstrap、內部測試與觀測入口
   - UI：Tailwind + Headless UI 或 Radix；建立共用 Layout、Top Nav、狀態提示（Toast/Modal）
   - 資料層：自訂 API 客戶端（fetch + Zod）與 React Query（或 SWR）管理快取；錯誤統一處理
   - i18n：Next Intl（或 next-translate）維護 `en/zh`，金額/時區格式化，權限字串同步
@@ -174,7 +174,7 @@
 ### P0（Godot-first foundation，避免阻塞）
 
 #### P0 剩餘阻塞
-- [ ] Monorepo packages：建立 `packages/game-core`、`packages/content`、`packages/shared`，並設定 lint/build/test pipeline
+- [x] Monorepo packages foundation：已建立 `packages/game-core`、`packages/content`、`packages/shared`，並由 CI 驗證 lint/build/test
 - [ ] `game-core`：採購、菜單/價格、自動營業、庫存消耗、收入/COGS、日結、解鎖的 deterministic core loop
 - [ ] `content`：餐飲第一產業入口資料（食材、NPC 供應商、菜單、事件、初始平衡參數）
 - [ ] `shared`：Godot/BOT/API 共用型別、Zod schema、API contract、i18n keys
