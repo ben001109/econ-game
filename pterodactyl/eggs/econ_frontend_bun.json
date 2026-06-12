@@ -12,7 +12,7 @@
     "Bun Canary": "ghcr.io/parkervcp/yolks:bun_canary"
   },
   "file_denylist": [],
-  "startup": "cd {{WORK_DIR}} && if [ -f package.json ]; then bun install; fi; bun run bun:build && bunx next start -p {{PORT}}",
+  "startup": "cd {{WORK_DIR}} && if [ -f package.json ]; then bun install --frozen-lockfile; fi; bun run bun:build && bunx next start -p {{PORT}}",
   "config": { "files": "{}", "startup": "{}", "logs": "{}", "stop": "^^C" },
   "scripts": {
     "installation": {
@@ -27,7 +27,7 @@
     { "name": "Git Username", "description": "Username for private repo", "env_variable": "USERNAME", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "nullable|string", "field_type": "text" },
     { "name": "Git Access Token", "description": "Token for private repo", "env_variable": "ACCESS_TOKEN", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "nullable|string", "field_type": "text" },
     { "name": "User Uploaded Files", "description": "Skip cloning if user uploads files (1=true)", "env_variable": "USER_UPLOAD", "default_value": "0", "user_viewable": true, "user_editable": true, "rules": "required|boolean", "field_type": "text" },
-    { "name": "Work Dir", "description": "Relative path to Frontend folder", "env_variable": "WORK_DIR", "default_value": ".", "user_viewable": true, "user_editable": true, "rules": "required|string", "field_type": "text" },
+    { "name": "Work Dir", "description": "Relative path to Frontend folder. Use . only for single-service uploads.", "env_variable": "WORK_DIR", "default_value": "services/frontend", "user_viewable": true, "user_editable": true, "rules": "required|string", "field_type": "text" },
     { "name": "Port", "description": "HTTP port", "env_variable": "PORT", "default_value": "3000", "user_viewable": true, "user_editable": true, "rules": "required|numeric", "field_type": "text" },
     { "name": "Next Public API URL", "description": "API URL baked into frontend build/runtime", "env_variable": "NEXT_PUBLIC_API_URL", "default_value": "http://localhost:4000", "user_viewable": true, "user_editable": true, "rules": "required|string", "field_type": "text" }
   ]

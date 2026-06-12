@@ -265,16 +265,16 @@ Local with Bun:
 Pterodactyl (recommended gist):
 
 - Image: choose a Bun yolk (e.g. a `bun` image from pterodactyl/yolks). Set service-specific env vars: API needs `DATABASE_URL` and `PORT` (`REDIS_URL` is optional/future for API); frontend needs `NEXT_PUBLIC_API_URL` set before build if the API is not localhost or reverse-proxied, and its egg starts Next with `bunx next start -p {{PORT}}`; worker needs `REDIS_URL` plus database settings as applicable; bot needs `DISCORD_BOT_TOKEN` and `API_BASE_URL` pointing to a reachable API service once normal startup serving is fixed.
-- Installer: Git clone this repo into the server directory (or upload), set `WORK_DIR` to the target service directory, and run install/start commands inside that service directory.
+- Installer: Git clone this repo into the server directory (or upload), keep the service-local `bun.lock` next to the matching `package.json`, and run install/start commands inside that service directory. The bundled eggs default `WORK_DIR` to `services/api`, `services/worker`, `services/bot`, or `services/frontend` for whole-repo clones; use `WORK_DIR=.` only when uploading a single service directory.
 - Startup command examples (per service directory):
-  - API: `bun install --production && bun run bun:start`
-  - Worker: `bun install --production && bun run bun:start`
-  - Bot: `bun install --production && bun run bun:start`
-  - Frontend: `bun install && bun run bun:build && bunx next start -p {{PORT}}`
+  - API: `bun install --production --frozen-lockfile && bun run bun:start`
+  - Worker: `bun install --production --frozen-lockfile && bun run bun:start`
+  - Bot: `bun install --production --frozen-lockfile && bun run bun:start`
+  - Frontend: `bun install --frozen-lockfile && bun run bun:build && bunx next start -p {{PORT}}`
 
 Notes:
 
 - API will auto-run Prisma generate + db push via `bun:setup` before starting.
 - Ensure required Postgres/Redis services are reachable from your Pterodactyl node; current API runtime needs `DATABASE_URL` and `PORT`, while worker queue processing needs `REDIS_URL`.
 - Bot has no HTTP port; do not set `PORT` for it unless a future bot HTTP listener is added. Its `API_BASE_URL` should not use `localhost` unless the API is colocated on the same server/network namespace.
-- The frontend build needs a full `bun install` before `bun run bun:build` because Next/TypeScript build tooling lives in devDependencies. `NEXT_PUBLIC_API_URL` is a Next.js public build-time value, so Docker Compose passes it as a Bun frontend build arg (`${NEXT_PUBLIC_API_URL:-http://localhost:4000}`) from the shell or root Compose `.env`; service-level `services/frontend/.env` and `.env.local` are runtime `env_file` inputs and do not change the already-built browser bundle. Pterodactyl users must also set it before the egg runs the build.
+- The frontend build needs a full `bun install --frozen-lockfile` before `bun run bun:build` because Next/TypeScript build tooling lives in devDependencies. `NEXT_PUBLIC_API_URL` is a Next.js public build-time value, so Docker Compose passes it as a Bun frontend build arg (`${NEXT_PUBLIC_API_URL:-http://localhost:4000}`) from the shell or root Compose `.env`; service-level `services/frontend/.env` and `.env.local` are runtime `env_file` inputs and do not change the already-built browser bundle. Pterodactyl users must also set it before the egg runs the build.

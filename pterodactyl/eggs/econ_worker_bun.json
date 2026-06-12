@@ -12,7 +12,7 @@
     "Bun Canary": "ghcr.io/parkervcp/yolks:bun_canary"
   },
   "file_denylist": [],
-  "startup": "cd {{WORK_DIR}} && if [ -f package.json ]; then bun install --production; fi; bun run {{START_CMD}}",
+  "startup": "cd {{WORK_DIR}} && if [ -f package.json ]; then bun install --production --frozen-lockfile; fi; bun run {{START_CMD}}",
   "config": { "files": "{}", "startup": "{}", "logs": "{}", "stop": "^^C" },
   "scripts": {
     "installation": {
@@ -27,7 +27,7 @@
     { "name": "Git Username", "description": "Username for private repo", "env_variable": "USERNAME", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "nullable|string", "field_type": "text" },
     { "name": "Git Access Token", "description": "Token for private repo", "env_variable": "ACCESS_TOKEN", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "nullable|string", "field_type": "text" },
     { "name": "User Uploaded Files", "description": "Skip cloning if user uploads files (1=true)", "env_variable": "USER_UPLOAD", "default_value": "0", "user_viewable": true, "user_editable": true, "rules": "required|boolean", "field_type": "text" },
-    { "name": "Work Dir", "description": "Relative path to Worker folder", "env_variable": "WORK_DIR", "default_value": ".", "user_viewable": true, "user_editable": true, "rules": "required|string", "field_type": "text" },
+    { "name": "Work Dir", "description": "Relative path to Worker folder. Use . only for single-service uploads.", "env_variable": "WORK_DIR", "default_value": "services/worker", "user_viewable": true, "user_editable": true, "rules": "required|string", "field_type": "text" },
     { "name": "Start Cmd", "description": "package.json script to run", "env_variable": "START_CMD", "default_value": "bun:start", "user_viewable": true, "user_editable": true, "rules": "required|string", "field_type": "text" },
     { "name": "Log Dir", "description": "Log directory. Use ./logs when WORK_DIR=. for single-service uploads.", "env_variable": "LOG_DIR", "default_value": "../../logs", "user_viewable": true, "user_editable": true, "rules": "nullable|string", "field_type": "text" },
     { "name": "Log To File", "description": "Set false, 0, or off to disable service log files.", "env_variable": "LOG_TO_FILE", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "nullable|string", "field_type": "text" },

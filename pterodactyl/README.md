@@ -3,7 +3,8 @@
 ## Usage
 - Import one of the JSON eggs under `pterodactyl/eggs/` into your panel.
 - Pick a Bun yolk image (e.g. `ghcr.io/parkervcp/yolks:bun_latest`).
-- If you clone or mount the whole repo, set `WORK_DIR` to `services/api`, `services/worker`, `services/bot`, or `services/frontend`. Leave `WORK_DIR=.` only when you upload a single service directory.
+- Bun eggs default `WORK_DIR` to the matching `services/<name>` path for whole-repo clones. Leave `WORK_DIR=.` only when you upload a single service directory.
+- Bun deployments use the service-local `bun.lock`; keep each `services/<name>/bun.lock` committed and deploy it with the matching `package.json` so frozen installs stay reproducible.
 - When uploading a single service with `WORK_DIR=.`, set `LOG_DIR=./logs` or `LOG_TO_FILE=false` for API, worker, and bot deployments. Their logger defaults write to `../../logs`, which is correct from `services/<name>` in a full repo but resolves outside the Pterodactyl server directory when only service contents are uploaded.
 - Set environment variables as needed (e.g. API: `DATABASE_URL`, `PORT`; worker: `REDIS_URL`).
 
@@ -21,7 +22,7 @@
 5. Deploy the application code:
    - If you cloned the whole repository into the node, point the server's SFTP path to the repo root and set `WORK_DIR` to that server's service folder, such as `services/api`.
    - If you only upload a single service, keep `WORK_DIR` as `.` and upload the corresponding `services/<name>` contents via SFTP. For API, worker, and bot single-service uploads, also set `LOG_DIR=./logs` or `LOG_TO_FILE=false`; otherwise the default `../../logs` path can resolve outside the server directory.
-6. Start the server. On first boot the frontend egg runs a full `bun install` before `bun run bun:build` so Next/TypeScript build tooling from devDependencies is available. API, worker, and bot eggs can use `bun install --production`, then any service-specific bootstrap (`bun prisma generate` / `db push` for the API). Watch the console to confirm each step completes.
+6. Start the server. On first boot the frontend egg runs a full `bun install --frozen-lockfile` before `bun run bun:build` so Next/TypeScript build tooling from devDependencies is available. API, worker, and bot eggs use `bun install --production --frozen-lockfile`, then any service-specific bootstrap (`bun prisma generate` / `db push` for the API). Watch the console to confirm each step completes.
 7. Once the server is running, verify API/frontend via their HTTP ports. Verify worker through process logs and queue activity. Verify bot through process logs and Discord behavior only after the bot startup cleanup handler is fixed or removed.
 
 ## Recommended WORK_DIR values
@@ -39,7 +40,8 @@
 - Set `LOG_TO_FILE=false` (or `0`/`off`) if you only want console logs and do not want the service to create log files.
 
 ## Notes
-- Frontend runs a full `bun install` before build; API, worker, and bot can use `bun install --production` on startup. API runs Prisma generate/db push via its `bun:start` script.
+- Frontend runs a full `bun install --frozen-lockfile` before build; API, worker, and bot use `bun install --production --frozen-lockfile` on startup. API runs Prisma generate/db push via its `bun:start` script.
+- The egg `WORK_DIR` defaults assume the whole repository is cloned into the server directory. Use `WORK_DIR=.` only when uploading just one service directory, and include that service's `bun.lock` with the upload.
 - The bot currently clears slash commands and exits on startup because of the cleanup handler. Treat the bot egg as useful after that handler is fixed/removed for normal companion operation, or for explicit maintenance cleanup runs.
 - Bot deployments need `DISCORD_BOT_TOKEN` and `API_BASE_URL` (default `http://localhost:4000`) so commands can call the API once normal startup serving is fixed.
 - Frontend deployments need `NEXT_PUBLIC_API_URL` (default `http://localhost:4000`) when the API is not localhost or reverse-proxied to the same origin; Next.js bakes this public value into the browser bundle during `bun run bun:build`, so set it before the build runs.
