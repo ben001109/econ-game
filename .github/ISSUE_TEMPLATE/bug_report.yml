@@ -1,0 +1,46 @@
+name: Bug report
+description: Report reproducible broken behavior
+title: "[Bug]: "
+labels: []
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Start ...\n2. Run ...\n3. Observe ..."
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - API
+        - Worker
+        - Frontend
+        - Discord bot
+        - Database / Prisma
+        - Docker / deployment
+        - Shared game logic
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node/Bun version, Docker version, commit/tag, and other relevant details.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      render: shell
