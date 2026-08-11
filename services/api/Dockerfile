@@ -20,7 +20,7 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
 EXPOSE 4000
-CMD ["sh", "-c", "npx prisma db push && node dist/index.js"]
+CMD ["node", "dist/index.js"]
 ENV NEW_RELIC_NO_CONFIG_FILE=true
 ENV NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true
 ENV NEW_RELIC_LOG=stdout

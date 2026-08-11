@@ -1,0 +1,45 @@
+name: Closed-beta candidate (no deploy)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Candidate environment label; this workflow never deploys
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - closed-beta
+
+permissions:
+  contents: read
+
+concurrency:
+  group: closed-beta-candidate-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    uses: ./.github/workflows/ci.yml
+
+  release-evidence:
+    name: Fail-closed release evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: quality
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Verify all closed-beta gates for candidate SHA
+        run: node scripts/check-closed-beta-evidence.mjs
+      - name: Confirm registry SHA equals workflow SHA
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+        run: node -e "const e=require('./docs/operations/closed-beta-gate-evidence.json'); if(e.commitSha!==process.env.CANDIDATE_SHA) throw new Error('evidence commitSha does not match workflow SHA')"
+      - name: Candidate only
+        run: echo "All evidence is bound to $GITHUB_SHA for ${{ inputs.target }}; no deployment was performed."

@@ -26,7 +26,7 @@ services:
   api:
     build: ./services/api
     profiles: [ "prod" ]
-    command: sh -c "npx prisma db push && node dist/index.js | tee -a /logs/api.log"
+    command: sh -c "node dist/index.js | tee -a /logs/api.log"
     env_file:
       - ./services/api/.env
       - ./services/api/.env.local
@@ -117,7 +117,6 @@ services:
       && update-ca-certificates
       && npm install
       && npx prisma generate
-      && npx prisma db push
       && (npm run dev | tee -a /logs/api-dev.log)"
     environment:
       NODE_ENV: development

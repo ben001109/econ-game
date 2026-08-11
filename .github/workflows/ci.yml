@@ -1,17 +1,38 @@
 name: CI
 
 on:
+  workflow_call:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  lint-build:
-    name: Lint and Build (${{ matrix.service }})
+  migration-safety:
+    name: Migration safety
     runs-on: ubuntu-latest
-    env:
-      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Reject schema push commands
+        run: node scripts/check-migration-safety.mjs
+
+  service-quality:
+    name: Quality (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -39,90 +60,54 @@ jobs:
           cache: 'npm'
           cache-dependency-path: ${{ matrix.dir }}/package-lock.json
 
-      - name: Discord token not set (worker)
-        if: ${{ matrix.service == 'worker' && (env.DISCORD_BOT_TOKEN == '' || env.DISCORD_BOT_TOKEN == null) }}
-        run: echo "::notice title=Discord::DISCORD_BOT_TOKEN not set; worker will skip Discord features"
-
-      - name: Discord token not set (bot)
-        if: ${{ matrix.service == 'bot' && (env.DISCORD_BOT_TOKEN == '' || env.DISCORD_BOT_TOKEN == null) }}
-        run: echo "::warning title=Discord::DISCORD_BOT_TOKEN not set; bot cannot start in CI"
-
       - name: Install deps
-        run: |
-          if [ -f package-lock.json ]; then npm ci --no-audit --ignore-scripts; else npm install --no-audit --ignore-scripts; fi
+        run: npm ci --no-audit --ignore-scripts
 
       - name: Generate Prisma Client (if script exists)
-        run: |
-          npm run prisma:generate --if-present
+        timeout-minutes: 5
+        run: npm run prisma:generate --if-present
+
+      - name: Format
+        run: npm run format:check
 
       - name: Lint
-        run: |
-          npm run lint --if-present
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit and invariant tests (when owned by service)
+        run: npm run test --if-present
 
       - name: Build
-        run: |
-          npm run build --if-present
+        run: npm run build
 
-  lint-build-windows:
-    name: Lint and Build (Windows ${{ matrix.service }})
-    runs-on: windows-latest
-    env:
-      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - service: api
-            dir: services/api
-          - service: worker
-            dir: services/worker
-          - service: frontend
-            dir: services/frontend
-          - service: bot
-            dir: services/bot
+  sdk-quality:
+    name: SDK surface and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
-        working-directory: ${{ matrix.dir }}
-        shell: bash
+        working-directory: packages/econ-game-sdk
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
-          cache-dependency-path: ${{ matrix.dir }}/package-lock.json
-
-      - name: Discord token not set (worker)
-        if: ${{ matrix.service == 'worker' && (env.DISCORD_BOT_TOKEN == '' || env.DISCORD_BOT_TOKEN == null) }}
-        run: echo "::notice title=Discord::DISCORD_BOT_TOKEN not set; worker will skip Discord features"
-
-      - name: Discord token not set (bot)
-        if: ${{ matrix.service == 'bot' && (env.DISCORD_BOT_TOKEN == '' || env.DISCORD_BOT_TOKEN == null) }}
-        run: echo "::warning title=Discord::DISCORD_BOT_TOKEN not set; bot cannot start in CI"
-
+          cache-dependency-path: packages/econ-game-sdk/package-lock.json
       - name: Install deps
-        run: |
-          if [ -f package-lock.json ]; then npm ci --no-audit --ignore-scripts; else npm install --no-audit --ignore-scripts; fi
-
-      - name: Generate Prisma Client (if script exists)
-        run: |
-          npm run prisma:generate --if-present
-
-      - name: Lint
-        run: |
-          npm run lint --if-present
-
-      - name: Build
-        run: |
-          npm run build --if-present
+        run: npm ci --no-audit --ignore-scripts
+      - name: Verify SDK
+        run: npm run verify
 
   docker-build:
     name: Docker Build (${{ matrix.service }})
     runs-on: ubuntu-latest
-    needs: lint-build
+    timeout-minutes: 30
+    needs: [migration-safety, service-quality, sdk-quality]
     strategy:
       fail-fast: false
       matrix:

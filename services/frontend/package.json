@@ -10,8 +10,10 @@
     "bun:build": "bunx next build",
     "bun:start": "bunx next start -p 3000",
     "lint": "eslint .",
+    "typecheck": "tsc -p . --noEmit",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write ."
+    "format": "prettier --ignore-path ../../.prettierignore --write .",
+    "format:check": "prettier --ignore-path ../../.prettierignore --check ."
   },
   "dependencies": {
     "@sentry/nextjs": "^10.22.0",

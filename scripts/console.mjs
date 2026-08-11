@@ -482,7 +482,7 @@ async function setupDockerWorkflow(includeDevProfile) {
   console.log('[console] Docker setup complete.');
 }
 
-async function setupLocalWorkflow({ skipInstall, dbPush, startDb }) {
+async function setupLocalWorkflow({ skipInstall, startDb }) {
   const requiredNode = readNvmrc() ?? 20;
   const current = getNodeMajor();
   if (current < requiredNode) {
@@ -525,11 +525,8 @@ async function setupLocalWorkflow({ skipInstall, dbPush, startDb }) {
   if (existsSync(join(servicesDir, 'api', 'prisma'))) {
     console.log('[console] Generating Prisma client (api)...');
     await sh(platformCommand('npx'), ['prisma', 'generate'], { cwd: join(servicesDir, 'api') });
-    if (dbPush) {
-      console.log('[console] Pushing Prisma schema to DB (requires reachable Postgres)...');
-      await sh(platformCommand('npx'), ['prisma', 'db', 'push'], { cwd: join(servicesDir, 'api') });
-    }
   }
+  console.log('[console] Database schema unchanged; reviewed migrations are a separate release step.');
 
   console.log('[console] Local setup complete.');
   console.log('[console] Next steps:');
@@ -586,7 +583,6 @@ async function gatherSetupSelections() {
     mode: '',
     dockerDev: true,
     localSkipInstall: false,
-    localDbPush: false,
     localStartDb: false,
     monitoring: {
       newRelicEnabled: false,
@@ -632,10 +628,9 @@ async function gatherSetupSelections() {
   } else {
     state.localSkipInstall = await setupAskYesNo('Skip Node.js package installation (npm install)?', false);
     state.localStartDb = await setupAskYesNo('Start databases after setup?', false);
-    state.localDbPush = await setupAskYesNo('Push Prisma schema to DB after setup?', false);
     console.log(`[console] npm install: ${state.localSkipInstall ? 'skipped' : 'will run'}.`);
     console.log(`[console] Start local databases: ${state.localStartDb ? 'yes' : 'no'}.`);
-    console.log(`[console] Prisma db push: ${state.localDbPush ? 'yes' : 'no'}.`);
+    console.log('[console] Database schema will not be changed by setup.');
   }
 
   state.monitoring.newRelicEnabled = await setupAskYesNo('Configure New Relic APM?', false);
@@ -696,7 +691,6 @@ async function runSetupWizard() {
   } else if (selections.mode === 'local') {
     await setupLocalWorkflow({
       skipInstall: selections.localSkipInstall,
-      dbPush: selections.localDbPush,
       startDb: selections.localStartDb,
     });
   } else {

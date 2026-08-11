@@ -20,5 +20,5 @@ ENV NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true
 ENV NEW_RELIC_LOG=stdout
 EXPOSE 4000
 
-# Run with Bun; will also ensure db schema via package script
+# Database migrations are a separate reviewed release step; service startup is read-only.
 CMD ["bun", "run", "bun:start"]

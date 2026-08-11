@@ -10,8 +10,10 @@
     "bun:dev": "bun --hot src/index.ts",
     "bun:start": "bun src/index.ts",
     "lint": "eslint .",
+    "typecheck": "tsc -p . --noEmit",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write ."
+    "format": "prettier --ignore-path ../../.prettierignore --write .",
+    "format:check": "prettier --ignore-path ../../.prettierignore --check ."
   },
   "dependencies": {
     "@sentry/node": "^10.22.0",

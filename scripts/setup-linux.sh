@@ -22,7 +22,6 @@ fi
 VERBOSE="${VERBOSE:-0}"
 MODE=""
 DEV="0"
-DB_PUSH="0"
 START_DB="0"
 SKIP_INSTALL="0"
 NODE_REQUIRED_VERSION=""
@@ -620,7 +619,6 @@ prompt_docker_options() {
 
 prompt_local_options() {
   SKIP_INSTALL="0"
-  DB_PUSH="0"
   START_DB="0"
   if [[ ! -t 0 ]]; then
     return 0
@@ -641,17 +639,9 @@ prompt_local_options() {
       START_DB="1"
       ;;
   esac
-  printf 'Push database migrations/data after setup? [y/N]: ' >&2
-  answer=""
-  read -r answer || answer=""
-  case "${answer,,}" in
-    y|yes|1)
-      DB_PUSH="1"
-      ;;
-  esac
   log "Local npm install: $([[ "$SKIP_INSTALL" == "1" ]] && printf 'skipped' || printf 'will run')."
   log "Start local databases: $([[ "$START_DB" == "1" ]] && printf 'yes' || printf 'no')."
-  log "Run Prisma db push: $([[ "$DB_PUSH" == "1" ]] && printf 'yes' || printf 'no')."
+  log "Database schema is unchanged; apply reviewed migrations in a separate release step."
 }
 
 prompt_portainer_selection() {
@@ -859,8 +849,7 @@ record_docker_summary() {
 
 record_local_summary() {
   local skip_install="$1"
-  local db_push="$2"
-  local start_db="$3"
+  local start_db="$2"
   add_summary_line "Local development ready in services/."
   add_summary_line "API: cd services/api && npm run dev"
   add_summary_line "Worker: cd services/worker && npm run dev"
@@ -873,9 +862,7 @@ record_local_summary() {
   if [[ "$skip_install" == "1" ]]; then
     add_summary_line "npm install skipped; run npm install in each service before dev."
   fi
-  if [[ "$db_push" == "1" ]]; then
-    add_summary_line "Prisma schema pushed to database."
-  fi
+  add_summary_line "Database schema unchanged; reviewed migrations are a separate release step."
 }
 
 enable_verbose_tracing() {
@@ -1150,8 +1137,7 @@ install_package_deps() {
 
 setup_local() {
   local skip_install="$1"
-  local db_push="$2"
-  local start_db="$3"
+  local start_db="$2"
   log_section "Local Workflow"
 
   local required_node_spec="20"
@@ -1224,10 +1210,6 @@ setup_local() {
   if [[ -d "${SERVICES_DIR}/api/prisma" ]]; then
     log "Generating Prisma client (api)..."
     (cd "${SERVICES_DIR}/api" && npx prisma generate)
-    if [[ "$db_push" == "1" ]]; then
-      log "Pushing Prisma schema to DB (requires reachable Postgres)..."
-      (cd "${SERVICES_DIR}/api" && npx prisma db push)
-    fi
   fi
 
   log "Local setup complete."
@@ -1235,7 +1217,7 @@ setup_local() {
   log "- API:      cd services/api && npm run dev"
   log "- Worker:   cd services/worker && npm run dev"
   log "- Frontend: cd services/frontend && npm run dev"
-  record_local_summary "$skip_install" "$db_push" "$start_db"
+  record_local_summary "$skip_install" "$start_db"
 }
 
 main() {
@@ -1260,7 +1242,7 @@ main() {
       setup_docker "$DEV"
       ;;
     local)
-      setup_local "$SKIP_INSTALL" "$DB_PUSH" "$START_DB"
+      setup_local "$SKIP_INSTALL" "$START_DB"
       ;;
     *)
       fail "Unknown mode: ${MODE:-unset}"
