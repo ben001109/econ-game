@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: econ-game-frontend
+Version: 0.1.0
+Summary: FastAPI + Jinja frontend shell for the Econ Game Python stack
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.111
+Requires-Dist: uvicorn[standard]>=0.30
+Requires-Dist: jinja2>=3.1
+Requires-Dist: httpx>=0.27
+Requires-Dist: pydantic-settings>=2.3
+Provides-Extra: dev
+Requires-Dist: ruff>=0.5; extra == "dev"
+
+# Econ Game Frontend (Python)
+
+A minimal FastAPI + Jinja layer that proxies API health data for quick smoke tests. Extend this service with HTMX/Vue/etc. as needed.

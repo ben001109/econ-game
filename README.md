@@ -19,6 +19,22 @@ Prerequisites:
 
 - Docker + Docker Compose
 
+### Python/uv Stack (preview)
+
+A parallel Python implementation now lives under `python/services/*` and ships with a uv workspace defined at the repo root (`pyproject.toml`). To try it:
+
+```bash
+uv sync                    # resolve dependencies for all Python services
+uv run --project python/services/api api-dev
+uv run --project python/services/worker worker-dev
+uv run --project python/services/frontend frontend-dev
+uv run --project python/services/bot bot-dev
+# or launch them together:
+python python/main.py
+```
+
+Use `docker compose -f docker-compose.python.yml up --build` to boot the Python stack alongside Postgres/Redis/Adminer, or import the new Pterodactyl eggs in `pterodactyl/eggs/*python*.json` if you want to deploy via a Python 3.12 yolk. Each egg runs `uv sync --no-dev` (or `--frozen` when `uv.lock` is present) before executing the service-specific script.
+
 ## Setup
 
 Interactive console (Node 20+):
@@ -220,5 +236,5 @@ Pterodactyl (recommended gist):
   - Frontend: `bun install --production && bun run bun:build && bun run bun:start`
 
 Notes:
-- API will auto-run Prisma generate + db push via `bun:setup` before starting.
+- API startup only generates the Prisma client. Database changes require a reviewed migration and a separate `npm run db:migrate:deploy` release step; application startup never mutates schema.
 - Ensure Postgres/Redis are reachable from your Pterodactyl node; set correct URLs in env.

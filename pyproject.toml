@@ -1,0 +1,23 @@
+[project]
+name = "econ-game-python-workspace"
+version = "0.1.0"
+description = "uv workspace that tracks all Python services for the Econ Game monorepo"
+readme = "python/README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+keywords = ["econ-game", "uv", "workspace"]
+classifiers = [
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Framework :: FastAPI"
+]
+dependencies = []
+
+[tool.uv.workspace]
+members = [
+  "python/services/api",
+  "python/services/worker",
+  "python/services/bot",
+  "python/services/frontend"
+]

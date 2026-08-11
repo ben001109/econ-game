@@ -1,0 +1,32 @@
+[project]
+name = "econ-game-worker"
+version = "0.1.0"
+description = "Async economic tick runner for the Econ Game"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "sqlmodel>=0.0.14",
+  "asyncpg>=0.29",
+  "redis>=5.0",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.3",
+  "python-json-logger>=2.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2",
+  "anyio>=4.3",
+  "ruff>=0.5"
+]
+
+[tool.uv]
+package = true
+
+[tool.uv.scripts]
+worker-dev = "python -m econ_worker.main"
+worker-prod = "python -m econ_worker.main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

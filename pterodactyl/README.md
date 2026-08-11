@@ -1,8 +1,10 @@
-Pterodactyl Eggs for Econ Game (Bun)
+Pterodactyl Eggs for Econ Game (Bun + Python/uv)
 
 Usage
-- Import one of the JSON eggs under `pterodactyl/eggs/` into your panel.
-- Pick a Bun yolk image (e.g. `ghcr.io/parkervcp/yolks:bun_latest`).
+- Import one of the JSON eggs under `pterodactyl/eggs/` into your panel (Bun eggs use the `*_bun.json` suffix, Python/uv eggs use `*_python.json`).
+- Pick the yolk image that matches the stack you are deploying:
+  - Bun stack: `ghcr.io/parkervcp/yolks:bun_latest`
+  - Python stack: `ghcr.io/parkervcp/yolks:python_3.12` (ships with `uv`)
 - Set `WORK_DIR` to the service folder if you clone the whole repo, or leave `.` if you upload only that service.
 - Set environment variables as needed (e.g. API: `DATABASE_URL`, `REDIS_URL`, `PORT`).
 
@@ -27,6 +29,10 @@ Recommended WORK_DIR values
 - Worker: `services/worker`
 - Bot: `services/bot`
 - Frontend: `services/frontend`
+- Python API: `python/services/api`
+- Python Worker: `python/services/worker`
+- Python Bot: `python/services/bot`
+- Python Frontend: `python/services/frontend`
 
 Startup defaults
 - API/Worker/Bot: `START_CMD=bun:start` (defined in each service package.json)
@@ -37,3 +43,4 @@ Notes
 - Ensure your DB/Redis endpoints are reachable from the node that hosts the server.
 - For production, set `NODE_ENV=production` and provide any external API keys in the Startup tab.
 - If migrations or seed data are required, add a Pterodactyl schedule to run the corresponding `bun` script after deploys.
+- Python eggs call `uv sync --no-dev` (or `--frozen` if `uv.lock` exists) before executing the script named by `START_CMD`.

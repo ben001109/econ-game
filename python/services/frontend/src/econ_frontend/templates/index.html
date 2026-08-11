@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Econ Game (Python Frontend)</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 2rem; background: #0d1117; color: #f0f6fc; }
+      .card { padding: 1.5rem; border-radius: 12px; background: #161b22; box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+      .status { font-size: 1.25rem; margin-bottom: .5rem; }
+      .status.ok { color: #3fb950; }
+      .status.degraded { color: #f0883e; }
+      .status.down { color: #f85149; }
+      code { background: rgba(255,255,255,.08); padding: .1rem .3rem; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="status {{ health.status | default('unknown') }}">Status: {{ health.status | default('unknown') }}</div>
+      <p>API base URL: <code>{{ api_base_url }}</code></p>
+      <ul>
+        <li>Postgres: {{ health.postgres or 'n/a' }}</li>
+        <li>Redis: {{ health.redis or 'n/a' }}</li>
+      </ul>
+    </div>
+  </body>
+</html>

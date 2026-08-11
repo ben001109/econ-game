@@ -1,0 +1,39 @@
+[project]
+name = "econ-game-api"
+version = "0.1.0"
+description = "FastAPI implementation of the Econ Game HTTP API"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.111",
+  "uvicorn[standard]>=0.30",
+  "sqlmodel>=0.0.14",
+  "asyncpg>=0.29",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.3",
+  "redis>=5.0",
+  "python-json-logger>=2.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2",
+  "httpx>=0.27",
+  "anyio>=4.3",
+  "ruff>=0.5"
+]
+
+[tool.uv]
+package = true
+
+[tool.uv.scripts]
+api-dev = "uvicorn econ_api.main:app --reload --host 0.0.0.0 --port ${PORT:-4000}"
+api-prod = "uvicorn econ_api.main:app --host 0.0.0.0 --port ${PORT:-4000}"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]

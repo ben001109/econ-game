@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+src/econ_bot/__init__.py
+src/econ_bot/client.py
+src/econ_bot/config.py
+src/econ_bot/main.py
+src/econ_game_bot.egg-info/PKG-INFO
+src/econ_game_bot.egg-info/SOURCES.txt
+src/econ_game_bot.egg-info/dependency_links.txt
+src/econ_game_bot.egg-info/requires.txt
+src/econ_game_bot.egg-info/top_level.txt
