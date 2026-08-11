@@ -73,7 +73,10 @@ if (hasSentryDsn && !dsnLooksValid && !globalState[sentryWarnFlag]) {
 if (dsnLooksValid && !globalState[sentryFlag]) {
   const environment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development';
   const tracesSampleRate = parseSampleRate(process.env.SENTRY_TRACES_SAMPLE_RATE, 0);
-  const profilesSampleRate = parseSampleRate(process.env.SENTRY_PROFILES_SAMPLE_RATE, tracesSampleRate);
+  const profilesSampleRate = parseSampleRate(
+    process.env.SENTRY_PROFILES_SAMPLE_RATE,
+    tracesSampleRate,
+  );
   Sentry.init({
     dsn: trimmedDsn,
     environment,
@@ -90,7 +93,8 @@ if (dsnLooksValid && !globalState[sentryFlag]) {
 
 if (monitoringState.sentry && !globalState[sentryHooksFlag]) {
   const captureUnhandled = (reason: unknown) => {
-    const error = reason instanceof Error ? reason : new Error(`Unhandled rejection: ${String(reason)}`);
+    const error =
+      reason instanceof Error ? reason : new Error(`Unhandled rejection: ${String(reason)}`);
     Sentry.captureException(error);
   };
   process.on('unhandledRejection', captureUnhandled);

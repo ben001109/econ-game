@@ -17,7 +17,7 @@ function normalizeKey(source: string) {
 function localizeOrFallback(
   translate: (key: string, vars?: Record<string, string | number>) => string,
   key: string,
-  fallback: string
+  fallback: string,
 ) {
   const value = translate(key);
   return value === key ? fallback : value;
@@ -42,29 +42,29 @@ export const data = new SlashCommandBuilder()
           .setName('limit')
           .setDescription('Maximum number of tickets to show')
           .setMinValue(1)
-          .setMaxValue(25)
-      )
+          .setMaxValue(25),
+      ),
   )
   .addSubcommand((sub) =>
     sub
       .setName('start')
       .setDescription('Mark a ticket as in progress')
       .addStringOption((opt) =>
-        opt.setName('order-id').setDescription('Order ID').setRequired(true)
-      )
+        opt.setName('order-id').setDescription('Order ID').setRequired(true),
+      ),
   )
   .addSubcommand((sub) =>
     sub
       .setName('serve')
       .setDescription('Mark a ticket as served')
       .addStringOption((opt) =>
-        opt.setName('order-id').setDescription('Order ID').setRequired(true)
-      )
+        opt.setName('order-id').setDescription('Order ID').setRequired(true),
+      ),
   );
 
 export async function execute(
   interaction: ChatInputCommandInteraction,
-  t: (key: string, vars?: Record<string, string | number>) => string
+  t: (key: string, vars?: Record<string, string | number>) => string,
 ) {
   const sub = interaction.options.getSubcommand();
   await interaction.deferReply({ ephemeral: true });
@@ -88,7 +88,7 @@ export async function execute(
         const statusLabel = localizeOrFallback(
           t,
           `kds_status_${normalizeKey(statusRaw)}`,
-          statusRaw
+          statusRaw,
         );
         const items = ticket.items
           ?.map((item) => `${item.qty ?? 1}× ${item.menuItem?.name ?? 'Item'}`)
@@ -104,7 +104,7 @@ export async function execute(
           ? `\n${t('kds_tickets_more', { remaining: tickets.length - limit })}`
           : '';
       await interaction.editReply(
-        `${t('kds_tickets_header', { count: tickets.length })}\n${entries.join('\n')}${extra}`
+        `${t('kds_tickets_header', { count: tickets.length })}\n${entries.join('\n')}${extra}`,
       );
       return;
     }
@@ -115,7 +115,7 @@ export async function execute(
       const actionLabel = localizeOrFallback(
         t,
         sub === 'start' ? 'kds_action_label_start' : 'kds_action_label_serve',
-        action
+        action,
       );
       const res = await fetch(`${env.API_BASE_URL}/kds/tickets/${orderId}/${action}`, {
         method: 'POST',
@@ -127,7 +127,7 @@ export async function execute(
             action: actionLabel,
             orderId,
             status: (body as { status?: string } | null)?.status ?? '',
-          })
+          }),
         );
         return;
       }
@@ -135,7 +135,7 @@ export async function execute(
         (body as { message?: string; code?: string } | null)?.message ||
         (body as { message?: string; code?: string } | null)?.code;
       await interaction.editReply(
-        `${t('kds_action_failed', { action: actionLabel })} ${errorMsg ? `(${errorMsg})` : ''}`.trim()
+        `${t('kds_action_failed', { action: actionLabel })} ${errorMsg ? `(${errorMsg})` : ''}`.trim(),
       );
       return;
     }

@@ -18,7 +18,8 @@ const normalizeBool = (value: string | undefined) => {
 };
 
 const resolveDefaultFileName = (fileBaseName: string) => {
-  const suffix = process.env.LOG_FILE_SUFFIX ?? (process.env.NODE_ENV === 'production' ? '' : '-dev');
+  const suffix =
+    process.env.LOG_FILE_SUFFIX ?? (process.env.NODE_ENV === 'production' ? '' : '-dev');
   return `${fileBaseName}${suffix}.log`;
 };
 

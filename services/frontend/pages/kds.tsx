@@ -52,15 +52,23 @@ export default function KDS() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
         {tickets.map((ticket) => (
           <div key={ticket.id} style={{ border: '1px solid #ddd', borderRadius: 6, padding: 12 }}>
-            <div style={{ fontWeight: 600 }}>#{ticket.id.slice(0, 6)} · {ticket.status}</div>
+            <div style={{ fontWeight: 600 }}>
+              #{ticket.id.slice(0, 6)} · {ticket.status}
+            </div>
             <ul style={{ marginTop: 8 }}>
               {ticket.items.map((it) => (
-                <li key={it.id}>{it.qty} × {it.menuItem.name}</li>
+                <li key={it.id}>
+                  {it.qty} × {it.menuItem.name}
+                </li>
               ))}
             </ul>
             <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-              <button disabled={loading} onClick={() => call(ticket.id, 'start')}>{messages['kds.start']}</button>
-              <button disabled={loading} onClick={() => call(ticket.id, 'serve')}>{messages['kds.serve']}</button>
+              <button disabled={loading} onClick={() => call(ticket.id, 'start')}>
+                {messages['kds.start']}
+              </button>
+              <button disabled={loading} onClick={() => call(ticket.id, 'serve')}>
+                {messages['kds.serve']}
+              </button>
             </div>
           </div>
         ))}

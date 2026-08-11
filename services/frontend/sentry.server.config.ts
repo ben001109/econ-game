@@ -12,7 +12,10 @@ const dsn = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN;
 if (dsn && !Sentry.isInitialized()) {
   const environment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development';
   const tracesSampleRate = parseSampleRate(process.env.SENTRY_TRACES_SAMPLE_RATE, 0);
-  const profilesSampleRate = parseSampleRate(process.env.SENTRY_PROFILES_SAMPLE_RATE, tracesSampleRate);
+  const profilesSampleRate = parseSampleRate(
+    process.env.SENTRY_PROFILES_SAMPLE_RATE,
+    tracesSampleRate,
+  );
   Sentry.init({
     dsn,
     environment,

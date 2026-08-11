@@ -13,7 +13,7 @@ export type SlashCommand = {
   data: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder;
   execute: (
     interaction: ChatInputCommandInteraction,
-    t: (key: string, vars?: Record<string, string | number>) => string
+    t: (key: string, vars?: Record<string, string | number>) => string,
   ) => Promise<void>;
 };
 

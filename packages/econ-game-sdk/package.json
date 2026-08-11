@@ -1,0 +1,43 @@
+{
+  "name": "@econ-game/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Internal, dependency-free HTTP clients for the current Econ Game service surfaces.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./restaurant": {
+      "types": "./dist/restaurant.d.ts",
+      "import": "./dist/restaurant.js",
+      "default": "./dist/restaurant.js"
+    },
+    "./python-preview": {
+      "types": "./dist/python-preview.d.ts",
+      "import": "./dist/python-preview.js",
+      "default": "./dist/python-preview.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check:surface": "node scripts/check-source-surface.mjs",
+    "test": "npm run build && node --test test/core.test.mjs test/restaurant-client.test.mjs test/python-preview-client.test.mjs",
+    "verify": "npm run check:surface && npm run test",
+    "pack:dry-run": "npm pack --dry-run"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

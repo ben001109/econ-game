@@ -79,7 +79,12 @@ app.post('/bootstrap', async (_req, reply) => {
             name: 'Main Branch',
             address: '123 Demo St',
             hours: '10:00-22:00',
-            tables: { create: [{ code: 'T1', seats: 2 }, { code: 'T2', seats: 4 }] },
+            tables: {
+              create: [
+                { code: 'T1', seats: 2 },
+                { code: 'T2', seats: 4 },
+              ],
+            },
             menuItems: {
               create: [
                 { sku: 'FOOD-001', name: 'Beef Noodles', basePrice: 180 },
@@ -123,7 +128,10 @@ app.post('/orders', async (req, reply) => {
       }
 
       if (tableId) {
-        const table = await tx.table.findUnique({ where: { id: tableId }, select: { id: true, branchId: true } });
+        const table = await tx.table.findUnique({
+          where: { id: tableId },
+          select: { id: true, branchId: true },
+        });
         if (!table || table.branchId !== branchId) {
           throw new ApiError(404, 'TABLE_NOT_FOUND');
         }
@@ -140,7 +148,12 @@ app.post('/orders', async (req, reply) => {
         data: {
           branchId,
           tableId: tableId || null,
-          type: type === 'takeout' ? OrderType.TAKEOUT : type === 'delivery' ? OrderType.DELIVERY : OrderType.DINE_IN,
+          type:
+            type === 'takeout'
+              ? OrderType.TAKEOUT
+              : type === 'delivery'
+                ? OrderType.DELIVERY
+                : OrderType.DINE_IN,
         },
       });
     });
@@ -164,12 +177,15 @@ const OrderItemBody = z.object({
 app.post<{ Params: { id: string } }>('/orders/:id/items', async (req, reply) => {
   const { id } = req.params;
   const parsed = OrderItemBody.safeParse(req.body ?? {});
-  if (!parsed.success) return reply.status(400).send({ code: 'BAD_REQUEST', issues: parsed.error.issues });
+  if (!parsed.success)
+    return reply.status(400).send({ code: 'BAD_REQUEST', issues: parsed.error.issues });
   const { menuItemId, qty = 1, priceOverride, notes } = parsed.data;
   const menuItem = await prisma.menuItem.findUnique({ where: { id: menuItemId } });
   if (!menuItem) return reply.status(404).send({ code: 'MENU_ITEM_NOT_FOUND' });
   const price = priceOverride ?? Number(menuItem.basePrice);
-  const item = await prisma.orderItem.create({ data: { orderId: id, menuItemId, qty, price, notes } });
+  const item = await prisma.orderItem.create({
+    data: { orderId: id, menuItemId, qty, price, notes },
+  });
   return reply.status(201).send(item);
 });
 
@@ -182,7 +198,7 @@ const PaymentBody = z.object({
       z.object({
         name: z.string().min(1),
         amount: z.number(),
-      })
+      }),
     )
     .optional(),
   tip: z.number().optional(),
@@ -192,12 +208,16 @@ const PaymentBody = z.object({
 app.post<{ Params: { id: string } }>('/orders/:id/payments', async (req, reply) => {
   const { id } = req.params;
   const parsed = PaymentBody.safeParse(req.body ?? {});
-  if (!parsed.success) return reply.status(400).send({ code: 'BAD_REQUEST', issues: parsed.error.issues });
+  if (!parsed.success)
+    return reply.status(400).send({ code: 'BAD_REQUEST', issues: parsed.error.issues });
   const { method, amount, taxLines = [], tip, close } = parsed.data;
   const pm = method === 'card' ? PaymentMethod.CARD : PaymentMethod.CASH;
   try {
     const payment = await prisma.$transaction(async (tx) => {
-      const order = await tx.order.findUnique({ where: { id }, select: { id: true, status: true, tableId: true } });
+      const order = await tx.order.findUnique({
+        where: { id },
+        select: { id: true, status: true, tableId: true },
+      });
       if (!order) {
         throw new ApiError(404, 'ORDER_NOT_FOUND');
       }
@@ -207,7 +227,9 @@ app.post<{ Params: { id: string } }>('/orders/:id/payments', async (req, reply) 
 
       const record = await tx.payment.create({ data: { orderId: id, method: pm, amount } });
       if (taxLines.length) {
-        await tx.taxLine.createMany({ data: taxLines.map((t) => ({ orderId: id, name: t.name, amount: t.amount })) });
+        await tx.taxLine.createMany({
+          data: taxLines.map((t) => ({ orderId: id, name: t.name, amount: t.amount })),
+        });
       }
       if (typeof tip === 'number' && !Number.isNaN(tip)) {
         await tx.tip.create({ data: { orderId: id, amount: tip } });

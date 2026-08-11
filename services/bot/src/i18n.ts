@@ -23,4 +23,3 @@ export function loadLocale(locale?: string) {
     return template.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`));
   };
 }
-

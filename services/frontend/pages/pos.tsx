@@ -149,30 +149,58 @@ export default function POS() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <label>
               {messages['pos.branch']}:
-              <select value={branchId} onChange={(e) => { setBranchId(e.target.value); setTableId(''); }}>
+              <select
+                value={branchId}
+                onChange={(e) => {
+                  setBranchId(e.target.value);
+                  setTableId('');
+                }}
+              >
                 <option value="">-- select --</option>
-                {restaurants.flatMap(r => r.branches).map(b => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
+                {restaurants
+                  .flatMap((r) => r.branches)
+                  .map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
               </select>
             </label>
             <label>
               {messages['pos.table']}:
-              <select value={tableId} onChange={(e) => setTableId(e.target.value)} disabled={!branchId}>
+              <select
+                value={tableId}
+                onChange={(e) => setTableId(e.target.value)}
+                disabled={!branchId}
+              >
                 <option value="">-- optional --</option>
-                {restaurants.flatMap(r => r.branches).filter(b => b.id === branchId).flatMap(b => b.tables).map(t => (
-                  <option key={t.id} value={t.id} disabled={t.status !== 'AVAILABLE'}>
-                    {t.code} · {t.status.toLowerCase()}
-                  </option>
-                ))}
+                {restaurants
+                  .flatMap((r) => r.branches)
+                  .filter((b) => b.id === branchId)
+                  .flatMap((b) => b.tables)
+                  .map((t) => (
+                    <option key={t.id} value={t.id} disabled={t.status !== 'AVAILABLE'}>
+                      {t.code} · {t.status.toLowerCase()}
+                    </option>
+                  ))}
               </select>
             </label>
-            <button disabled={!canCreate || loading} onClick={createOrder}>{messages['pos.create']}</button>
-            <button disabled={loading} onClick={setupDemo}>{messages['pos.setupDemo']}</button>
+            <button disabled={!canCreate || loading} onClick={createOrder}>
+              {messages['pos.create']}
+            </button>
+            <button disabled={loading} onClick={setupDemo}>
+              {messages['pos.setupDemo']}
+            </button>
           </div>
-          {order && <div style={{ marginTop: 8 }}>Order: {order.id} ({order.status})</div>}
+          {order && (
+            <div style={{ marginTop: 8 }}>
+              Order: {order.id} ({order.status})
+            </div>
+          )}
           <div style={{ marginTop: 8 }}>
-            <button disabled={!order || loading} onClick={payAndClose}>{messages['pos.payClose']}</button>
+            <button disabled={!order || loading} onClick={payAndClose}>
+              {messages['pos.payClose']}
+            </button>
           </div>
           <div style={{ marginTop: 8, color: '#666' }}>{log}</div>
         </section>
@@ -183,7 +211,9 @@ export default function POS() {
             {menus.map((m) => (
               <li key={m.id} style={{ marginBottom: 6 }}>
                 {m.name} (${Number(m.basePrice).toFixed(0)}){' '}
-                <button disabled={!order || loading} onClick={() => addItem(m.id)}>Add</button>
+                <button disabled={!order || loading} onClick={() => addItem(m.id)}>
+                  Add
+                </button>
               </li>
             ))}
           </ul>

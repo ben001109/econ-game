@@ -10,7 +10,11 @@ function parseSampleRate(value: string | undefined, fallback = 0): number {
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN;
 
 if (dsn && !Sentry.isInitialized()) {
-  const environment = process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development';
+  const environment =
+    process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ||
+    process.env.SENTRY_ENVIRONMENT ||
+    process.env.NODE_ENV ||
+    'development';
   const tracesSampleRate = parseSampleRate(
     process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE || process.env.SENTRY_TRACES_SAMPLE_RATE,
     0,

@@ -25,7 +25,9 @@ export default function Home() {
         <h1>{t.heading}</h1>
         <p>{t.tagline}</p>
         <div style={{ marginTop: 16 }}>
-          <button onClick={() => switchLocale('en')} style={{ marginRight: 8 }}>EN</button>
+          <button onClick={() => switchLocale('en')} style={{ marginRight: 8 }}>
+            EN
+          </button>
           <button onClick={() => switchLocale('zh')}>中文</button>
         </div>
       </main>

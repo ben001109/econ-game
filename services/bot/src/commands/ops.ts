@@ -14,15 +14,13 @@ export const data = new SlashCommandBuilder()
   .setName('ops')
   .setDescription('Operations utilities')
   .addSubcommand((sub) =>
-    sub.setName('bootstrap').setDescription('Initialize demo restaurant data')
+    sub.setName('bootstrap').setDescription('Initialize demo restaurant data'),
   )
-  .addSubcommand((sub) =>
-    sub.setName('health').setDescription('Check API health endpoint')
-  );
+  .addSubcommand((sub) => sub.setName('health').setDescription('Check API health endpoint'));
 
 export async function execute(
   interaction: ChatInputCommandInteraction,
-  t: (key: string, vars?: Record<string, string | number>) => string
+  t: (key: string, vars?: Record<string, string | number>) => string,
 ) {
   const sub = interaction.options.getSubcommand();
   await interaction.deferReply({ ephemeral: true });
@@ -36,7 +34,9 @@ export async function execute(
       }
       const body = (await parseJsonSafe(res)) as { code?: string; message?: string } | null;
       const errorMsg = body?.message || body?.code;
-      await interaction.editReply(`${t('ops_bootstrap_failed')} ${errorMsg ? `(${errorMsg})` : ''}`.trim());
+      await interaction.editReply(
+        `${t('ops_bootstrap_failed')} ${errorMsg ? `(${errorMsg})` : ''}`.trim(),
+      );
       return;
     }
 

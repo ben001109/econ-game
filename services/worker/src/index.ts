@@ -22,7 +22,11 @@ if (!process.env.DISCORD_BOT_TOKEN) {
 
 async function ensureRepeatingJob() {
   const repeat: JobsOptions['repeat'] = { every: intervalMs };
-  await queue.add('tick', {}, { jobId: 'econ:tick', repeat, removeOnComplete: true, removeOnFail: true });
+  await queue.add(
+    'tick',
+    {},
+    { jobId: 'econ:tick', repeat, removeOnComplete: true, removeOnFail: true },
+  );
 }
 
 // Process economic ticks
@@ -34,10 +38,10 @@ const worker = new Worker(
     // - read current supply/demand from DB/cache
     // - compute price movements
     // - write a batch of changes (ledger entries, market quotes)
-// For now, just log a heartbeat.
+    // For now, just log a heartbeat.
     logger.info({ jobName: job.name }, 'processed job');
   },
-  { connection }
+  { connection },
 );
 
 worker.on('failed', (job, err) => {

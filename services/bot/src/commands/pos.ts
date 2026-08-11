@@ -17,7 +17,7 @@ function normalizeKey(source: string) {
 function localizeOrFallback(
   translate: (key: string, vars?: Record<string, string | number>) => string,
   key: string,
-  fallback: string
+  fallback: string,
 ) {
   const value = translate(key);
   return value === key ? fallback : value;
@@ -31,11 +31,9 @@ export const data = new SlashCommandBuilder()
       .setName('open')
       .setDescription('Open a new order')
       .addStringOption((opt) =>
-        opt.setName('branch-id').setDescription('Branch ID').setRequired(true)
+        opt.setName('branch-id').setDescription('Branch ID').setRequired(true),
       )
-      .addStringOption((opt) =>
-        opt.setName('table-id').setDescription('Table ID (optional)')
-      )
+      .addStringOption((opt) => opt.setName('table-id').setDescription('Table ID (optional)'))
       .addStringOption((opt) =>
         opt
           .setName('type')
@@ -43,79 +41,56 @@ export const data = new SlashCommandBuilder()
           .addChoices(
             { name: 'Dine-in', value: 'dine-in' },
             { name: 'Takeout', value: 'takeout' },
-            { name: 'Delivery', value: 'delivery' }
-          )
-      )
+            { name: 'Delivery', value: 'delivery' },
+          ),
+      ),
   )
   .addSubcommand((sub) =>
     sub
       .setName('add-item')
       .setDescription('Add a menu item to an order')
       .addStringOption((opt) =>
-        opt.setName('order-id').setDescription('Order ID').setRequired(true)
+        opt.setName('order-id').setDescription('Order ID').setRequired(true),
       )
       .addStringOption((opt) =>
-        opt
-          .setName('menu-item-id')
-          .setDescription('Menu item ID')
-          .setRequired(true)
+        opt.setName('menu-item-id').setDescription('Menu item ID').setRequired(true),
       )
       .addIntegerOption((opt) =>
-        opt
-          .setName('quantity')
-          .setDescription('Quantity (default: 1)')
-          .setMinValue(1)
+        opt.setName('quantity').setDescription('Quantity (default: 1)').setMinValue(1),
       )
       .addNumberOption((opt) =>
-        opt
-          .setName('price-override')
-          .setDescription('Override price amount')
-          .setMinValue(0.01)
+        opt.setName('price-override').setDescription('Override price amount').setMinValue(0.01),
       )
-      .addStringOption((opt) =>
-        opt.setName('notes').setDescription('Special instructions')
-      )
+      .addStringOption((opt) => opt.setName('notes').setDescription('Special instructions')),
   )
   .addSubcommand((sub) =>
     sub
       .setName('close')
       .setDescription('Take payment and optionally close an order')
       .addStringOption((opt) =>
-        opt.setName('order-id').setDescription('Order ID').setRequired(true)
+        opt.setName('order-id').setDescription('Order ID').setRequired(true),
       )
       .addStringOption((opt) =>
         opt
           .setName('method')
           .setDescription('Payment method')
           .setRequired(true)
-          .addChoices(
-            { name: 'Cash', value: 'cash' },
-            { name: 'Card', value: 'card' }
-          )
+          .addChoices({ name: 'Cash', value: 'cash' }, { name: 'Card', value: 'card' }),
       )
       .addNumberOption((opt) =>
-        opt
-          .setName('amount')
-          .setDescription('Payment amount')
-          .setMinValue(0.01)
-          .setRequired(true)
+        opt.setName('amount').setDescription('Payment amount').setMinValue(0.01).setRequired(true),
       )
-      .addNumberOption((opt) =>
-        opt
-          .setName('tip')
-          .setDescription('Tip amount')
-          .setMinValue(0)
-      )
+      .addNumberOption((opt) => opt.setName('tip').setDescription('Tip amount').setMinValue(0))
       .addBooleanOption((opt) =>
         opt
           .setName('keep-open')
-          .setDescription('Keep the order open after payment (default closes)')
-      )
+          .setDescription('Keep the order open after payment (default closes)'),
+      ),
   );
 
 export async function execute(
   interaction: ChatInputCommandInteraction,
-  t: (key: string, vars?: Record<string, string | number>) => string
+  t: (key: string, vars?: Record<string, string | number>) => string,
 ) {
   const sub = interaction.options.getSubcommand();
   await interaction.deferReply({ ephemeral: true });
@@ -144,14 +119,16 @@ export async function execute(
           t('pos_open_success', {
             orderId: order.id ?? 'unknown',
             status: statusLabel,
-          })
+          }),
         );
         return;
       }
       const errorMsg =
         (body as { message?: string; code?: string } | null)?.message ||
         (body as { message?: string; code?: string } | null)?.code;
-      await interaction.editReply(`${t('pos_open_failed')} ${errorMsg ? `(${errorMsg})` : ''}`.trim());
+      await interaction.editReply(
+        `${t('pos_open_failed')} ${errorMsg ? `(${errorMsg})` : ''}`.trim(),
+      );
       return;
     }
 
@@ -178,14 +155,16 @@ export async function execute(
           t('pos_add_item_success', {
             itemId: item.id ?? 'unknown',
             qty: (item.qty ?? qty ?? 1).toString(),
-          })
+          }),
         );
         return;
       }
       const errorMsg =
         (body as { message?: string; code?: string } | null)?.message ||
         (body as { message?: string; code?: string } | null)?.code;
-      await interaction.editReply(`${t('pos_add_item_failed')} ${errorMsg ? `(${errorMsg})` : ''}`.trim());
+      await interaction.editReply(
+        `${t('pos_add_item_failed')} ${errorMsg ? `(${errorMsg})` : ''}`.trim(),
+      );
       return;
     }
 
@@ -195,7 +174,7 @@ export async function execute(
       const amount = interaction.options.getNumber('amount', true);
       const tip =
         interaction.options.getNumber('tip') !== null
-          ? interaction.options.getNumber('tip') ?? undefined
+          ? (interaction.options.getNumber('tip') ?? undefined)
           : undefined;
       const keepOpen = interaction.options.getBoolean('keep-open') ?? false;
       const res = await fetch(`${env.API_BASE_URL}/orders/${orderId}/payments`, {
@@ -211,21 +190,27 @@ export async function execute(
       const body = await parseJsonSafe(res);
       if (res.ok && body && typeof body === 'object') {
         const methodLabel = localizeOrFallback(t, `pos_method_${method}`, method);
-        const closedLabel = localizeOrFallback(t, `common_${!keepOpen ? 'yes' : 'no'}`, (!keepOpen).toString());
+        const closedLabel = localizeOrFallback(
+          t,
+          `common_${!keepOpen ? 'yes' : 'no'}`,
+          (!keepOpen).toString(),
+        );
         await interaction.editReply(
           t('pos_close_success', {
             orderId,
             amount: amount.toFixed(2),
             method: methodLabel,
             closed: closedLabel,
-          })
+          }),
         );
         return;
       }
       const errorMsg =
         (body as { message?: string; code?: string } | null)?.message ||
         (body as { message?: string; code?: string } | null)?.code;
-      await interaction.editReply(`${t('pos_close_failed')} ${errorMsg ? `(${errorMsg})` : ''}`.trim());
+      await interaction.editReply(
+        `${t('pos_close_failed')} ${errorMsg ? `(${errorMsg})` : ''}`.trim(),
+      );
       return;
     }
 
