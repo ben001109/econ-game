@@ -24,6 +24,12 @@ jobs:
             dir: services/frontend
           - service: bot
             dir: services/bot
+          - service: game-core
+            dir: packages/game-core
+          - service: content
+            dir: packages/content
+          - service: shared
+            dir: packages/shared
     defaults:
       run:
         working-directory: ${{ matrix.dir }}
@@ -58,6 +64,10 @@ jobs:
       - name: Lint
         run: |
           npm run lint --if-present
+
+      - name: Test
+        run: |
+          npm test --if-present
 
       - name: Build
         run: |
@@ -80,6 +90,12 @@ jobs:
             dir: services/frontend
           - service: bot
             dir: services/bot
+          - service: game-core
+            dir: packages/game-core
+          - service: content
+            dir: packages/content
+          - service: shared
+            dir: packages/shared
     defaults:
       run:
         working-directory: ${{ matrix.dir }}
@@ -115,6 +131,10 @@ jobs:
         run: |
           npm run lint --if-present
 
+      - name: Test
+        run: |
+          npm test --if-present
+
       - name: Build
         run: |
           npm run build --if-present
@@ -129,12 +149,28 @@ jobs:
         include:
           - service: api
             context: services/api
+            dockerfile: services/api/Dockerfile
           - service: worker
             context: services/worker
+            dockerfile: services/worker/Dockerfile
           - service: frontend
             context: services/frontend
+            dockerfile: services/frontend/Dockerfile
           - service: bot
             context: services/bot
+            dockerfile: services/bot/Dockerfile
+          - service: api-bun
+            context: services/api
+            dockerfile: services/api/Dockerfile.bun
+          - service: worker-bun
+            context: services/worker
+            dockerfile: services/worker/Dockerfile.bun
+          - service: frontend-bun
+            context: services/frontend
+            dockerfile: services/frontend/Dockerfile.bun
+          - service: bot-bun
+            context: services/bot
+            dockerfile: services/bot/Dockerfile.bun
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -149,7 +185,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
-          file: ${{ matrix.context }}/Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: false
           load: true
           tags: econ-game/${{ matrix.service }}:ci
