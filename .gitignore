@@ -8,7 +8,16 @@ pnpm-debug.log*
 .turbo
 .next
 dist
+*.tsbuildinfo
 .DS_Store
+.hermes/
+
+# Python
+.venv
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ruff_cache
 
 # Env
 .env
