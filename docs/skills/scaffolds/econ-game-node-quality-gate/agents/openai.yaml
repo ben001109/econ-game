@@ -1,0 +1,4 @@
+interface:
+  display_name: "Econ Game Node Quality Gate"
+  short_description: "Verify Node services without runtime writes"
+  default_prompt: "Use $econ-game-node-quality-gate to verify the Node service quality gate."
