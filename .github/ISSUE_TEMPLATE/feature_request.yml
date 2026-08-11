@@ -1,0 +1,29 @@
+name: Feature request
+description: Propose an improvement or new capability
+title: "[Feature]: "
+labels: []
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What user, developer, or simulation problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior or interface you would like to see.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Optional approaches or tradeoffs you have considered.
+  - type: textarea
+    id: scope
+    attributes:
+      label: Affected components
+      description: API, worker, frontend, Discord bot, deployment, shared game logic, or other areas.
