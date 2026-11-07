@@ -64,7 +64,9 @@ services:
         condition: service_started
 
   bot:
-    build: ./services/bot
+    build:
+      context: .
+      dockerfile: services/bot/Dockerfile
     profiles: [ "prod" ]
     command: sh -c "node dist/index.js | tee -a /logs/bot.log"
     environment:
@@ -162,16 +164,19 @@ services:
   bot-dev:
     profiles: [ "dev" ]
     image: node:22-bookworm-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436
-    working_dir: /app
-    command: sh -c "npm install && (npm run dev | tee -a /logs/bot-dev.log)"
+    working_dir: /workspace/services/bot
+    # The Bot depends on the local SDK package, which must be built before the Bot installs it.
+    command: sh -c "(cd /workspace/packages/econ-game-sdk && npm install && npm run build) && npm install && (npm run dev | tee -a /logs/bot-dev.log)"
     environment:
       NODE_ENV: development
     env_file:
       # - ./services/bot/.env
       - ./services/bot/.env.local
     volumes:
-      - ./services/bot:/app
-      - /app/node_modules
+      - ./services/bot:/workspace/services/bot
+      - ./packages/econ-game-sdk:/workspace/packages/econ-game-sdk
+      - /workspace/services/bot/node_modules
+      - /workspace/packages/econ-game-sdk/node_modules
       - ./logs:/logs
     depends_on:
       api-dev:

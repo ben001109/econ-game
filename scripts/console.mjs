@@ -503,7 +503,9 @@ async function setupLocalWorkflow({ skipInstall, startDb }) {
     }
   }
 
+  // The Bot links the local SDK, so the SDK must be installed and built first.
   const packages = [
+    { name: 'sdk', dir: join(root, 'packages', 'econ-game-sdk'), build: true },
     { name: 'api', dir: join(servicesDir, 'api') },
     { name: 'worker', dir: join(servicesDir, 'worker') },
     { name: 'bot', dir: join(servicesDir, 'bot') },
@@ -519,6 +521,7 @@ async function setupLocalWorkflow({ skipInstall, startDb }) {
     const hasLock = existsSync(join(pkg.dir, 'package-lock.json'));
     const args = hasLock ? ['ci'] : ['install'];
     await sh(platformCommand('npm'), args, { cwd: pkg.dir });
+    if (pkg.build) await sh(platformCommand('npm'), ['run', 'build'], { cwd: pkg.dir });
   }
 
   if (existsSync(join(servicesDir, 'api', 'prisma'))) {

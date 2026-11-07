@@ -80,6 +80,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: ${{ matrix.dir }}/package-lock.json
 
+      - name: Build SDK dependency
+        if: matrix.service == 'bot'
+        working-directory: packages/econ-game-sdk
+        run: npm ci --no-audit --ignore-scripts && npm run build
+
       - name: Install deps
         run: npm ci --no-audit --ignore-scripts
 
@@ -149,7 +154,7 @@ jobs:
             context: .
             dockerfile: services/worker/Dockerfile
           - service: bot
-            context: services/bot
+            context: .
             dockerfile: services/bot/Dockerfile
     steps:
       - name: Checkout

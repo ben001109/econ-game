@@ -1225,6 +1225,9 @@ setup_local() {
     install_package_deps "${SERVICES_DIR}/api"
     log "Installing dependencies for worker..."
     install_package_deps "${SERVICES_DIR}/worker"
+    log "Installing and building the SDK (Bot dependency)..."
+    install_package_deps "${ROOT}/packages/econ-game-sdk"
+    (cd "${ROOT}/packages/econ-game-sdk" && npm run build)
     log "Installing dependencies for bot..."
     install_package_deps "${SERVICES_DIR}/bot"
   else

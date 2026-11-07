@@ -19,7 +19,7 @@ const NPM_LOCKS = [
 ];
 const DOCKERFILES = SERVICES.map((service) => `services/${service}/Dockerfile`);
 const COMPOSE_FILES = ['docker-compose.yml'];
-const EXPECTED_IMAGE_OCCURRENCES = 12;
+const EXPECTED_IMAGE_OCCURRENCES = 13;
 const EXPECTED_UNIQUE_IMAGES = 7;
 
 function read(path) {

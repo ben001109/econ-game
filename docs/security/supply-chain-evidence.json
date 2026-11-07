@@ -106,9 +106,9 @@
   ],
   "containers": {
     "source": "docs/security/b7-c-oci-digest-remediation.md (authoritative registry manifests at 2026-08-16T16:03:07Z)",
-    "imageOccurrences": 12,
+    "imageOccurrences": 13,
     "uniqueImages": 7,
-    "digestPinnedOccurrences": 12,
+    "digestPinnedOccurrences": 13,
     "images": [
       "adminer:4@sha256:c1c24d89d06fcb8fc0fb5a049240dc292ff4a121ae05d7e74d64b58c421d2921",
       "node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
