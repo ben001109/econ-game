@@ -31,8 +31,9 @@ async def index(request: Request) -> HTMLResponse:
         health = {"status": "down"}
 
     return templates.TemplateResponse(
-        "index.html",
-        {"request": request, "health": health, "api_base_url": settings.api_base_url},
+        request=request,
+        name="index.html",
+        context={"health": health, "api_base_url": settings.api_base_url},
     )
 
 

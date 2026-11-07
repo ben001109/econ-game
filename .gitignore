@@ -20,10 +20,16 @@ __pycache__/
 .ruff_cache
 
 # Env
-.env
-.env.local
-**/.env.local
-**/.env.*.local
+.env*
+**/.env*
+!.env.example
+!.env.*.example
+!.env.sample
+!.env.*.sample
+!**/.env.example
+!**/.env.*.example
+!**/.env.sample
+!**/.env.*.sample
 
 # DB
 postgres-data

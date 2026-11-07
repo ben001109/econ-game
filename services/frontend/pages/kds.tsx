@@ -1,77 +1,60 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
+import { productionWebCommandRuntime, WebCommandError } from '../lib/d02-game-command-client';
 import en from '../locales/en/common.json';
 import zh from '../locales/zh/common.json';
-
-type Ticket = {
-  id: string;
-  status: string;
-  openedAt: string;
-  items: { id: string; qty: number; menuItem: { name: string } }[];
-};
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export default function KDS() {
   const router = useRouter();
   const locale = (router.locale || 'en').split('-')[0];
   const messages = locale === 'zh' ? zh : en;
-  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [orderId, setOrderId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState('WEB_COMMAND_MAPPING_NOT_CONFIGURED');
 
-  const load = async () => {
-    const r = await fetch(`${API}/kds/tickets`);
-    const data = await r.json();
-    setTickets(data);
-  };
-
-  useEffect(() => {
-    load().catch(() => {});
-    const id = setInterval(load, 3000);
-    return () => clearInterval(id);
-  }, []);
-
-  const call = async (id: string, action: 'start' | 'serve') => {
+  const run = async (operation: 'kds.start' | 'kds.serve') => {
     setLoading(true);
     try {
-      await fetch(`${API}/kds/tickets/${id}/${action}`, { method: 'POST' });
-      await load();
+      await productionWebCommandRuntime.execute(operation, {
+        idempotencyKey: crypto.randomUUID(),
+        payload: { orderId },
+      });
+      setStatus('COMMAND_ACCEPTED');
+    } catch (error) {
+      setStatus(error instanceof WebCommandError ? error.code : 'WEB_COMMAND_FAILED');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main style={{ padding: 24, fontFamily: 'sans-serif' }}>
+    <main style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 720 }}>
       <Head>
         <title>{messages['kds.title']}</title>
       </Head>
-      <h1>{messages['kds.title']} (MVP)</h1>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-        {tickets.map((ticket) => (
-          <div key={ticket.id} style={{ border: '1px solid #ddd', borderRadius: 6, padding: 12 }}>
-            <div style={{ fontWeight: 600 }}>
-              #{ticket.id.slice(0, 6)} · {ticket.status}
-            </div>
-            <ul style={{ marginTop: 8 }}>
-              {ticket.items.map((it) => (
-                <li key={it.id}>
-                  {it.qty} × {it.menuItem.name}
-                </li>
-              ))}
-            </ul>
-            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-              <button disabled={loading} onClick={() => call(ticket.id, 'start')}>
-                {messages['kds.start']}
-              </button>
-              <button disabled={loading} onClick={() => call(ticket.id, 'serve')}>
-                {messages['kds.serve']}
-              </button>
-            </div>
-          </div>
-        ))}
+      <h1>{messages['kds.title']} (D02)</h1>
+      <p>
+        Ticket reads and mutations do not use the legacy compatibility API. Approved D02 mappings
+        and authenticated active-save context are required before these controls can execute.
+      </p>
+      <input
+        aria-label="Order ID"
+        value={orderId}
+        onChange={(event) => setOrderId(event.target.value)}
+        placeholder="Order ID"
+      />
+      <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+        <button disabled={loading || !orderId} onClick={() => run('kds.start')}>
+          {messages['kds.start']}
+        </button>
+        <button disabled={loading || !orderId} onClick={() => run('kds.serve')}>
+          {messages['kds.serve']}
+        </button>
+      </div>
+      <div role="status" style={{ marginTop: 12, color: '#666' }}>
+        {status}
       </div>
     </main>
   );

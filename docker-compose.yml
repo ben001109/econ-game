@@ -1,37 +1,41 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
     environment:
-      POSTGRES_USER: game
-      POSTGRES_PASSWORD: gamepass
-      POSTGRES_DB: game
+      POSTGRES_USER: ${POSTGRES_USER:-game}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in a private untracked root .env file}
+      POSTGRES_DB: ${POSTGRES_DB:-game}
     ports:
-      - "5432:5432"
+      - "${ECON_BIND_ADDRESS:-127.0.0.1}:5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U game -d game" ]
+      test: [ "CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"" ]
       interval: 5s
       timeout: 3s
       retries: 20
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
     command: [ "redis-server", "--save", "60", "1", "--loglevel", "warning" ]
     ports:
-      - "6379:6379"
+      - "${ECON_BIND_ADDRESS:-127.0.0.1}:6379:6379"
     volumes:
       - redis-data:/data
 
   api:
-    build: ./services/api
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
     profiles: [ "prod" ]
     command: sh -c "node dist/index.js | tee -a /logs/api.log"
+    environment:
+      NODE_ENV: production
     env_file:
       - ./services/api/.env
       - ./services/api/.env.local
     ports:
-      - "4000:4000"
+      - "${ECON_BIND_ADDRESS:-127.0.0.1}:4000:4000"
     volumes:
       - ./logs:/logs
     depends_on:
@@ -41,9 +45,13 @@ services:
         condition: service_started
 
   worker:
-    build: ./services/worker
+    build:
+      context: .
+      dockerfile: services/worker/Dockerfile
     profiles: [ "prod" ]
     command: sh -c "node dist/index.js | tee -a /logs/worker.log"
+    environment:
+      NODE_ENV: production
     env_file:
       - ./services/worker/.env
       - ./services/worker/.env.local
@@ -63,7 +71,7 @@ services:
       - ./services/frontend/.env
       - ./services/frontend/.env.local
     ports:
-      - "3000:3000"
+      - "${ECON_BIND_ADDRESS:-127.0.0.1}:3000:3000"
     volumes:
       - ./logs:/logs
     depends_on:
@@ -74,6 +82,8 @@ services:
     build: ./services/bot
     profiles: [ "prod" ]
     command: sh -c "node dist/index.js | tee -a /logs/bot.log"
+    environment:
+      NODE_ENV: production
     env_file:
       #- ./services/bot/.env
       - ./services/bot/.env.local
@@ -86,19 +96,21 @@ services:
         condition: service_started
 
   adminer:
-    image: adminer:4
+    image: adminer:4@sha256:c1c24d89d06fcb8fc0fb5a049240dc292ff4a121ae05d7e74d64b58c421d2921
+    profiles: [ "tools" ]
     ports:
-      - "8080:8080"
+      - "${ECON_BIND_ADDRESS:-127.0.0.1}:8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
 
   redis-commander:
-    image: rediscommander/redis-commander:latest
+    image: rediscommander/redis-commander:latest@sha256:19cd0c49f418779fa2822a0496c5e6516d0c792effc39ed20089e6268477e40a
+    profiles: [ "tools" ]
     environment:
       - REDIS_HOSTS=local:redis:6379
     ports:
-      - "8081:8081"
+      - "${ECON_BIND_ADDRESS:-127.0.0.1}:8081:8081"
     depends_on:
       redis:
         condition: service_started
@@ -106,8 +118,8 @@ services:
   # Development profile: hot-reload API and worker using ts-node-dev
   api-dev:
     profiles: [ "dev" ]
-    image: node:20-bullseye-slim
-    working_dir: /app
+    image: node:22-bullseye-slim@sha256:97924c8c7170c7a4c4464a281cc1f9569816496e546afbac17c4f2723397e116
+    working_dir: /workspace/services/api
     # install OpenSSL (Prisma engine uses libssl1.1 on bullseye)
     user: root
     command: >
@@ -121,17 +133,18 @@ services:
     environment:
       NODE_ENV: development
       # Use a separate Prisma schema for dev to isolate tables
-      DATABASE_URL: postgresql://game:gamepass@postgres:5432/game?schema=dev
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in a private untracked root .env file}
     env_file:
       - ./services/api/.env
       - ./services/api/.env.local
     volumes:
-      - ./services/api:/app
+      - ./services/api:/workspace/services/api
+      - ./packages/econ-game-release-evidence:/workspace/packages/econ-game-release-evidence:ro
       # keep container node_modules so host mount doesn't hide it
-      - /app/node_modules
+      - /workspace/services/api/node_modules
       - ./logs:/logs
     ports:
-      - "4000:4000"
+      - "${ECON_BIND_ADDRESS:-127.0.0.1}:4000:4000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -140,19 +153,20 @@ services:
 
   worker-dev:
     profiles: [ "dev" ]
-    image: node:20-bookworm-slim
-    working_dir: /app
+    image: node:22-bookworm-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436
+    working_dir: /workspace/services/worker
     command: sh -c "npm install && (npm run dev | tee -a /logs/worker-dev.log)"
     environment:
       NODE_ENV: development
       # Match API dev DB schema for isolation
-      DATABASE_URL: postgresql://game:gamepass@postgres:5432/game?schema=dev
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in a private untracked root .env file}
     env_file:
       - ./services/worker/.env
       - ./services/worker/.env.local
     volumes:
-      - ./services/worker:/app
-      - /app/node_modules
+      - ./services/worker:/workspace/services/worker
+      - ./packages/econ-game-release-evidence:/workspace/packages/econ-game-release-evidence:ro
+      - /workspace/services/worker/node_modules
       - ./logs:/logs
     depends_on:
       postgres:
@@ -162,7 +176,7 @@ services:
 
   frontend-dev:
     profiles: [ "dev" ]
-    image: node:20-bookworm-slim
+    image: node:22-bookworm-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436
     working_dir: /app
     command: sh -c "npm install && (npm run dev | tee -a /logs/frontend-dev.log)"
     environment:
@@ -175,14 +189,14 @@ services:
       - /app/node_modules
       - ./logs:/logs
     ports:
-      - "3000:3000"
+      - "${ECON_BIND_ADDRESS:-127.0.0.1}:3000:3000"
     depends_on:
       api-dev:
         condition: service_started
 
   bot-dev:
     profiles: [ "dev" ]
-    image: node:20-bookworm-slim
+    image: node:22-bookworm-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436
     working_dir: /app
     command: sh -c "npm install && (npm run dev | tee -a /logs/bot-dev.log)"
     environment:
@@ -204,14 +218,16 @@ services:
   api-bun:
     profiles: [ "bun" ]
     build:
-      context: ./services/api
-      dockerfile: Dockerfile.bun
+      context: .
+      dockerfile: services/api/Dockerfile.bun
     command: sh -c "bun run bun:start | tee -a /logs/api-bun.log"
+    environment:
+      NODE_ENV: production
     env_file:
       - ./services/api/.env
       - ./services/api/.env.local
     ports:
-      - "4000:4000"
+      - "${ECON_BIND_ADDRESS:-127.0.0.1}:4000:4000"
     volumes:
       - ./logs:/logs
     depends_on:
@@ -223,9 +239,11 @@ services:
   worker-bun:
     profiles: [ "bun" ]
     build:
-      context: ./services/worker
-      dockerfile: Dockerfile.bun
+      context: .
+      dockerfile: services/worker/Dockerfile.bun
     command: sh -c "bun run bun:start | tee -a /logs/worker-bun.log"
+    environment:
+      NODE_ENV: production
     env_file:
       - ./services/worker/.env
       - ./services/worker/.env.local
@@ -247,7 +265,7 @@ services:
       - ./services/frontend/.env
       - ./services/frontend/.env.local
     ports:
-      - "3000:3000"
+      - "${ECON_BIND_ADDRESS:-127.0.0.1}:3000:3000"
     volumes:
       - ./logs:/logs
     depends_on:
@@ -260,6 +278,8 @@ services:
       context: ./services/bot
       dockerfile: Dockerfile.bun
     command: sh -c "bun run bun:start | tee -a /logs/bot-bun.log"
+    environment:
+      NODE_ENV: production
     env_file:
       # - ./services/bot/.env
       - ./services/bot/.env.local

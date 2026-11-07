@@ -17,23 +17,38 @@ export type EconGameApiErrorInit = {
   details: unknown;
 };
 
+export type EconGameHttpResponse<T> = Readonly<{
+  status: number;
+  body: T;
+}>;
+
 /** An HTTP response rejected by an Econ Game service. */
 export class EconGameApiError extends Error {
   readonly status: number;
   readonly code: string | undefined;
+  readonly errorVersion: string | undefined;
   readonly details: unknown;
   readonly method: string;
   readonly path: string;
 
   constructor(init: EconGameApiErrorInit) {
     const body = asRecord(init.details);
-    const code = typeof body?.code === 'string' ? body.code : undefined;
+    const commandError = asRecord(body?.error);
+    const code =
+      typeof commandError?.code === 'string'
+        ? commandError.code
+        : typeof body?.code === 'string'
+          ? body.code
+          : undefined;
     const detail = typeof body?.detail === 'string' ? body.detail : undefined;
-    const message = typeof body?.message === 'string' ? body.message : detail ?? code ?? init.statusText;
+    const message =
+      typeof body?.message === 'string' ? body.message : (detail ?? code ?? init.statusText);
     super(`${init.method} ${init.path} failed (${init.status}): ${message}`);
     this.name = 'EconGameApiError';
     this.status = init.status;
     this.code = code;
+    this.errorVersion =
+      typeof commandError?.version === 'string' ? commandError.version : undefined;
     this.details = init.details;
     this.method = init.method;
     this.path = init.path;
@@ -71,6 +86,10 @@ export class EconGameHttpClient {
   }
 
   protected async request<T>(options: RequestOptions): Promise<T> {
+    return (await this.requestWithStatus<T>(options)).body;
+  }
+
+  protected async requestWithStatus<T>(options: RequestOptions): Promise<EconGameHttpResponse<T>> {
     const path = options.path.startsWith('/') ? options.path : `/${options.path}`;
     const headers = new Headers(this.defaultHeaders);
     new Headers(options.headers).forEach((value, key) => headers.set(key, value));
@@ -100,7 +119,7 @@ export class EconGameHttpClient {
       });
     }
 
-    return payload as T;
+    return Object.freeze({ status: response.status, body: payload as T });
   }
 }
 

@@ -8,7 +8,7 @@ Slash commands:
 
 ```bash
 uv sync
-DISCORD_BOT_TOKEN=... API_BASE_URL=http://localhost:4000 uv run --project python/services/bot bot-dev
+uv run --project python/services/bot bot-dev
 ```
 
-Variables are loaded from `.env` if present.
+Provide `DISCORD_BOT_TOKEN` through an owner-only, untracked `.env` or the deployment platform's protected secret mechanism. `API_BASE_URL` is also required. Do not place credentials in the command line.

@@ -51,19 +51,18 @@ Linux-only convenience script (non-interactive) still mirrors the wizard prompts
 bash scripts/setup-linux.sh
 ```
 
-Run:
+Create a private, untracked root `.env` with the required connection credentials described in [the container secret-boundary guide](docs/operations/container-secret-boundary.md), then run:
 
 ```bash
 cd econ-game
-docker compose up --build
+docker compose --profile prod up --build
 ```
 
 Services:
 
 - API: http://localhost:4000 (Swagger at `/docs`)
 - Frontend: http://localhost:3000
-- Adminer: http://localhost:8080 (connect to `postgres`, user `game`, pass `gamepass`, DB `game`)
-- Redis Commander: http://localhost:8081
+- Adminer and Redis Commander: disabled by default; enable the `tools` profile explicitly and keep the loopback bind
 - Bot: Discord bot (no HTTP port; connects to Discord)
 
 ## Logging
@@ -111,7 +110,7 @@ Services:
 
 ### Adminer（資料庫 UI）
 - 用途：瀏覽/查詢 Postgres 內容（方便開發/除錯）。
-- 連線資訊：連到 `postgres`，使用者 `game`、密碼 `gamepass`、DB `game`。
+- 連線資訊：連到 `postgres`，帳號、密碼與資料庫名稱由未追蹤且僅擁有者可讀的根目錄 `.env` 提供。
 
 ### Redis Commander（Redis UI）
 - 用途：可視化檢視 Redis keys/values。
@@ -148,9 +147,7 @@ Alternatively, run API/Worker directly on your host (Node 20) and point to the C
 - Use local installs of Postgres/Redis:
   - winget: `winget install -e --id PostgreSQL.PostgreSQL` and `winget install -e --id tporadowski.Redis-64`
   - choco: `choco install postgresql redis-64`
-- Update `.env` to use localhost hosts:
-  - `DATABASE_URL=postgresql://game:gamepass@localhost:5432/game?schema=public`
-  - `REDIS_URL=redis://localhost:6379`
+- Update the private `.env` connection URLs to use localhost hosts. Do not put credentials in commands or documentation.
 - Then run local dev via the console wizard (choose Local workflow) or manually run `npm install` inside each service.
 - Environment check: `node scripts/doctor.mjs`
 
@@ -176,21 +173,15 @@ GitHub Actions runs on push/PR:
 - Compose overlays service envs: each service loads `.env` then `.env.local` (overrides).
 - Examples are provided as `services/*/.env.example` — copy to `.env.local` and fill values.
 
-Discord Bot Token example (worker):
-
-```
-cp services/worker/.env.example services/worker/.env.local
-echo "DISCORD_BOT_TOKEN=YOUR_NEW_TOKEN" >> services/worker/.env.local
-```
+The worker does not consume a Discord token. Do not copy Bot credentials into worker environment files.
 
 Discord Bot service:
 
 ```
-cp services/bot/.env.example services/bot/.env.local
-echo "DISCORD_BOT_TOKEN=YOUR_NEW_TOKEN" >> services/bot/.env.local
-# Optional: fast slash-command updates in one guild
-# echo "GUILD_ID=YOUR_DEV_GUILD_ID" >> services/bot/.env.local
+install -m 600 services/bot/.env.example services/bot/.env.local
 ```
+
+Edit that ignored owner-only file without putting the token in shell history. Hosted deployments must inject it through the platform's protected secret field.
 
 GitHub Actions: store secrets under Repo → Settings → Secrets and variables → Actions, e.g. `DISCORD_BOT_TOKEN`. If a job needs it, inject via `env: DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}`.
 

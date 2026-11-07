@@ -11,15 +11,17 @@
     "bun:start": "bun src/index.ts",
     "lint": "eslint .",
     "typecheck": "tsc -p . --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test test/*.test.mjs",
     "lint:fix": "eslint . --fix",
     "format": "prettier --ignore-path ../../.prettierignore --write .",
     "format:check": "prettier --ignore-path ../../.prettierignore --check ."
   },
   "dependencies": {
+    "@econ-game/sdk": "file:../../packages/econ-game-sdk",
     "@sentry/node": "^10.22.0",
     "discord.js": "^14.24.2",
     "dotenv": "^17.2.3",
-    "newrelic": "^13.6.2",
+    "newrelic": "^14.3.7",
     "pino": "^10.1.0"
   },
   "devDependencies": {

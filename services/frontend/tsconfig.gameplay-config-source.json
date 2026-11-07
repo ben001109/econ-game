@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["DOM", "ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "typeRoots": []
+  },
+  "include": [
+    "lib/gameplay-machine.ts",
+    "lib/gameplay-runtime.ts",
+    "lib/preopen-configuration-runtime.ts"
+  ]
+}

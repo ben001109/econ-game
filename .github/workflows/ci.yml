@@ -15,19 +15,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  supply-chain-security:
+    name: Supply-chain security (fail closed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Test supply-chain checker policy
+        run: node --test scripts/check-supply-chain.test.mjs
+      - name: Verify locks, advisories, actions, images, Bun, and bootstrap policy
+        run: node scripts/check-supply-chain.mjs --online
+
   migration-safety:
     name: Migration safety
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: '.nvmrc'
       - name: Reject schema push commands
         run: node scripts/check-migration-safety.mjs
+
+      - name: Run persistence and migration static contracts
+        run: node scripts/run-ci-static-contracts.mjs
+
+      - name: Verify CI workflow contract
+        run: node --test scripts/ci-workflow-contract.test.mjs
 
   service-quality:
     name: Quality (${{ matrix.service }})
@@ -51,10 +73,10 @@ jobs:
         shell: bash
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
@@ -63,9 +85,10 @@ jobs:
       - name: Install deps
         run: npm ci --no-audit --ignore-scripts
 
-      - name: Generate Prisma Client (if script exists)
+      - name: Generate Prisma Client
+        if: matrix.service == 'api'
         timeout-minutes: 5
-        run: npm run prisma:generate --if-present
+        run: npm run prisma:generate
 
       - name: Format
         run: npm run format:check
@@ -73,11 +96,20 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Typecheck (bounded diagnostics)
+        if: matrix.service == 'api' || matrix.service == 'worker'
+        run: node ../../scripts/run-bounded-typecheck.mjs --service "${{ matrix.service }}" --timeout-seconds 180
+
       - name: Typecheck
+        if: matrix.service != 'api' && matrix.service != 'worker'
         run: npm run typecheck
 
-      - name: Unit and invariant tests (when owned by service)
-        run: npm run test --if-present
+      - name: Unit and invariant tests
+        run: npm run test
+
+      - name: Worker runtime environment contract
+        if: matrix.service == 'worker'
+        run: ./node_modules/.bin/tsx --test src/runtime-env.test.ts
 
       - name: Build
         run: npm run build
@@ -91,9 +123,9 @@ jobs:
         working-directory: packages/econ-game-sdk
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
@@ -107,34 +139,38 @@ jobs:
     name: Docker Build (${{ matrix.service }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [migration-safety, service-quality, sdk-quality]
+    needs: [supply-chain-security, migration-safety, service-quality, sdk-quality]
     strategy:
       fail-fast: false
       matrix:
         include:
           - service: api
-            context: services/api
+            context: .
+            dockerfile: services/api/Dockerfile
           - service: worker
-            context: services/worker
+            context: .
+            dockerfile: services/worker/Dockerfile
           - service: frontend
             context: services/frontend
+            dockerfile: services/frontend/Dockerfile
           - service: bot
             context: services/bot
+            dockerfile: services/bot/Dockerfile
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Build image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: ${{ matrix.context }}
-          file: ${{ matrix.context }}/Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: false
           load: true
           tags: econ-game/${{ matrix.service }}:ci

@@ -8,28 +8,26 @@
   "description": "FastAPI-based API managed with uv and targeting Postgres + Redis",
   "features": null,
   "docker_images": {
-    "Python 3.12": "ghcr.io/parkervcp/yolks:python_3.12"
+    "Python 3.12": "ghcr.io/parkervcp/yolks:python_3.12@sha256:6d63db2d155cee53f3cf82ba6dea8d0a46a21dd0e0fb445b88d89af0a4222eed"
   },
   "file_denylist": [],
-  "startup": "cd {{WORK_DIR}} && if [ -f uv.lock ]; then uv sync --frozen --no-dev; else uv sync --no-dev; fi && uv run {{START_CMD}}",
+  "startup": "set -eu; cd -- \"{{WORK_DIR}}\"; if [ -f uv.lock ]; then uv sync --frozen --no-dev; else uv sync --no-dev; fi; uv run \"{{START_CMD}}\"",
   "config": { "files": "{}", "startup": "{}", "logs": "{}", "stop": "^^C" },
   "scripts": {
     "installation": {
-      "script": "#!/bin/bash\napt update\napt install -y git curl jq file unzip make gcc g++ python3 python-is-python3 libtool\nmkdir -p /mnt/server\ncd /mnt/server\n\nif [ \"${USER_UPLOAD}\" == \"true\" ] || [ \"${USER_UPLOAD}\" == \"1\" ]; then\n    echo 'User will upload files. Skipping git clone.'\n    exit 0\nfi\n\nif [[ -z \"${GIT_ADDRESS}\" ]]; then\n    echo 'No GIT_ADDRESS provided, nothing to clone.'\n    exit 0\nfi\n\nif [[ ${GIT_ADDRESS} != *.git ]]; then GIT_ADDRESS=${GIT_ADDRESS}.git; fi\n\nif [ -n \"${USERNAME}\" ] && [ -n \"${ACCESS_TOKEN}\" ]; then\n  GIT_ADDRESS=\"https://${USERNAME}:${ACCESS_TOKEN}@$(echo -e ${GIT_ADDRESS} | cut -d/ -f3-)\"\nfi\n\necho 'Cloning repository...'\nif [ -z ${BRANCH} ]; then\n  git clone ${GIT_ADDRESS} .\nelse\n  git clone --single-branch --branch ${BRANCH} ${GIT_ADDRESS} .\nfi\n\necho 'Done.'\n",
-      "container": "ghcr.io/parkervcp/installers:debian",
+      "script": "#!/bin/bash\nset -euo pipefail\napt update\napt install -y git curl jq file unzip make gcc g++ python3 python-is-python3 libtool\nmkdir -p /mnt/server\ncd /mnt/server\n\nif [ \"${USER_UPLOAD}\" == \"true\" ] || [ \"${USER_UPLOAD}\" == \"1\" ]; then\n    echo 'User will upload files. Skipping git clone.'\n    exit 0\nfi\n\nif [[ -z \"${GIT_ADDRESS}\" ]]; then\n    echo 'Set USER_UPLOAD=1 or provide a public HTTPS repository address.'\n    exit 1\nfi\ncase \"${GIT_ADDRESS}\" in\n  https://*) ;;\n  *) echo 'Only public HTTPS repository addresses are accepted.'; exit 1 ;;\nesac\ncase \"${GIT_ADDRESS#https://}\" in\n  *@*|*[?]*|*[#]*) echo 'Repository URLs containing credentials or query data are forbidden.'; exit 1 ;;\nesac\n\nif [[ ${GIT_ADDRESS} != *.git ]]; then GIT_ADDRESS=\"${GIT_ADDRESS}.git\"; fi\n\necho 'Cloning public repository...'\nif [ -z \"${BRANCH}\" ]; then\n  git clone -- \"${GIT_ADDRESS}\" .\nelse\n  git check-ref-format --branch \"${BRANCH}\" >/dev/null\n  git clone --single-branch --branch \"${BRANCH}\" -- \"${GIT_ADDRESS}\" .\nfi\n\necho 'Done.'\n",
+      "container": "ghcr.io/parkervcp/installers:debian@sha256:1806d6b09c010098075114b08e40cb0d38be2c68026dbca62ef13abd03946dc3",
       "entrypoint": "bash"
     }
   },
   "variables": [
-    { "name": "Git Repository Address", "description": "Optional: clone repo on install", "env_variable": "GIT_ADDRESS", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "nullable|string", "field_type": "text" },
+    { "name": "Git Repository Address", "description": "Optional public HTTPS repository; credentials in URLs are rejected", "env_variable": "GIT_ADDRESS", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "nullable|string|max:2048", "field_type": "text" },
     { "name": "Git Branch", "description": "Branch to clone", "env_variable": "BRANCH", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "nullable|string", "field_type": "text" },
-    { "name": "Git Username", "description": "Username for private repo", "env_variable": "USERNAME", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "nullable|string", "field_type": "text" },
-    { "name": "Git Access Token", "description": "Token for private repo", "env_variable": "ACCESS_TOKEN", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "nullable|string", "field_type": "text" },
     { "name": "User Uploaded Files", "description": "Skip cloning if user uploads files (1=true)", "env_variable": "USER_UPLOAD", "default_value": "0", "user_viewable": true, "user_editable": true, "rules": "required|boolean", "field_type": "text" },
-    { "name": "Work Dir", "description": "Relative path to API folder", "env_variable": "WORK_DIR", "default_value": "python/services/api", "user_viewable": true, "user_editable": true, "rules": "required|string", "field_type": "text" },
-    { "name": "Start Cmd", "description": "uv script to run", "env_variable": "START_CMD", "default_value": "api-prod", "user_viewable": true, "user_editable": true, "rules": "required|string", "field_type": "text" },
-    { "name": "Database URL", "description": "SQLModel DATABASE_URL", "env_variable": "DATABASE_URL", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "required|string", "field_type": "text" },
-    { "name": "Redis URL", "description": "Redis connection URL", "env_variable": "REDIS_URL", "default_value": "", "user_viewable": true, "user_editable": true, "rules": "nullable|string", "field_type": "text" },
+    { "name": "Work Dir", "description": "Admin-owned relative service path", "env_variable": "WORK_DIR", "default_value": "python/services/api", "user_viewable": true, "user_editable": false, "rules": "required|string|max:500", "field_type": "text" },
+    { "name": "Start Cmd", "description": "Admin-owned runtime script name", "env_variable": "START_CMD", "default_value": "api-prod", "user_viewable": true, "user_editable": false, "rules": "required|string|max:100", "field_type": "text" },
+    { "name": "Database URL", "description": "Server-owned database credential; set only in the panel's protected secret field", "env_variable": "DATABASE_URL", "default_value": "", "user_viewable": false, "user_editable": false, "rules": "required|string|max:4096", "field_type": "text" },
+    { "name": "Redis URL", "description": "Server-owned cache credential; set only in the panel's protected secret field", "env_variable": "REDIS_URL", "default_value": "", "user_viewable": false, "user_editable": false, "rules": "required|string|max:4096", "field_type": "text" },
     { "name": "Port", "description": "HTTP port", "env_variable": "PORT", "default_value": "4000", "user_viewable": true, "user_editable": true, "rules": "required|numeric", "field_type": "text" }
   ]
 }

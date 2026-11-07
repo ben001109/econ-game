@@ -5,7 +5,8 @@ description = "FastAPI + Jinja frontend shell for the Econ Game Python stack"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-  "fastapi>=0.111",
+  "fastapi==0.133.1",
+  "starlette==1.3.1",
   "uvicorn[standard]>=0.30",
   "jinja2>=3.1",
   "httpx>=0.27",
@@ -14,6 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "pytest>=8.2",
   "ruff>=0.5"
 ]
 

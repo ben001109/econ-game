@@ -7,6 +7,76 @@ type CreateLoggerOptions = {
   fileBaseName?: string;
 };
 
+export const LOGGER_REDACTION = Object.freeze({
+  paths: [
+    'req.headers.authorization',
+    'req.headers.cookie',
+    'req.headers.x-correlation-id',
+    'request.headers.authorization',
+    'request.headers.cookie',
+    'request.headers.x-correlation-id',
+    'headers.authorization',
+    'headers.cookie',
+    'headers.x-correlation-id',
+    'req.body.token',
+    'request.body.token',
+    'body.token',
+    '*.token',
+    '*.challengeToken',
+    '*.discordOAuthProof',
+    '*.reauthenticationProof',
+    'password',
+    'secret',
+    'credential',
+    'apiKey',
+    'accessToken',
+    'refreshToken',
+    'databaseUrl',
+    'dsn',
+    'DATABASE_URL',
+    'DISCORD_BOT_TOKEN',
+    'BOT_SERVICE_CREDENTIAL',
+    'NEW_RELIC_LICENSE_KEY',
+    'SENTRY_DSN',
+    '*.password',
+    '*.secret',
+    '*.credential',
+    '*.apiKey',
+    '*.accessToken',
+    '*.refreshToken',
+    '*.databaseUrl',
+    '*.dsn',
+    '*.DATABASE_URL',
+    '*.DISCORD_BOT_TOKEN',
+    '*.BOT_SERVICE_CREDENTIAL',
+    '*.NEW_RELIC_LICENSE_KEY',
+    '*.SENTRY_DSN',
+  ],
+  censor: '[REDACTED]',
+});
+
+export function safeErrorSerializer(value: unknown): Readonly<Record<string, string>> {
+  const record =
+    typeof value === 'object' && value !== null ? (value as Readonly<Record<string, unknown>>) : {};
+  const type =
+    value instanceof Error
+      ? value.name
+      : typeof record.name === 'string' && record.name
+        ? record.name
+        : 'Error';
+  const code =
+    typeof record.code === 'string' && /^[A-Z0-9_:-]{1,128}$/i.test(record.code)
+      ? record.code
+      : undefined;
+  return Object.freeze({ type, ...(code ? { code } : {}) });
+}
+
+const ERROR_SERIALIZERS = Object.freeze({
+  err: safeErrorSerializer,
+  error: safeErrorSerializer,
+  warning: safeErrorSerializer,
+});
+
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const serviceRoot = path.resolve(moduleDir, '..');
 
@@ -45,7 +115,7 @@ export const createLogger = (options: CreateLoggerOptions = {}): Logger => {
 
   const logPath = resolveLogPath(resolveDefaultFileName(fileBaseName));
   if (!logPath) {
-    return pino({ level, name });
+    return pino({ level, name, redact: LOGGER_REDACTION, serializers: ERROR_SERIALIZERS });
   }
 
   const targets: TransportTargetOptions[] = [
@@ -54,7 +124,7 @@ export const createLogger = (options: CreateLoggerOptions = {}): Logger => {
   ];
 
   const transport = pino.transport({ targets });
-  return pino({ level, name }, transport);
+  return pino({ level, name, redact: LOGGER_REDACTION, serializers: ERROR_SERIALIZERS }, transport);
 };
 
 export const logger = createLogger();

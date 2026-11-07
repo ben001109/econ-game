@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 2,
+  "recordedAt": "2026-08-17T17:59:21Z",
+  "stage": "B8-C-A",
+  "status": "MANIFESTS_VERIFIED",
+  "command": "docker buildx imagetools inspect <immutable-reference> --format '{{.Name}}' (once for each of the 13 recorded references)",
+  "commandTimestamp": "2026-08-17T17:59:21Z",
+  "environment": {
+    "dockerClient": "29.4.0",
+    "buildx": "github.com/docker/buildx v0.33.0 f7897eba028583e0071642db3c011e860444f8cf",
+    "dockerContext": "orbstack"
+  },
+  "registryResult": {
+    "registry": "OCI registries",
+    "authentication": "unauthenticated",
+    "status": "ALL_REFERENCES_MATCHED"
+  },
+  "manifestReview": {
+    "expectedReferences": 13,
+    "completedReferences": 13,
+    "status": "COMPLETE_MATCHED_IMMUTABLE_REFERENCES",
+    "retryAttempted": true,
+    "verifiedReferences": [
+      "adminer:4@sha256:c1c24d89d06fcb8fc0fb5a049240dc292ff4a121ae05d7e74d64b58c421d2921",
+      "ghcr.io/astral-sh/uv:python3.12-bookworm-slim@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58",
+      "ghcr.io/parkervcp/installers:debian@sha256:1806d6b09c010098075114b08e40cb0d38be2c68026dbca62ef13abd03946dc3",
+      "ghcr.io/parkervcp/yolks:bun_canary@sha256:9b1f27040825f8780e29fe9a23af4e5a1e6877e38a4efb35388cfc2f90a25169",
+      "ghcr.io/parkervcp/yolks:bun_latest@sha256:4966f0b03e3d702844c03b39ae5375f282ee3dd23a23b1c96b2ed89a797fca4f",
+      "ghcr.io/parkervcp/yolks:python_3.12@sha256:6d63db2d155cee53f3cf82ba6dea8d0a46a21dd0e0fb445b88d89af0a4222eed",
+      "node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
+      "node:22-bookworm-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436",
+      "node:22-bullseye-slim@sha256:97924c8c7170c7a4c4464a281cc1f9569816496e546afbac17c4f2723397e116",
+      "oven/bun:1.1-alpine@sha256:ae1ee3f0e326ad8ae886bd500929e7f4fcb4986a1455d6d6ab2f3c2498036aad",
+      "postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2",
+      "rediscommander/redis-commander:latest@sha256:19cd0c49f418779fa2822a0496c5e6516d0c792effc39ed20089e6268477e40a"
+    ]
+  },
+  "tooling": {
+    "cosignInstalled": false,
+    "orasInstalled": false,
+    "trustedIdentityPolicyConfigured": false
+  },
+  "sideEffects": {
+    "imageLayersPulled": false,
+    "imagesBuilt": false,
+    "containersRun": false,
+    "imagesScanned": false,
+    "imagesDeployed": false
+  }
+}

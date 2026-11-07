@@ -5,7 +5,8 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { resolve, join, basename, relative } from 'node:path';
-import { existsSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { Writable } from 'node:stream';
 
 const root = resolve(process.cwd());
 const servicesDir = join(root, 'services');
@@ -30,8 +31,6 @@ const ENV_GROUPS = [
     dir: join(root, 'services', 'worker'),
     files: ['.env', '.env.local'],
     example: '.env.example',
-    requiresDiscordToken: true,
-    tokenKey: 'DISCORD_BOT_TOKEN',
   },
   {
     name: 'frontend',
@@ -250,7 +249,28 @@ function loadConfig() {
 }
 
 function saveConfig(cfg) {
-  try { writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2)); } catch {}
+  try { writePrivateFile(CONFIG_PATH, JSON.stringify(cfg, null, 2)); } catch {}
+}
+
+function writePrivateFile(path, contents) {
+  if (existsSync(path) && lstatSync(path).isSymbolicLink()) {
+    throw Object.assign(new Error('refusing credential symlink'), { code: 'CREDENTIAL_SYMLINK' });
+  }
+  writeFileSync(path, contents, { mode: 0o600 });
+  chmodSync(path, 0o600);
+}
+
+function ensurePrivateFileMode(path) {
+  if (!existsSync(path)) return;
+  if (lstatSync(path).isSymbolicLink()) {
+    throw Object.assign(new Error('refusing credential symlink'), { code: 'CREDENTIAL_SYMLINK' });
+  }
+  chmodSync(path, 0o600);
+}
+
+function safeErrorLabel(error) {
+  const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+  return /^[A-Z0-9_-]{1,80}$/i.test(code) ? code : 'operation failed';
 }
 
 let CONFIG = loadConfig();
@@ -274,12 +294,12 @@ function ensureEnvFileWithExample(path) {
   try {
     if (existsSync(examplePath)) {
       const seed = readFileSync(examplePath, 'utf8');
-      writeFileSync(path, seed);
+      writePrivateFile(path, seed);
     } else {
-      writeFileSync(path, '');
+      writePrivateFile(path, '');
     }
   } catch (e) {
-    console.error('[console]', t('error_prefix'), e.message || e);
+    console.error('[console]', t('error_prefix'), safeErrorLabel(e));
   }
 }
 
@@ -330,10 +350,10 @@ function updateEnvEntries(path, entries) {
   if (!changed) return false;
   const output = lines.length ? `${lines.join(eol)}${eol}` : '';
   try {
-    writeFileSync(path, output);
+    writePrivateFile(path, output);
     return true;
   } catch (e) {
-    console.error('[console]', t('error_prefix'), e.message || e);
+    console.error('[console]', t('error_prefix'), safeErrorLabel(e));
     return false;
   }
 }
@@ -379,7 +399,7 @@ function configureMonitoringFromSetup(monitoring) {
       ],
     },
     {
-      path: join(servicesDir, 'bot', '.env'),
+      path: join(servicesDir, 'bot', '.env.local'),
       entries: [
         ['NEW_RELIC_LICENSE_KEY', newRelicLicense],
         ['SENTRY_DSN', sentryDsn],
@@ -392,7 +412,6 @@ function configureMonitoringFromSetup(monitoring) {
     {
       path: join(servicesDir, 'frontend', '.env'),
       entries: [
-        ['NEW_RELIC_LICENSE_KEY', newRelicLicense],
         ['SENTRY_DSN', sentryDsn],
         ['SENTRY_ENVIRONMENT', sentryEnvironment],
         ['SENTRY_TRACES_SAMPLE_RATE', sentryTraces.toString()],
@@ -473,8 +492,9 @@ async function setupDockerWorkflow(includeDevProfile) {
     } catch {
       console.warn('[console] No existing dev containers to remove or cleanup failed; continuing.');
     }
-    console.log('[console] Starting dev profile containers (api-dev, worker-dev, frontend-dev, bot-dev, postgres, redis, adminer, redis-commander)...');
-    await dockerCompose(['--profile', 'dev', 'up', '--build', '-d', 'postgres', 'redis', 'api-dev', 'worker-dev', 'frontend-dev', 'bot-dev', 'adminer', 'redis-commander']);
+    console.log('[console] Starting dev profile containers (api-dev, worker-dev, frontend-dev, bot-dev, postgres, redis).');
+    await dockerCompose(['--profile', 'dev', 'up', '--build', '-d', 'postgres', 'redis', 'api-dev', 'worker-dev', 'frontend-dev', 'bot-dev']);
+    console.log('[console] Administration tools remain disabled; enable the tools profile explicitly.');
   } else {
     console.log('[console] Building and starting production-like stack...');
     await dockerCompose(['up', '--build', '-d']);
@@ -540,6 +560,11 @@ async function setupAskQuestion(prompt, defaultValue = '') {
   const ans = await rlPrompt(prompt);
   if (ans == null || ans === '') return defaultValue ?? '';
   return ans;
+}
+
+async function setupAskSecret(prompt) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return '';
+  return rlSecretPrompt(prompt);
 }
 
 async function setupAskYesNo(question, defaultYes = true) {
@@ -635,7 +660,7 @@ async function gatherSetupSelections() {
 
   state.monitoring.newRelicEnabled = await setupAskYesNo('Configure New Relic APM?', false);
   if (state.monitoring.newRelicEnabled) {
-    const license = (await setupAskQuestion('Enter New Relic license key: ', '')).trim();
+    const license = (await setupAskSecret('Enter New Relic license key: ')).trim();
     state.monitoring.newRelicLicense = license;
     if (!license) {
       console.warn('[console] New Relic enabled but license key left empty. Agent will remain disabled.');
@@ -646,7 +671,7 @@ async function gatherSetupSelections() {
 
   state.monitoring.sentryEnabled = await setupAskYesNo('Configure Sentry monitoring?', false);
   if (state.monitoring.sentryEnabled) {
-    const dsn = (await setupAskQuestion('Enter Sentry DSN: ', '')).trim();
+    const dsn = (await setupAskSecret('Enter Sentry DSN: ')).trim();
     state.monitoring.sentryDsn = dsn;
     if (!dsn) {
       console.warn('[console] Sentry enabled but DSN left empty. SDK will remain disabled.');
@@ -675,7 +700,7 @@ function setupPrintWindowsDbSetupHelp() {
   console.log('[console] - Chocolatey (alternative):');
   console.log('    choco install postgresql redis-64');
   console.log('[console] After install, ensure services are running and reachable:');
-  console.log('[console] - Postgres: localhost:5432 (user=game pass=gamepass db=game)');
+  console.log('[console] - Postgres: localhost:5432 (credentials come from the private root .env)');
   console.log('[console] - Redis:    localhost:6379');
   console.log('[console] Then update .env files to use localhost hosts if needed.');
 }
@@ -709,7 +734,11 @@ function ensureEnvFiles(names) {
   for (const group of targetGroups) {
     const absFiles = group.files.map((name) => join(group.dir, name));
     if (!absFiles.length) continue;
-    const existing = absFiles.filter((p) => existsSync(p));
+    const existing = [];
+    for (const path of absFiles.filter((candidate) => existsSync(candidate))) {
+      ensurePrivateFileMode(path);
+      existing.push(path);
+    }
     let primary = existing[0];
     if (!primary) {
       const examplePath = group.example ? join(group.dir, group.example) : null;
@@ -720,7 +749,7 @@ function ensureEnvFiles(names) {
         } catch {}
       }
       try {
-        writeFileSync(absFiles[0], seed);
+        writePrivateFile(absFiles[0], seed);
         primary = absFiles[0];
         created.push(relative(root, absFiles[0]));
       } catch {}
@@ -730,7 +759,7 @@ function ensureEnvFiles(names) {
       if (existsSync(abs)) continue;
       const stub = `# Auto-generated stub by console.mjs\n# Actual values in ${basename(primary)}\n`;
       try {
-        writeFileSync(abs, stub);
+        writePrivateFile(abs, stub);
         created.push(relative(root, abs));
       } catch {}
     }
@@ -838,7 +867,7 @@ async function configureDiscordTokenInteractive(groupNames) {
     const prompt = current
       ? 'Discord bot token (leave blank to keep existing): '
       : 'Discord bot token (required): ';
-    const ans = (await rlPrompt(prompt)).trim();
+    const ans = (await rlSecretPrompt(prompt)).trim();
     if (!ans && !current) {
       console.log('[console] A Discord bot token is required for the bot service.');
       continue;
@@ -852,10 +881,10 @@ async function configureDiscordTokenInteractive(groupNames) {
       const updated = upsertEnvValue(file.contents, key, value);
       if (updated !== file.contents) {
         try {
-          writeFileSync(file.envPath, updated);
+          writePrivateFile(file.envPath, updated);
           updatedPaths.push(relative(root, file.envPath));
         } catch (e) {
-          console.error('[console]', t('error_prefix'), e.message || e);
+          console.error('[console]', t('error_prefix'), safeErrorLabel(e));
         }
       }
       file.contents = updated;
@@ -887,7 +916,9 @@ function sh(cmd, args, opts = {}) {
   return new Promise((resolveP, reject) => {
     const child = spawn(cmd, args, { stdio: 'inherit', shell: false, ...opts });
     child.on('error', reject);
-    child.on('close', (code) => (code === 0 ? resolveP() : reject(new Error(`${cmd} ${args.join(' ')} -> ${code}`))));
+    child.on('close', (code) => code === 0
+      ? resolveP()
+      : reject(Object.assign(new Error('child process failed'), { code: 'CHILD_PROCESS_FAILED' })));
   });
 }
 
@@ -895,11 +926,12 @@ function runCapture(cmd, args, opts = {}) {
   return new Promise((resolveP, reject) => {
     const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: false, ...opts });
     let out = '';
-    let err = '';
     child.stdout.on('data', (d) => (out += d.toString()));
-    child.stderr.on('data', (d) => (err += d.toString()));
+    child.stderr.resume();
     child.on('error', reject);
-    child.on('close', (code) => (code === 0 ? resolveP(out) : reject(new Error(err || `${cmd} ${args.join(' ')} -> ${code}`))));
+    child.on('close', (code) => code === 0
+      ? resolveP(out)
+      : reject(Object.assign(new Error('captured command failed'), { code: 'CAPTURE_FAILED' })));
   });
 }
 
@@ -952,9 +984,8 @@ async function checkForUpdates() {
     if (remoteHash && remoteHash !== localHash) {
       console.log(`[console] ${t('update_available')} (${remoteName}/${remoteBranch})`);
     }
-  } catch (err) {
-    const msg = err && err.message ? ` (${err.message})` : '';
-    console.log('[console]', t('update_failed') + msg);
+  } catch {
+    console.log('[console]', t('update_failed'));
   }
 }
 
@@ -1003,6 +1034,27 @@ function followLogs(services) {
 function rlPrompt(query) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((res) => rl.question(query, (ans) => { rl.close(); res(ans); }));
+}
+
+function rlSecretPrompt(query) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return Promise.resolve('');
+  let muted = false;
+  const output = new Writable({
+    write(chunk, encoding, callback) {
+      if (!muted) process.stdout.write(chunk, encoding);
+      callback();
+    },
+  });
+  const rl = createInterface({ input: process.stdin, output, terminal: true });
+  return new Promise((resolvePrompt) => {
+    rl.question(query, (answer) => {
+      muted = false;
+      rl.close();
+      process.stdout.write('\n');
+      resolvePrompt(answer);
+    });
+    muted = true;
+  });
 }
 
 async function confirm(msg) {
@@ -1074,6 +1126,7 @@ async function startDev() {
   const recreateAns = (await rlPrompt(t('recreate_question'))).trim().toLowerCase();
 
   const flags = ['--profile', 'dev', 'up', '-d'];
+  if (includeAux) flags.splice(2, 0, '--profile', 'tools');
   if (withBuild) flags.push('--build');
   if (withPull) flags.push('--pull', 'always');
   if (recreateAns === 'no') flags.push('--no-recreate');
@@ -1259,13 +1312,13 @@ async function clearLogs() {
     mkdirSync(logsPath, { recursive: true });
     console.log('[console]', t('logs_cleared'));
   } catch (e) {
-    console.error('[console]', t('error_prefix'), e.message || e);
+    console.error('[console]', t('error_prefix'), safeErrorLabel(e));
   }
 }
 
 async function startProd() {
   await ensureEnvForServices([...services.prod], { promptTokens: true });
-  await dockerCompose(['--profile', 'prod', 'up', '-d', ...services.db, ...services.prod, ...services.aux]);
+  await dockerCompose(['--profile', 'prod', 'up', '-d', ...services.db, ...services.prod]);
 }
 
 async function stopProd() {
@@ -1274,7 +1327,7 @@ async function stopProd() {
 
 async function startBun() {
   await ensureEnvForServices([...services.bun], { promptTokens: true });
-  await dockerCompose(['--profile', 'bun', 'up', '-d', ...services.db, ...services.bun, ...services.aux]);
+  await dockerCompose(['--profile', 'bun', 'up', '-d', ...services.db, ...services.bun]);
 }
 
 async function stopBun() {
@@ -1519,7 +1572,7 @@ async function main() {
       else if (ans === '12') await runSetupWizard();
       else if (ans === '0') break;
     } catch (e) {
-      console.error('[console]', t('error_prefix'), e.message || e);
+      console.error('[console]', t('error_prefix'), safeErrorLabel(e));
     }
   }
 }

@@ -1,3 +1,9 @@
+import {
+  FIRST_DAY_SPACE_CATALOG_VERSION,
+  FLOOR_FLOW_SERVICE_PROFILE_VERSION,
+  type FloorFlowServiceProfile,
+} from '../demand-flow/demand-flow.js';
+
 export const K_WORK = 12;
 export const F_WORK = 8;
 
@@ -81,6 +87,8 @@ export type CustomerArrival = Readonly<{
   cohort: CustomerCohort;
   size: number;
   basePatienceTicks: number;
+  /** Server-owned E02 schedule value. Legacy callers may omit and retain E04 derivation. */
+  hiddenPatienceTicks?: number;
   recipePreferenceOrder: readonly string[];
 }>;
 
@@ -90,6 +98,12 @@ export type ServiceTickInput = Readonly<{
   demand: number;
   queueVisibility: number;
   periodWeight: number;
+  /** E02 adapter only: a real seat limit for whole-party admission. */
+  seatCapacity?: number;
+  /** E02 adapter only: finite whole-group waiting-zone capacity. */
+  waitingCapacity?: number;
+  /** E02 adapter only: ticks after READY before front work may begin. */
+  frontServiceDelayTicks?: number;
   authorizedPlayerWorkerIds?: readonly string[];
 }>;
 
@@ -114,12 +128,60 @@ export type ServiceDayInput = Readonly<{
   workers: readonly WorkerSnapshot[];
   equipment: EquipmentSnapshot;
   kitchenExecutionQualityModifier: number;
+  /** Persist with the replay whenever E02 floor flow is applied to E04. */
+  floorFlowServiceProfile?: FloorFlowServiceProfile;
   initialReputation?: Reputation;
   fairness?: FairnessInput;
+  /**
+   * Server-only inventory authority. When present, recipe availability is
+   * decided by atomic ingredient reservation instead of legacy portions.
+   */
+  inventoryAuthority?: ServiceInventoryAuthority;
+}>;
+
+export type InventoryConsumedItem = Readonly<{
+  ingredientId: string;
+  quantityPoints: number;
+  cost: Readonly<{ currency: string; minorUnits: string }>;
+}>;
+
+export type ServiceInventoryOrderOutcome = Readonly<{
+  orderId: string;
+  recipeId: string;
+  servings: number;
+  substitutionId: string | null;
+  substitutionQualityDelta: number;
+  reserveTransactionId: string;
+  completeTransactionId: string;
+  cogs: Readonly<{ currency: string; minorUnits: string }>;
+  consumed: readonly InventoryConsumedItem[];
+}>;
+
+export type ServiceInventoryReservationResult =
+  | Readonly<{
+      status: 'RESERVED';
+      recipeId: string;
+      substitutionQualityDelta: number;
+    }>
+  | Readonly<{ status: 'SOLD_OUT' }>;
+
+export type ServiceInventoryClosure = Readonly<{
+  outcomes: readonly ServiceInventoryOrderOutcome[];
+}>;
+
+export type ServiceInventoryAuthority = Readonly<{
+  reserveOrder: (input: Readonly<{
+    orderId: string;
+    servings: number;
+    recipePreferenceOrder: readonly string[];
+  }>) => ServiceInventoryReservationResult;
+  completeOrder: (orderId: string) => ServiceInventoryOrderOutcome;
+  closePeriod: () => ServiceInventoryClosure;
 }>;
 
 export type ReplayEventType =
   | 'GROUP_ARRIVED'
+  | 'WAITING_FULL_LEFT'
   | 'WAITING_LEFT'
   | 'PREFERRED_SOLD_OUT'
   | 'RESELECTED_ONCE'
@@ -153,6 +215,7 @@ export type CompletedOrder = Readonly<{
   patienceTicks: number;
   foodQuality?: number;
   serviceSpeed?: number;
+  frontEligibleTick: number;
   lowMoraleKitchenContributionApplied: boolean;
 }>;
 
@@ -164,7 +227,9 @@ export type ServiceDayResult = Readonly<{
   remainingPortions: Readonly<Record<string, number>>;
   reputation: Reputation;
   flowRiskHigh: boolean;
+  floorFlowServiceProfile?: FloorFlowServiceProfile;
   events: readonly ReplayEvent[];
+  inventoryOutcomes?: readonly ServiceInventoryOrderOutcome[];
 }>;
 
 type MutableOrder = {
@@ -181,6 +246,7 @@ type MutableOrder = {
   patienceTicks: number;
   foodQuality?: number;
   serviceSpeed?: number;
+  frontEligibleTick: number;
   lowMoraleKitchenContributionApplied: boolean;
 };
 
@@ -386,6 +452,69 @@ function validateReputation(reputation: Reputation): void {
   }
 }
 
+function validateFloorFlowServiceProfile(profile: FloorFlowServiceProfile): void {
+  if (profile.version !== FLOOR_FLOW_SERVICE_PROFILE_VERSION) {
+    throw new Error('unknown floor-flow service profile version');
+  }
+  if (!Number.isInteger(profile.layoutRevision) || profile.layoutRevision <= 0) {
+    throw new Error('floor-flow layout revision must be a positive integer');
+  }
+  if (!/^[a-f0-9]{64}$/.test(profile.layoutHash)) {
+    throw new Error('floor-flow layout hash must be a SHA-256 hex digest');
+  }
+  if (profile.spaceCatalogVersion !== FIRST_DAY_SPACE_CATALOG_VERSION) {
+    throw new Error('unknown floor-flow space catalog version');
+  }
+  if (!Number.isInteger(profile.seatCapacity) || profile.seatCapacity < 0) {
+    throw new Error('floor-flow seat capacity must be a non-negative integer');
+  }
+  if (!Number.isInteger(profile.waitingCapacity) || profile.waitingCapacity < 0) {
+    throw new Error('floor-flow waiting capacity must be a non-negative integer');
+  }
+  if (
+    !Number.isFinite(profile.queueVisibility) ||
+    profile.queueVisibility < 0 ||
+    profile.queueVisibility > 1
+  ) {
+    throw new Error('floor-flow queue visibility must be between 0 and 1');
+  }
+  if (!Number.isInteger(profile.frontServiceDelayTicks) || profile.frontServiceDelayTicks < 0) {
+    throw new Error('floor-flow front-service delay must be a non-negative integer');
+  }
+}
+
+/**
+ * Applies the versioned E02 profile without changing demand, recipes, money,
+ * equipment, or the fixed E04 work constants. The original group admission
+ * quota is retained; seatCapacity additionally prevents partial-party entry.
+ */
+export function applyFloorFlowServiceProfile(
+  input: ServiceDayInput,
+  profile: FloorFlowServiceProfile,
+): ServiceDayInput {
+  validateFloorFlowServiceProfile(profile);
+  for (const tick of input.ticks) {
+    if (tick.periodWeight !== 1) {
+      throw new Error('floor-flow service profile requires periodWeight to remain 1');
+    }
+  }
+  return freeze({
+    ...input,
+    floorFlowServiceProfile: profile,
+    ticks: input.ticks.map((tick) =>
+      freeze({
+        ...tick,
+        seatCapacity: profile.seatCapacity,
+        waitingCapacity: profile.waitingCapacity,
+        queueVisibility: profile.queueVisibility,
+        frontServiceDelayTicks: profile.frontServiceDelayTicks,
+        // Preserve the existing E04 value after enforcing the confirmed invariant.
+        periodWeight: tick.periodWeight,
+      }),
+    ),
+  });
+}
+
 function validateInput(input: ServiceDayInput): void {
   if (input.demandSeed.trim().length === 0) {
     throw new Error('demand seed is required');
@@ -421,12 +550,34 @@ function validateInput(input: ServiceDayInput): void {
     if (!Number.isInteger(tick.admissionCapacity) || tick.admissionCapacity < 0) {
       throw new Error('admission capacity must be a non-negative integer');
     }
+    if (
+      tick.seatCapacity !== undefined &&
+      (!Number.isInteger(tick.seatCapacity) || tick.seatCapacity < 0)
+    ) {
+      throw new Error('seat capacity must be a non-negative integer');
+    }
+    if (
+      tick.waitingCapacity !== undefined &&
+      (!Number.isInteger(tick.waitingCapacity) || tick.waitingCapacity < 0)
+    ) {
+      throw new Error('waiting capacity must be a non-negative integer');
+    }
+    if (
+      tick.frontServiceDelayTicks !== undefined &&
+      (!Number.isInteger(tick.frontServiceDelayTicks) || tick.frontServiceDelayTicks < 0)
+    ) {
+      throw new Error('front-service delay must be a non-negative integer');
+    }
     calculateQueueCongestion({
       queueLength: 0,
       demand: tick.demand,
       queueVisibility: tick.queueVisibility,
       periodWeight: tick.periodWeight,
     });
+  }
+
+  if (input.floorFlowServiceProfile !== undefined) {
+    validateFloorFlowServiceProfile(input.floorFlowServiceProfile);
   }
 
   const workerIds = new Set<string>();
@@ -448,6 +599,12 @@ function validateInput(input: ServiceDayInput): void {
     }
     if (!Number.isInteger(arrival.size) || arrival.size <= 0 || arrival.basePatienceTicks <= 0) {
       throw new Error('group size and base patience must be positive');
+    }
+    if (
+      arrival.hiddenPatienceTicks !== undefined &&
+      (!Number.isInteger(arrival.hiddenPatienceTicks) || arrival.hiddenPatienceTicks <= 0)
+    ) {
+      throw new Error('hidden patience must be a positive integer when supplied');
     }
     const preferences = new Set(arrival.recipePreferenceOrder);
     if (
@@ -505,6 +662,7 @@ export function simulateServiceDay(input: ServiceDayInput): ServiceDayResult {
   );
   const ticks = [...input.ticks].sort((left, right) => left.tick - right.tick);
   const arrivalsByTick = new Map<number, CustomerArrival[]>();
+  const arrivalsByGroupId = new Map(input.arrivals.map((arrival) => [arrival.groupId, arrival]));
   for (const arrival of input.arrivals) {
     const arrivals = arrivalsByTick.get(arrival.arrivalTick) ?? [];
     arrivals.push(arrival);
@@ -543,9 +701,9 @@ export function simulateServiceDay(input: ServiceDayInput): ServiceDayResult {
       return leftOrder - rightOrder || left.groupId.localeCompare(right.groupId);
     });
     for (const arrival of arriving) {
-      const patienceTicks = round(
-        arrival.basePatienceTicks * COHORT_PATIENCE_FACTOR[arrival.cohort],
-      );
+      const patienceTicks =
+        arrival.hiddenPatienceTicks ??
+        round(arrival.basePatienceTicks * COHORT_PATIENCE_FACTOR[arrival.cohort]);
       waiting.push({
         ...arrival,
         patienceTicks,
@@ -575,11 +733,66 @@ export function simulateServiceDay(input: ServiceDayInput): ServiceDayResult {
       }
     }
 
-    const admitted = waiting.splice(0, tickInput.admissionCapacity);
+    // Legacy callers retain group-count admission. E02-profile callers add a
+    // physical seat constraint: a whole party is admitted or remains queued;
+    // parties are never split and a large party cannot consume imaginary seats.
+    const admitted: WaitingGroup[] = [];
+    if (tickInput.seatCapacity === undefined) {
+      admitted.push(...waiting.splice(0, tickInput.admissionCapacity));
+    } else {
+      const occupiedSeats = orders
+        .filter((order) => order.state !== 'SERVED')
+        .reduce((total, order) => total + (arrivalsByGroupId.get(order.groupId)?.size ?? 0), 0);
+      let availableSeats = tickInput.seatCapacity - occupiedSeats;
+      for (
+        let index = 0;
+        index < waiting.length && admitted.length < tickInput.admissionCapacity;
+      ) {
+        const group = waiting[index]!;
+        if (group.size <= availableSeats) {
+          admitted.push(group);
+          waiting.splice(index, 1);
+          availableSeats -= group.size;
+        } else {
+          index += 1;
+        }
+      }
+    }
     for (const group of admitted) {
       const preferredRecipeId = group.recipePreferenceOrder[0];
       let selectedRecipeId = preferredRecipeId;
-      if ((remainingPortions[preferredRecipeId] ?? 0) < group.size) {
+      const orderId = `order:${group.groupId}`;
+      if (input.inventoryAuthority !== undefined) {
+        const reservation = input.inventoryAuthority.reserveOrder({
+          orderId,
+          servings: group.size,
+          recipePreferenceOrder: group.recipePreferenceOrder,
+        });
+        if (reservation.status === 'SOLD_OUT') {
+          emit(tickInput.tick, 'PREFERRED_SOLD_OUT', group.groupId, {
+            recipeId: preferredRecipeId,
+          });
+          departedGroupIds.push(group.groupId);
+          emit(tickInput.tick, 'SOLD_OUT_LEFT', group.groupId, {
+            attemptedAlternatives: group.recipePreferenceOrder.length - 1,
+          });
+          continue;
+        }
+        const selectedIndex = group.recipePreferenceOrder.indexOf(reservation.recipeId);
+        if (selectedIndex < 0) {
+          throw new Error('inventory authority selected a recipe outside the preference order');
+        }
+        selectedRecipeId = reservation.recipeId;
+        if (selectedIndex > 0) {
+          emit(tickInput.tick, 'PREFERRED_SOLD_OUT', group.groupId, {
+            recipeId: preferredRecipeId,
+          });
+          emit(tickInput.tick, 'RESELECTED_ONCE', group.groupId, {
+            fromRecipeId: preferredRecipeId,
+            toRecipeId: selectedRecipeId,
+          });
+        }
+      } else if ((remainingPortions[preferredRecipeId] ?? 0) < group.size) {
         emit(tickInput.tick, 'PREFERRED_SOLD_OUT', group.groupId, {
           recipeId: preferredRecipeId,
         });
@@ -600,9 +813,11 @@ export function simulateServiceDay(input: ServiceDayInput): ServiceDayResult {
         });
       }
 
-      remainingPortions[selectedRecipeId] -= group.size;
+      if (input.inventoryAuthority === undefined) {
+        remainingPortions[selectedRecipeId] -= group.size;
+      }
       const order: MutableOrder = {
-        id: `order:${group.groupId}`,
+        id: orderId,
         groupId: group.groupId,
         recipeId: selectedRecipeId,
         state: 'CREATED',
@@ -612,6 +827,7 @@ export function simulateServiceDay(input: ServiceDayInput): ServiceDayResult {
         kitchenWork: 0,
         frontWork: 0,
         patienceTicks: group.patienceTicks,
+        frontEligibleTick: tickInput.tick,
         lowMoraleKitchenContributionApplied: false,
       };
       orders.push(order);
@@ -621,8 +837,27 @@ export function simulateServiceDay(input: ServiceDayInput): ServiceDayResult {
       });
     }
 
+    // Only groups that could not enter this tick consume waiting-zone space.
+    // The stable queue order retains the first canonical groups and refuses
+    // overflow immediately, before their hidden patience deadline.
+    if (tickInput.waitingCapacity !== undefined && waiting.length > tickInput.waitingCapacity) {
+      const refused = waiting.splice(tickInput.waitingCapacity);
+      for (const group of refused) {
+        departedGroupIds.push(group.groupId);
+        emit(tickInput.tick, 'WAITING_FULL_LEFT', group.groupId, {
+          waitingCapacity: tickInput.waitingCapacity,
+          waitedTicks: tickInput.tick - group.arrivalTick,
+        });
+      }
+    }
+
     const readyAtTickStart = new Set(
-      orders.filter((order) => order.state === 'READY').map((order) => order.id),
+      orders
+        .filter(
+          (order) =>
+            order.state === 'READY' && order.frontEligibleTick <= tickInput.tick,
+        )
+        .map((order) => order.id),
     );
     for (const order of orders) {
       if (order.state === 'CREATED') {
@@ -657,6 +892,9 @@ export function simulateServiceDay(input: ServiceDayInput): ServiceDayResult {
         workerCapacity,
         (order) => {
           order.state = 'READY';
+          // READY orders normally first receive front work on the following
+          // tick. The E02 delay is additional to that existing boundary.
+          order.frontEligibleTick = tickInput.tick + (tickInput.frontServiceDelayTicks ?? 0) + 1;
           emit(tickInput.tick, 'ORDER_STATE_CHANGED', order.id, {
             from: 'PREPARING',
             to: 'READY',
@@ -679,6 +917,13 @@ export function simulateServiceDay(input: ServiceDayInput): ServiceDayResult {
     }
 
     const serveOrder = (order: MutableOrder): void => {
+      const inventoryOutcome = input.inventoryAuthority?.completeOrder(order.id);
+      if (
+        inventoryOutcome !== undefined &&
+        (inventoryOutcome.orderId !== order.id || inventoryOutcome.recipeId !== order.recipeId)
+      ) {
+        throw new Error('inventory completion outcome does not match the served order');
+      }
       order.state = 'SERVED';
       order.servedTick = tickInput.tick;
       const recipe = recipes.get(order.recipeId);
@@ -687,7 +932,8 @@ export function simulateServiceDay(input: ServiceDayInput): ServiceDayResult {
       }
       order.foodQuality = calculateFoodQuality({
         recipeBaseQuality: recipe.baseQuality,
-        substitutionQualityDelta: recipe.substitutionQualityDelta,
+        substitutionQualityDelta:
+          inventoryOutcome?.substitutionQualityDelta ?? recipe.substitutionQualityDelta,
         kitchenExecutionQualityModifier: input.kitchenExecutionQualityModifier,
         equipmentCondition: input.equipment.kitchen,
         lowMoraleKitchenContribution: order.lowMoraleKitchenContributionApplied,
@@ -780,6 +1026,21 @@ export function simulateServiceDay(input: ServiceDayInput): ServiceDayResult {
     });
   }
 
+  const inventoryClosure = input.inventoryAuthority?.closePeriod();
+  if (inventoryClosure !== undefined) {
+    const servedIds = orders
+      .filter((order) => order.state === 'SERVED')
+      .map((order) => order.id)
+      .sort();
+    const outcomeIds = inventoryClosure.outcomes.map((outcome) => outcome.orderId).sort();
+    if (
+      servedIds.length !== outcomeIds.length ||
+      servedIds.some((orderId, index) => orderId !== outcomeIds[index])
+    ) {
+      throw new Error('inventory closure must contain exactly one outcome per served order');
+    }
+  }
+
   return freeze({
     demandSeed: input.demandSeed,
     orders: orders.map((order) => freeze(order)),
@@ -788,6 +1049,8 @@ export function simulateServiceDay(input: ServiceDayInput): ServiceDayResult {
     remainingPortions,
     reputation,
     flowRiskHigh,
+    floorFlowServiceProfile: input.floorFlowServiceProfile,
     events,
+    ...(inventoryClosure === undefined ? {} : { inventoryOutcomes: inventoryClosure.outcomes }),
   });
 }

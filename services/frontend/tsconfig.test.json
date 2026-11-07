@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["DOM", "ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": ".next/test-dist",
+    "rootDir": ".",
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": [
+    "lib/d02-game-command-client.ts",
+    "lib/gameplay-machine.ts",
+    "lib/gameplay-runtime.ts",
+    "lib/preopen-configuration-runtime.ts",
+    "test/d02-command-client.test.ts",
+    "test/gameplay-runtime.test.ts",
+    "test/preopen-configuration-runtime.test.ts"
+  ]
+}

@@ -12,6 +12,7 @@
 3. invite cohort 有固定名額、時窗、功能旗標與 eligibility policy version。
 4. staging 完成 incident、backup restore、market／replay rebuild、rollback 與 wipe fail/resume 演練。
 5. AI feature flag 預設關閉；MVP 不開放公開 UGC。
+6. D05-A 決策完成版要求：隔離後滿 30 日方可進入清除、帳號刪除需獨立帳號守門條件、失敗僅允許 checkpoint forward resume，且 wipe 過程不得呼叫 Clerk API。
 
 任一條件不成立時不得新增玩家。封測採分批 allowlist，只有前一批完成 health review 才能擴大。
 
@@ -39,12 +40,13 @@
 1. 只有已核准的 `WipeBatch` 可啟動 wipe；禁止 raw SQL／手動逐表刪除。
 2. 記錄 scope、公告時點、freeze 時點、保留／清除 family、expected counts／hash、requester 與不同 approver。
 3. 公告後凍結新 invite；執行前凍結 scope 內 mutation、worker job 與 reward settlement。
-4. 建立可驗證 backup 與 pre-wipe manifest；保留 identity、Discord link、invite eligibility、non-economic preference、audit 與依 D-05 指定的 append-only history。
+4. 建立可驗證 backup 與 pre-wipe manifest；預設保留 identity、Discord link、invite eligibility、non-economic preference、audit 與依 D-05 指定的 append-only history；僅對符合 D05-A guard 條件的應用層清理例外（需可回溯證據）。
+5. 只允許在 `FROZEN→ISOLATED` 完成且 DB UTC `isolatedAt + 30 days` 過後，才能進入 `CLEARED`；child-first 清除/留存列表以 authority 為準，並在驗證前保留 restore window。
 
 ## Wipe fail／resume
 
 1. `WipeBatch` 以 immutable scope 與階段 checkpoint 執行：`APPROVED → FROZEN → ISOLATED → CLEARED → VERIFIED → COMPLETED`；失敗記錄目前 checkpoint、attempt、error code 與 count/hash evidence。
-2. 任一階段失敗時維持 freeze，不建立新 batch、不從頭重做已完成 side effect。
+2. 任一階段失敗時維持 freeze，不建立新 batch，不從頭重做已完成 side effect；只允許人工 forward resume。
 3. Operator 與 approver 依相同 `WipeBatch` resume；每個步驟必須具 idempotency key，已完成 checkpoint 回原結果。
 4. `VERIFIED` 必須證明：
    - 舊 live state 無法由新 session 讀取；
@@ -53,6 +55,7 @@
    - 新 save 不引用舊 aggregate version、market tick 或 replay sequence；
    - pre-wipe evidence 可供 audit，但不重新掛回 live state。
 5. 未到 `COMPLETED` 前不得解除 cohort freeze。驗證失敗轉 `SEV-1`，依 backup runbook 決定 recovery，不直接修改 checkpoint。
+6. 帳號清除守門條件：全部受影響 save 清除後，且該 `Player` 無其他 active save、參與紀錄、tenant/restaurant membership 才可 tombstone，否則記錄 `ACCOUNT_RETAINED_GUARD` 並僅阻擋帳號 tombstone。
 
 ## Rollback 與停止封測
 

@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM"],
+    "outDir": "dist/test-only",
+    "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "@econ-game/sdk": ["../../packages/econ-game-sdk/dist/index.d.ts"]
+    },
+    "strict": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["src/gameplay-runtime.ts"]
+}

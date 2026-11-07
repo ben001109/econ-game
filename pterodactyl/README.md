@@ -6,7 +6,7 @@ Usage
   - Bun stack: `ghcr.io/parkervcp/yolks:bun_latest`
   - Python stack: `ghcr.io/parkervcp/yolks:python_3.12` (ships with `uv`)
 - Set `WORK_DIR` to the service folder if you clone the whole repo, or leave `.` if you upload only that service.
-- Set environment variables as needed (e.g. API: `DATABASE_URL`, `REDIS_URL`, `PORT`).
+- Set non-secret environment variables as needed. An administrator must inject each required secret through its protected server-owned variable before startup.
 
 Detailed setup
 1. In the Pterodactyl panel, go to `Admin` > `Nests` > `Import Egg` and upload the JSON file for the service you need (`pterodactyl/eggs/*.json`).
@@ -15,11 +15,13 @@ Detailed setup
    - Set `Allocation` to the port you want the service to listen on (match `PORT` if you override it).
    - Leave `Default Startup Command` as provided unless you have a custom script.
    - In `Server Owner` and `Description`, fill in whatever helps you recognize the service later.
-4. After the server is created, open the `Startup` tab and adjust:
-   - `WORK_DIR` to the service folder (see table below) if the repository root is mounted.
-   - Any required environment variables. At minimum the API needs `DATABASE_URL`, `REDIS_URL`, and `PORT`; the worker needs queue endpoints; the bot needs Discord credentials.
+4. Before assigning the server to a client, configure it as an administrator:
+   - Set non-secret values such as `WORK_DIR`, `API_BASE_URL`, and `PORT`.
+   - Inject credentials only through server-owned variables that have both `user_viewable=false` and `user_editable=false`. Never put Git, database, Discord, Clerk, Supabase, or Bot credentials in a client-visible variable.
+   - Leave a required protected variable unset if no secret has been provisioned. The service must fail closed; do not use placeholder or demonstration credentials.
 5. Deploy the application code:
-   - If you cloned the whole repository into the node, point the server's SFTP path to the repo root; the egg runs from that working directory.
+   - Every egg clones only public HTTPS repositories and rejects URLs containing credentials, query data, or fragments. For private repositories, set `USER_UPLOAD=1` and deploy code through a server-side checkout or artifact workflow outside the egg; never place a token in a clone URL or command.
+   - If the whole repository is present on the node, point the server's SFTP path to the repo root; the egg runs from that working directory.
    - If you only upload a single service, keep `WORK_DIR` as `.` and upload the corresponding `services/<name>` contents via SFTP.
 6. Start the server. On first boot the egg runs `bun install --production` and any service-specific bootstrap (`bun prisma generate` / `db push` for the API). Watch the console to confirm each step completes.
 7. Once the server is running, hit the service's HTTP port (or relevant queue/bot endpoints) to verify it responds, then enable automatic restarts or schedules as needed.
@@ -39,8 +41,8 @@ Startup defaults
 - Frontend: `START_CMD=bun:start` (build runs before start via egg command)
 
 Notes
-- Eggs run `bun install --production` on startup; API runs Prisma generate/db push via its `bun:start` script.
+- Eggs install their locked runtime dependencies on startup and then invoke the administrator-owned service script.
 - Ensure your DB/Redis endpoints are reachable from the node that hosts the server.
-- For production, set `NODE_ENV=production` and provide any external API keys in the Startup tab.
+- For production, keep `NODE_ENV=production`. Provision secrets with protected, administrator-owned server variables; client-visible Startup fields are for non-secret configuration only.
 - If migrations or seed data are required, add a Pterodactyl schedule to run the corresponding `bun` script after deploys.
 - Python eggs call `uv sync --no-dev` (or `--frozen` if `uv.lock` exists) before executing the script named by `START_CMD`.

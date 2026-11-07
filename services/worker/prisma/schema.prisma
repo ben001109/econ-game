@@ -1,0 +1,234 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LedgerTransactionKind {
+  POSTING
+  COMPENSATION
+}
+
+enum SimulationJobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  DEAD_LETTER
+}
+
+enum SimulationJobErrorClass {
+  TRANSIENT
+  PERMANENT
+}
+
+enum BusinessDayStatus {
+  PREOPEN
+  OPEN
+  SERVICE_COMPLETE
+  SETTLED
+}
+
+enum MarketTickMaterializationSource {
+  JOB
+  COMMAND
+}
+
+// The worker keeps a focused schema for the durable command/outbox/job graph.
+// Field optionality and compound identities must remain in parity with the API
+// schema even though the runtime currently uses transaction-bound raw SQL.
+model Restaurant {
+  id                 String              @id
+  saves              CompetitiveSave[]
+  ledgerTransactions LedgerTransaction[]
+  outboxEvents       OutboxEvent[]
+  simulationJobs     SimulationJob[]
+  businessDays       BusinessDay[]
+  preopenDaySnapshots PreopenDaySnapshot[]
+  servicePeriodExecutions ServicePeriodExecution[]
+}
+
+model Player {
+  id                 String              @id
+  ledgerTransactions LedgerTransaction[] @relation("D03LedgerActor")
+}
+
+model CompetitiveSave {
+  id                 String              @id
+  restaurantId       String
+  restaurant         Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  ledgerTransactions LedgerTransaction[]
+  outboxEvents       OutboxEvent[]
+  simulationJobs     SimulationJob[]
+  businessDays       BusinessDay[]
+  preopenDaySnapshots PreopenDaySnapshot[]
+  servicePeriodExecutions ServicePeriodExecution[]
+
+  @@unique([restaurantId, id])
+}
+
+model BusinessDay {
+  id                        String
+  restaurantId              String
+  saveId                    String
+  businessDay               Int
+  status                    BusinessDayStatus @default(PREOPEN)
+  servicePeriodPlan         String
+  simulationRuleVersion     String
+  createdByCommandId        String            @unique
+  openedByCommandId         String?           @unique
+  settledByCommandId        String?           @unique
+  consumedPreopenSnapshotId String?
+  openSnapshot              Json?
+  openSnapshotHash          String?           @db.VarChar(64)
+  createdAt                 DateTime          @default(now())
+  openedAt                  DateTime?
+  settledAt                 DateTime?
+  restaurant                Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                      CompetitiveSave   @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  consumedPreopenSnapshot   PreopenDaySnapshot? @relation("BusinessDayConsumedPreopenSnapshot", fields: [restaurantId, saveId, businessDay, consumedPreopenSnapshotId], references: [restaurantId, saveId, businessDay, id], onDelete: Restrict)
+  preopenSnapshots          PreopenDaySnapshot[] @relation("PreopenSnapshotBusinessDay")
+  servicePeriodExecutions   ServicePeriodExecution[]
+
+  @@id([restaurantId, id])
+  @@unique([saveId, businessDay])
+  @@unique([restaurantId, saveId, businessDay])
+  @@index([restaurantId, status])
+}
+
+model PreopenDaySnapshot {
+  id                    String
+  restaurantId          String
+  saveId                String
+  businessDay           Int
+  revision              Int
+  commandId             String          @unique
+  snapshotSchemaVersion String
+  simulationRuleVersion String
+  payload               Json
+  snapshotHash          String          @db.VarChar(64)
+  createdAt             DateTime        @default(now())
+  restaurant            Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                  CompetitiveSave @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  businessDayRecord     BusinessDay     @relation("PreopenSnapshotBusinessDay", fields: [restaurantId, saveId, businessDay], references: [restaurantId, saveId, businessDay], onDelete: Restrict)
+  consumedByBusinessDays BusinessDay[]  @relation("BusinessDayConsumedPreopenSnapshot")
+
+  @@id([restaurantId, id])
+  @@unique([saveId, businessDay, revision])
+  @@unique([restaurantId, saveId, businessDay, id])
+  @@index([restaurantId, saveId, businessDay])
+}
+
+model ServicePeriodExecution {
+  id                    String
+  restaurantId          String
+  saveId                String
+  businessDay           Int
+  ordinal               Int
+  periodKey             String
+  commandId             String          @unique
+  simulationRuleVersion String
+  inputSnapshot         Json
+  inputHash             String          @db.VarChar(64)
+  resultSnapshot        Json
+  resultHash            String          @db.VarChar(64)
+  completedAt           DateTime
+  restaurant            Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                  CompetitiveSave @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  businessDayRecord     BusinessDay     @relation(fields: [restaurantId, saveId, businessDay], references: [restaurantId, saveId, businessDay], onDelete: Restrict)
+
+  @@id([restaurantId, id])
+  @@unique([saveId, businessDay, ordinal])
+  @@unique([saveId, businessDay, periodKey])
+  @@unique([restaurantId, saveId, businessDay, id])
+  @@index([restaurantId, saveId, businessDay])
+}
+
+model LedgerTransaction {
+  id                    String                @id
+  restaurantId          String
+  saveId                String
+  commandId             String                @unique
+  actorPlayerId         String
+  kind                  LedgerTransactionKind
+  currency              String                @db.VarChar(3)
+  reason                String
+  reversesTransactionId String?               @unique
+  createdAt             DateTime              @default(now())
+  restaurant            Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                  CompetitiveSave       @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  actorPlayer           Player                @relation("D03LedgerActor", fields: [actorPlayerId], references: [id], onDelete: Restrict)
+  outboxEvent           OutboxEvent?
+  simulationJobs        SimulationJob[]       @relation("D03SimulationSourceTransaction")
+
+  @@unique([restaurantId, saveId, id])
+  @@unique([restaurantId, saveId, reversesTransactionId])
+  @@index([restaurantId, saveId, createdAt])
+  @@index([actorPlayerId, createdAt])
+}
+
+model OutboxEvent {
+  id                   String                  @id
+  restaurantId         String
+  saveId               String
+  transactionId        String?                 @unique
+  causationCommandId   String
+  eventSequence        Int                     @default(0)
+  aggregateType        String
+  aggregateId          String
+  aggregateVersion     Int
+  eventType            String
+  eventVersion         Int                     @default(1)
+  payload              Json
+  occurredAt           DateTime                @default(now())
+  restaurant           Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                 CompetitiveSave         @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  transaction          LedgerTransaction?      @relation(fields: [restaurantId, saveId, transactionId], references: [restaurantId, saveId, id], onDelete: Restrict)
+  simulationJobs       SimulationJob[]
+
+  @@unique([restaurantId, id])
+  @@unique([restaurantId, saveId, transactionId])
+  @@unique([causationCommandId, eventSequence])
+  @@index([restaurantId, saveId, occurredAt])
+  @@index([restaurantId, saveId, causationCommandId])
+}
+
+model SimulationJob {
+  id                  String                    @id
+  restaurantId        String
+  saveId              String
+  sourceEventId       String
+  sourceTransactionId String?
+  jobKind             String
+  businessKey         String
+  status              SimulationJobStatus       @default(PENDING)
+  inputPayload        Json
+  inputHash           String                    @db.VarChar(64)
+  resultPayload       Json?
+  attemptCount        Int                       @default(0)
+  maxAttempts         Int                       @default(5)
+  availableAt         DateTime                  @default(now())
+  leaseOwner          String?
+  leaseToken          String?
+  leaseExpiresAt      DateTime?
+  errorClass          SimulationJobErrorClass?
+  errorCode           String?
+  errorDetails        Json?
+  startedAt           DateTime?
+  terminalAt          DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  restaurant          Restaurant                @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                CompetitiveSave           @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  sourceEvent         OutboxEvent               @relation(fields: [restaurantId, sourceEventId], references: [restaurantId, id], onDelete: Restrict)
+  sourceTransaction   LedgerTransaction?        @relation("D03SimulationSourceTransaction", fields: [restaurantId, saveId, sourceTransactionId], references: [restaurantId, saveId, id], onDelete: Restrict)
+
+  @@unique([restaurantId, id])
+  @@unique([sourceEventId, jobKind, businessKey])
+  @@index([status, availableAt, createdAt])
+  @@index([restaurantId, saveId, createdAt])
+  @@index([leaseExpiresAt])
+}

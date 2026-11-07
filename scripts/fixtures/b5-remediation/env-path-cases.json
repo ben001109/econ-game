@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    { "path": ".env", "excluded": true },
+    { "path": ".env.local", "excluded": true },
+    { "path": ".env.production", "excluded": true },
+    { "path": ".envrc", "excluded": true },
+    { "path": "nested/.env", "excluded": true },
+    { "path": "nested/.env.test.local", "excluded": true },
+    { "path": "nested/deeper/.environment", "excluded": true },
+    { "path": "src/env.ts", "excluded": false },
+    { "path": "pages/index.tsx", "excluded": false },
+    { "path": "nested/config.env", "excluded": false }
+  ]
+}

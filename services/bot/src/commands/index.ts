@@ -6,8 +6,7 @@ import type {
 
 import * as ping from './ping.js';
 import * as ops from './ops.js';
-import * as pos from './pos.js';
-import * as kds from './kds.js';
+import * as game from './game.js';
 
 export type SlashCommand = {
   data: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder;
@@ -17,4 +16,6 @@ export type SlashCommand = {
   ) => Promise<void>;
 };
 
-export const commands: SlashCommand[] = [ping, ops, pos, kds];
+// Legacy POS/KDS modules remain in the source tree for migration history, but
+// are not registered in the production Bot command surface.
+export const commands: SlashCommand[] = [ping, ops, game];

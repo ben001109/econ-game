@@ -5,7 +5,8 @@ description = "FastAPI implementation of the Econ Game HTTP API"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-  "fastapi>=0.111",
+  "fastapi==0.133.1",
+  "starlette==1.3.1",
   "uvicorn[standard]>=0.30",
   "sqlmodel>=0.0.14",
   "asyncpg>=0.29",

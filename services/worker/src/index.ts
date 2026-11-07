@@ -1,78 +1,74 @@
 import { monitoring, Sentry, registerProcessLogging } from './instrumentation.js';
-import { Queue, Worker, JobsOptions } from 'bullmq';
-import IORedis from 'ioredis';
 
+import { env } from './env.js';
 import { logger } from './logger.js';
+import {
+  isTransientSimulationInfrastructureError,
+  PostgresSimulationPlatform,
+  type SimulationDatabase,
+} from './simulation-platform.js';
 
 registerProcessLogging(logger);
 
-const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  // BullMQ requires this to be null when blocking commands are used
-  maxRetriesPerRequest: null,
+const pollMilliseconds = env.D03_POLL_MS;
+const leaseSeconds = env.D03_LEASE_SECONDS;
+const workerId = env.D03_WORKER_ID;
+const prismaModule = (await import('@prisma/client')) as unknown as Readonly<{
+  PrismaClient: new (
+    options?: unknown,
+  ) => SimulationDatabase & Readonly<{ $disconnect(): Promise<void> }>;
+}>;
+const database = new prismaModule.PrismaClient({
+  datasources: { db: { url: env.DATABASE_URL } },
 });
-const queueName = 'econ-tick';
-const queue = new Queue(queueName, { connection });
+const platform = new PostgresSimulationPlatform(database);
+let stopping = false;
 
-const intervalMs = parseInt(process.env.TICK_INTERVAL_MS || '5000', 10);
-
-// Optional: Discord bot token presence check (no value logged)
-if (!process.env.DISCORD_BOT_TOKEN) {
-  logger.warn('[env] DISCORD_BOT_TOKEN not set. Discord bot features are disabled.');
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.once(signal, () => {
+    stopping = true;
+  });
 }
 
-async function ensureRepeatingJob() {
-  const repeat: JobsOptions['repeat'] = { every: intervalMs };
-  await queue.add(
-    'tick',
-    {},
-    { jobId: 'econ:tick', repeat, removeOnComplete: true, removeOnFail: true },
-  );
-}
+logger.info({ workerId, pollMilliseconds, leaseSeconds }, 'durable simulation worker started');
 
-// Process economic ticks
-const worker = new Worker(
-  queueName,
-  async (job) => {
-    // Placeholder: compute market adjustments and persist results.
-    // This is where you would:
-    // - read current supply/demand from DB/cache
-    // - compute price movements
-    // - write a batch of changes (ledger entries, market quotes)
-    // For now, just log a heartbeat.
-    logger.info({ jobName: job.name }, 'processed job');
-  },
-  { connection },
-);
-
-worker.on('failed', (job, err) => {
-  logger.error({ jobId: job?.id, err }, 'job failed');
+try {
+  let consecutiveInfrastructureFailures = 0;
+  while (!stopping) {
+    try {
+      const ingested = await platform.ingestNextOutbox();
+      const processed = await platform.runOnce(workerId, leaseSeconds);
+      consecutiveInfrastructureFailures = 0;
+      if (!ingested && !processed) await delay(pollMilliseconds);
+    } catch (error) {
+      if (!isTransientSimulationInfrastructureError(error)) throw error;
+      consecutiveInfrastructureFailures += 1;
+      const retryMilliseconds = Math.min(
+        30_000,
+        pollMilliseconds * 2 ** Math.min(consecutiveInfrastructureFailures - 1, 8),
+      );
+      logger.error(
+        { err: error, retryMilliseconds, consecutiveInfrastructureFailures },
+        'transient simulation database failure; retrying without consuming the event',
+      );
+      if (monitoring.sentry) Sentry.captureException(new Error('WORKER_TRANSIENT_FAILURE'));
+      await delay(retryMilliseconds);
+    }
+  }
+} catch (error) {
+  logger.fatal({ err: error }, 'durable simulation worker stopped unexpectedly');
   if (monitoring.sentry) {
     Sentry.withScope((scope) => {
       scope.setTag('service', 'worker');
-      scope.setTag('queue', queueName);
-      if (job) {
-        scope.setExtra('jobId', job.id);
-        scope.setExtra('jobName', job.name);
-        scope.setExtra('jobData', job.data);
-      }
-      Sentry.captureException(err);
+      scope.setTag('worker', 'durable-simulation');
+      Sentry.captureException(new Error('WORKER_RUNTIME_FAILED'));
     });
   }
-});
+  process.exitCode = 1;
+} finally {
+  await database.$disconnect();
+}
 
-ensureRepeatingJob()
-  .then(() => {
-    logger.info({ intervalMs }, 'scheduled tick job');
-  })
-  .catch((e) => {
-    logger.error({ err: e }, 'failed to schedule tick');
-    if (monitoring.sentry) {
-      Sentry.withScope((scope) => {
-        scope.setTag('service', 'worker');
-        scope.setTag('queue', queueName);
-        scope.setLevel('error');
-        Sentry.captureException(e);
-      });
-    }
-    process.exit(1);
-  });
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}

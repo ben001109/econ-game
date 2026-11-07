@@ -87,7 +87,8 @@ export type FirstDayDemandInput = Readonly<{
     label: string;
     demandModifierPercent: number;
   }>;
-  priceModifierPercentByCohort: Readonly<Record<CustomerCohort, number>>;
+  activeRecipeVersionIds: readonly string[];
+  priceModifierPercentByRecipe: Readonly<Record<string, number>>;
   basePatienceTicks: PatienceRange;
   periodTickWindows: Readonly<Partial<Record<ServicePeriod, TickWindow>>>;
 }>;
@@ -101,6 +102,7 @@ export type DemandGroup = Readonly<{
   arrivalTick: number;
   basePatienceTicks: number;
   hiddenPatienceTicks: number;
+  recipePreferenceOrder: readonly string[];
 }>;
 
 export type DemandReplayEvent = Readonly<{
@@ -285,8 +287,31 @@ function validateDemandInput(input: FirstDayDemandInput): void {
   ) {
     throw new Error('base patience range must contain positive integer ticks');
   }
-  for (const cohort of COHORTS) {
-    calculatePriceConversionFactor(cohort, input.priceModifierPercentByCohort[cohort]);
+  if (input.activeRecipeVersionIds.length === 0) {
+    throw new Error('at least one active recipe version ID is required');
+  }
+  const activeRecipeIds = new Set<string>();
+  for (const recipeVersionId of input.activeRecipeVersionIds) {
+    if (recipeVersionId.trim().length === 0 || recipeVersionId !== recipeVersionId.trim()) {
+      throw new Error('active recipe version IDs must be non-empty canonical strings');
+    }
+    if (activeRecipeIds.has(recipeVersionId)) {
+      throw new Error('active recipe version IDs must not contain duplicates');
+    }
+    activeRecipeIds.add(recipeVersionId);
+  }
+  const modifierRecipeIds = Object.keys(input.priceModifierPercentByRecipe);
+  if (
+    modifierRecipeIds.length !== activeRecipeIds.size ||
+    modifierRecipeIds.some((recipeVersionId) => !activeRecipeIds.has(recipeVersionId))
+  ) {
+    throw new Error('price modifiers must map exactly the active recipe version IDs');
+  }
+  for (const recipeVersionId of activeRecipeIds) {
+    calculatePriceConversionFactor(
+      'PRICE_SENSITIVE',
+      input.priceModifierPercentByRecipe[recipeVersionId]!,
+    );
   }
   const requiredPeriods = PERIODS_BY_PLAN[input.periodPlan];
   for (const period of requiredPeriods) {
@@ -314,44 +339,23 @@ function periodShare(plan: ServicePeriodPlan, period: ServicePeriod): number {
   );
 }
 
-function calculateActualDemandGroups(input: FirstDayDemandInput): Readonly<{
+function calculateWeatherAdjustedDemandGroups(input: FirstDayDemandInput): Readonly<{
   normal: number;
   weatherAdjusted: number;
-  actual: number;
 }> {
   const normal = NORMAL_DEMAND_GROUPS[input.scenario][input.periodPlan];
   const weatherAdjusted = roundHalfUp(normal * (1 + input.weather.demandModifierPercent / 100));
-  let weightedConversion = 0;
-  for (const period of PERIODS_BY_PLAN[input.periodPlan]) {
-    const share = periodShare(input.periodPlan, period);
-    for (const cohort of COHORTS) {
-      weightedConversion +=
-        share *
-        COHORT_DISTRIBUTION[period][cohort] *
-        calculatePriceConversionFactor(cohort, input.priceModifierPercentByCohort[cohort]);
-    }
-  }
-  const rawPriceAdjusted = roundHalfUp(weatherAdjusted * weightedConversion);
-  const minimum = roundHalfUp(weatherAdjusted * 0.9);
-  const maximum = roundHalfUp(weatherAdjusted * 1.1);
-  return {
-    normal,
-    weatherAdjusted,
-    actual: Math.min(maximum, Math.max(minimum, rawPriceAdjusted)),
-  };
+  return { normal, weatherAdjusted };
 }
 
-function periodCohortCounts(input: FirstDayDemandInput, total: number): Map<string, number> {
+function candidatePeriodCohortCounts(input: FirstDayDemandInput, total: number): Map<string, number> {
   const cells: WeightedKey<string>[] = [];
   for (const period of PERIODS_BY_PLAN[input.periodPlan]) {
     const share = periodShare(input.periodPlan, period);
     for (const cohort of COHORTS) {
       cells.push({
         key: `${period}|${cohort}`,
-        weight:
-          share *
-          COHORT_DISTRIBUTION[period][cohort] *
-          calculatePriceConversionFactor(cohort, input.priceModifierPercentByCohort[cohort]),
+        weight: share * COHORT_DISTRIBUTION[period][cohort],
       });
     }
   }
@@ -359,8 +363,146 @@ function periodCohortCounts(input: FirstDayDemandInput, total: number): Map<stri
     total,
     cells,
     input.demandSeed,
-    `period-cohort:${input.operatingMode}`,
+    `candidate-period-cohort:${input.operatingMode}`,
   );
+}
+
+type DemandCandidate = Readonly<{
+  candidateId: string;
+  period: ServicePeriod;
+  cohort: CustomerCohort;
+  recipePreferenceOrder: readonly string[];
+}>;
+
+function deterministicRecipePreferenceOrder(
+  input: FirstDayDemandInput,
+  candidateId: string,
+): readonly string[] {
+  return [...input.activeRecipeVersionIds].sort(
+    (left, right) =>
+      stableSeedOrder(input.demandSeed, `recipe-preference:${candidateId}:${left}`) -
+        stableSeedOrder(input.demandSeed, `recipe-preference:${candidateId}:${right}`) ||
+      left.localeCompare(right),
+  );
+}
+
+function buildWeatherAdjustedCandidates(
+  input: FirstDayDemandInput,
+  weatherAdjustedGroups: number,
+): readonly DemandCandidate[] {
+  const cellCounts = candidatePeriodCohortCounts(input, weatherAdjustedGroups);
+  const candidates: DemandCandidate[] = [];
+  for (const period of PERIODS_BY_PLAN[input.periodPlan]) {
+    for (const cohort of COHORTS) {
+      const count = cellCounts.get(`${period}|${cohort}`) ?? 0;
+      for (let localIndex = 0; localIndex < count; localIndex += 1) {
+        const candidateId = `${input.operatingMode}:${period}:${cohort}:${localIndex}`;
+        candidates.push({
+          candidateId,
+          period,
+          cohort,
+          recipePreferenceOrder: deterministicRecipePreferenceOrder(input, candidateId),
+        });
+      }
+    }
+  }
+  return candidates;
+}
+
+function stableCandidateOrder(
+  input: FirstDayDemandInput,
+  namespace: string,
+  candidates: readonly DemandCandidate[],
+): DemandCandidate[] {
+  return [...candidates].sort(
+    (left, right) =>
+      stableSeedOrder(input.demandSeed, `${namespace}:${left.candidateId}`) -
+        stableSeedOrder(input.demandSeed, `${namespace}:${right.candidateId}`) ||
+      left.candidateId.localeCompare(right.candidateId),
+  );
+}
+
+function selectPriceConvertedCandidates(
+  input: FirstDayDemandInput,
+  candidates: readonly DemandCandidate[],
+  weatherAdjustedGroups: number,
+): readonly DemandCandidate[] {
+  const buckets = new Map<string, DemandCandidate[]>();
+  for (const candidate of candidates) {
+    const primaryRecipeVersionId = candidate.recipePreferenceOrder[0]!;
+    const key = `${candidate.period}|${candidate.cohort}|${primaryRecipeVersionId}`;
+    const bucket = buckets.get(key) ?? [];
+    bucket.push(candidate);
+    buckets.set(key, bucket);
+  }
+
+  const rows = [...buckets].map(([bucketKey, bucket]) => {
+    const ordered = stableCandidateOrder(input, `price-conversion:${bucketKey}`, bucket);
+    const primaryRecipeVersionId = ordered[0]!.recipePreferenceOrder[0]!;
+    const conversionFactor = calculatePriceConversionFactor(
+      ordered[0]!.cohort,
+      input.priceModifierPercentByRecipe[primaryRecipeVersionId]!,
+    );
+    const exactRetained = ordered.length * conversionFactor;
+    const retainedCount = Math.floor(exactRetained);
+    return {
+      bucketKey,
+      ordered,
+      retainedCount,
+      remainder: exactRetained - retainedCount,
+      exactRetained,
+    };
+  });
+  const rawRetainedCount = roundHalfUp(
+    rows.reduce((total, row) => total + row.exactRetained, 0),
+  );
+  let remainderSlots =
+    rawRetainedCount - rows.reduce((total, row) => total + row.retainedCount, 0);
+  rows.sort(
+    (left, right) =>
+      right.remainder - left.remainder ||
+      stableSeedOrder(input.demandSeed, `price-rounding:${left.bucketKey}`) -
+        stableSeedOrder(input.demandSeed, `price-rounding:${right.bucketKey}`) ||
+      left.bucketKey.localeCompare(right.bucketKey),
+  );
+  for (const row of rows) {
+    if (remainderSlots === 0) break;
+    row.retainedCount += 1;
+    remainderSlots -= 1;
+  }
+
+  const selected: DemandCandidate[] = [];
+  for (const { ordered, retainedCount } of rows) {
+    selected.push(...ordered.slice(0, retainedCount));
+    // A conversion factor above 1 represents more groups converting than the
+    // weather baseline.  These are deterministic multiplicities of the same
+    // seed-owned candidate preference, not a second RNG draw; the global
+    // first-day clamp below remains the final 90-110% authority.
+    for (let extraIndex = ordered.length; extraIndex < retainedCount; extraIndex += 1) {
+      const source = ordered[(extraIndex - ordered.length) % ordered.length]!;
+      selected.push({
+        ...source,
+        candidateId: `${source.candidateId}:price-converted:${extraIndex - ordered.length + 1}`,
+        recipePreferenceOrder: [...source.recipePreferenceOrder],
+      });
+    }
+  }
+
+  const minimum = roundHalfUp(weatherAdjustedGroups * 0.9);
+  const maximum = roundHalfUp(weatherAdjustedGroups * 1.1);
+  if (selected.length < minimum) {
+    const selectedIds = new Set(selected.map((candidate) => candidate.candidateId));
+    const unselected = stableCandidateOrder(
+      input,
+      'global-price-clamp-retain',
+      candidates.filter((candidate) => !selectedIds.has(candidate.candidateId)),
+    );
+    selected.push(...unselected.slice(0, minimum - selected.length));
+  }
+  if (selected.length > maximum) {
+    return stableCandidateOrder(input, 'global-price-clamp-trim', selected).slice(0, maximum);
+  }
+  return selected;
 }
 
 function deterministicTick(seed: string, namespace: string, window: TickWindow): number {
@@ -373,10 +515,16 @@ function deterministicBasePatience(seed: string, namespace: string, range: Patie
 
 export function createFirstDayDemandSchedule(input: FirstDayDemandInput): DemandSchedule {
   validateDemandInput(input);
-  const totals = calculateActualDemandGroups(input);
-  const cellCounts = periodCohortCounts(input, totals.actual);
+  const totals = calculateWeatherAdjustedDemandGroups(input);
+  const candidates = buildWeatherAdjustedCandidates(input, totals.weatherAdjusted);
+  const retainedCandidates = selectPriceConvertedCandidates(
+    input,
+    candidates,
+    totals.weatherAdjusted,
+  );
+  const actualDemandGroups = retainedCandidates.length;
   const sizeCounts = allocateByLargestRemainder(
-    totals.actual,
+    actualDemandGroups,
     ([1, 2, 3, 4] as const).map((size) => ({ key: size, weight: GROUP_SIZE_DISTRIBUTION[size] })),
     input.demandSeed,
     'group-size',
@@ -390,35 +538,31 @@ export function createFirstDayDemandSchedule(input: FirstDayDemandInput): Demand
         stableSeedOrder(input.demandSeed, `size:${input.operatingMode}:${right}`) || left - right,
   );
 
-  const groupDrafts: Array<Omit<DemandGroup, 'groupId' | 'size'>> = [];
-  for (const period of PERIODS_BY_PLAN[input.periodPlan]) {
-    for (const cohort of COHORTS) {
-      const count = cellCounts.get(`${period}|${cohort}`) ?? 0;
-      for (let localIndex = 0; localIndex < count; localIndex += 1) {
-        const namespace = `${input.operatingMode}:${period}:${cohort}:${localIndex}`;
-        const basePatienceTicks = deterministicBasePatience(
-          input.demandSeed,
-          `patience:${namespace}`,
-          input.basePatienceTicks,
-        );
-        groupDrafts.push({
-          kind: 'REGULAR',
-          period,
-          cohort,
-          arrivalTick: deterministicTick(
-            input.demandSeed,
-            `arrival:${namespace}`,
-            input.periodTickWindows[period]!,
-          ),
-          basePatienceTicks,
-          hiddenPatienceTicks: Math.max(
-            1,
-            roundHalfUp(basePatienceTicks * COHORT_PATIENCE_FACTOR[cohort]),
-          ),
-        });
-      }
-    }
-  }
+  type DemandGroupDraft = Omit<DemandGroup, 'groupId' | 'size'> & { candidateId: string };
+  const groupDrafts: DemandGroupDraft[] = retainedCandidates.map((candidate) => {
+    const basePatienceTicks = deterministicBasePatience(
+      input.demandSeed,
+      `patience:${candidate.candidateId}`,
+      input.basePatienceTicks,
+    );
+    return {
+      candidateId: candidate.candidateId,
+      kind: 'REGULAR',
+      period: candidate.period,
+      cohort: candidate.cohort,
+      arrivalTick: deterministicTick(
+        input.demandSeed,
+        `arrival:${candidate.candidateId}`,
+        input.periodTickWindows[candidate.period]!,
+      ),
+      basePatienceTicks,
+      hiddenPatienceTicks: Math.max(
+        1,
+        roundHalfUp(basePatienceTicks * COHORT_PATIENCE_FACTOR[candidate.cohort]),
+      ),
+      recipePreferenceOrder: [...candidate.recipePreferenceOrder],
+    };
+  });
   groupDrafts.sort(
     (left, right) =>
       left.arrivalTick - right.arrivalTick ||
@@ -431,12 +575,19 @@ export function createFirstDayDemandSchedule(input: FirstDayDemandInput): Demand
           `group:${input.operatingMode}:${right.period}:${right.cohort}:${right.hiddenPatienceTicks}`,
         ) ||
       left.period.localeCompare(right.period) ||
-      left.cohort.localeCompare(right.cohort),
+      left.cohort.localeCompare(right.cohort) ||
+      left.candidateId.localeCompare(right.candidateId),
   );
   const groups = groupDrafts.map((draft, index) => ({
-    ...draft,
     groupId: `group:${String(index + 1).padStart(3, '0')}`,
+    kind: draft.kind,
+    period: draft.period,
+    cohort: draft.cohort,
     size: sizes[index]!,
+    arrivalTick: draft.arrivalTick,
+    basePatienceTicks: draft.basePatienceTicks,
+    hiddenPatienceTicks: draft.hiddenPatienceTicks,
+    recipePreferenceOrder: [...draft.recipePreferenceOrder],
   }));
   const replayEvents: DemandReplayEvent[] = [
     {
@@ -449,7 +600,7 @@ export function createFirstDayDemandSchedule(input: FirstDayDemandInput): Demand
         operatingMode: input.operatingMode,
         normalDemandGroups: totals.normal,
         weatherAdjustedGroups: totals.weatherAdjusted,
-        actualDemandGroups: totals.actual,
+        actualDemandGroups,
         weatherLabel: input.weather.label,
         weatherDemandModifierPercent: input.weather.demandModifierPercent,
       },
@@ -465,6 +616,7 @@ export function createFirstDayDemandSchedule(input: FirstDayDemandInput): Demand
         arrivalTick: group.arrivalTick,
         basePatienceTicks: group.basePatienceTicks,
         hiddenPatienceTicks: group.hiddenPatienceTicks,
+        primaryRecipeVersionId: group.recipePreferenceOrder[0]!,
       },
     })),
   ];
@@ -478,7 +630,7 @@ export function createFirstDayDemandSchedule(input: FirstDayDemandInput): Demand
     demandSeed: input.demandSeed,
     normalDemandGroups: totals.normal,
     weatherAdjustedGroups: totals.weatherAdjusted,
-    actualDemandGroups: totals.actual,
+    actualDemandGroups,
     weather: { ...input.weather },
     groups,
     replayEvents,
@@ -627,6 +779,32 @@ export type FlowIndicators = Readonly<{
   waitingGroupPressure: number;
   walkwayLoad: number;
   queueDemandRatio: number;
+}>;
+
+export type FlowIndicatorState = Readonly<{
+  seatedGuests: number;
+  waitingGroups: number;
+  activeGuests: number;
+  demandGroups: number;
+}>;
+
+/**
+ * The replay-visible bridge from the E02 floor snapshot to E04 service input.
+ * It deliberately exposes no equipment or demand knobs: floor flow controls
+ * seats, queue visibility, and a front-service delay only.
+ */
+export const FLOOR_FLOW_SERVICE_PROFILE_VERSION = 'e02-e04-floor-flow-v1' as const;
+
+export type FloorFlowServiceProfile = Readonly<{
+  version: typeof FLOOR_FLOW_SERVICE_PROFILE_VERSION;
+  layoutRevision: number;
+  layoutHash: string;
+  spaceCatalogVersion: typeof FIRST_DAY_SPACE_CATALOG_VERSION;
+  seatCapacity: number;
+  /** Whole groups that the persisted E02 waiting-zone fixtures can hold. */
+  waitingCapacity: number;
+  queueVisibility: number;
+  frontServiceDelayTicks: number;
 }>;
 
 const firstDaySpaceCatalog = deepFreeze({
@@ -874,16 +1052,17 @@ function hasStaticLineOfSight(
 export function calculateFlowIndicators(
   layout: FirstDayLayout,
   scenario: OpeningScenario,
-  state: Readonly<{
-    seatedGuests: number;
-    waitingGroups: number;
-    activeGuests: number;
-    demandGroups: number;
-  }>,
+  state: FlowIndicatorState,
   equipmentState: PremisesEquipmentState = 'NONE',
 ): FlowIndicators {
   validateFirstDayLayout(layout, scenario, equipmentState);
-  for (const [name, value] of Object.entries(state)) {
+  const requiredState = {
+    seatedGuests: state.seatedGuests,
+    waitingGroups: state.waitingGroups,
+    activeGuests: state.activeGuests,
+    demandGroups: state.demandGroups,
+  };
+  for (const [name, value] of Object.entries(requiredState)) {
     if (!Number.isInteger(value) || value < 0)
       throw new Error(`${name} must be a non-negative integer`);
   }
@@ -913,5 +1092,77 @@ export function calculateFlowIndicators(
     waitingGroupPressure: roundSix(state.waitingGroups / Math.max(1, waiting.length)),
     walkwayLoad: roundSix(state.activeGuests / Math.max(1, walkways.length)),
     queueDemandRatio: roundSix(state.waitingGroups / state.demandGroups),
+  });
+}
+
+/**
+ * Produces the canonical E02 -> E04 bridge for a persisted layout revision.
+ *
+ * Distance and walkway load are intentionally collapsed into a deterministic
+ * front-service delay. They do not change demand, food quality, equipment, or
+ * any capacity catalog value. Queue visibility remains the existing E04
+ * congestion multiplier semantics (0 through 1).
+ */
+export function deriveFloorFlowServiceProfile(
+  snapshot: LayoutSnapshot,
+  state: FlowIndicatorState,
+): FloorFlowServiceProfile {
+  if (!Number.isInteger(snapshot.revision) || snapshot.revision <= 0) {
+    throw new Error('layout revision must be a positive integer');
+  }
+  if (!/^[a-f0-9]{64}$/.test(snapshot.layoutHash)) {
+    throw new Error('layout hash must be a SHA-256 hex digest');
+  }
+  if (snapshot.spaceLimits.catalogVersion !== FIRST_DAY_SPACE_CATALOG_VERSION) {
+    throw new Error('layout snapshot must use the current first-day space catalog');
+  }
+  validateFirstDayLayout(snapshot.layout, snapshot.scenario);
+  const expectedLimits = resolveFirstDaySpaceLimits(snapshot.scenario);
+  if (JSON.stringify(snapshot.spaceLimits) !== JSON.stringify(expectedLimits)) {
+    throw new Error('layout snapshot space limits must match the canonical catalog');
+  }
+  const canonicalHash = createHash('sha256')
+    .update(canonicalLayout(snapshot.layout, expectedLimits))
+    .digest('hex');
+  if (snapshot.layoutHash !== canonicalHash) {
+    throw new Error('layout snapshot hash must match the canonical layout');
+  }
+
+  // Never accept caller-provided floor metrics here. Recomputing from the
+  // persisted layout and E02 state prevents forged distance, visibility, or
+  // load values from entering the E04 replay binding.
+  const indicators = calculateFlowIndicators(snapshot.layout, snapshot.scenario, state);
+
+  // A four-step average corridor consumes one extra front-service tick; every
+  // two active guests per walkway cell add another. Ceil keeps a non-zero
+  // observable delay whenever either signal is non-zero, without introducing
+  // randomness or modifying the fixed K_WORK/F_WORK requirements.
+  const frontServiceDelayTicks = Math.ceil(
+    indicators.averageSeatWalkwayDistanceSteps / 4 + indicators.walkwayLoad / 2,
+  );
+
+  return deepFreeze({
+    version: FLOOR_FLOW_SERVICE_PROFILE_VERSION,
+    layoutRevision: snapshot.revision,
+    layoutHash: snapshot.layoutHash,
+    spaceCatalogVersion: snapshot.spaceLimits.catalogVersion,
+    seatCapacity: indicators.seatCapacity,
+    waitingCapacity: indicators.waitingCapacity,
+    queueVisibility: indicators.waitingVisibilityRatio,
+    frontServiceDelayTicks,
+  });
+}
+
+/** Stable profile bytes are used by replay persistence and test fixtures. */
+export function serializeFloorFlowServiceProfile(profile: FloorFlowServiceProfile): string {
+  return JSON.stringify({
+    version: profile.version,
+    layoutRevision: profile.layoutRevision,
+    layoutHash: profile.layoutHash,
+    spaceCatalogVersion: profile.spaceCatalogVersion,
+    seatCapacity: profile.seatCapacity,
+    waitingCapacity: profile.waitingCapacity,
+    queueVisibility: profile.queueVisibility,
+    frontServiceDelayTicks: profile.frontServiceDelayTicks,
   });
 }

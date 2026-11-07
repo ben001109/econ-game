@@ -145,6 +145,14 @@ test('matching Web and Discord evidence returns both hashes and remains immutabl
   assert.deepEqual(createReleaseEvidenceHashes(evidence('WEB')), hashes);
 });
 
+test('mvp-release-evidence-v1 golden hashes are stable for worker parity', () => {
+  assert.deepEqual(createReleaseEvidenceHashes(evidence('WEB')), {
+    version: 'mvp-release-evidence-v1',
+    eventHash: 'f83ad03e07924d5c127692901b597b7e9c3ef06849196aafef0e44c38f51215d',
+    snapshotHash: '17575e05b3c630cda1fca3d308a479b5ceaa650e863651b050e75f9818ca5042',
+  });
+});
+
 test('either event or snapshot divergence blocks release independently', () => {
   const discordEventDrift = {
     ...evidence('DISCORD'),

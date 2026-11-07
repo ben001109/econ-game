@@ -2,7 +2,7 @@
 
 > **狀態：** Engineering in progress；Architecture ready，但九項 release gates 尚未全部通過
 >
-> **最後更新：** 2026-08-07
+> **最後更新：** 2026-08-18
 >
 > **唯一完整規格：** [Clerk + Supabase 遊戲架構計畫](../../.hermes/plans/2026-07-30_082729-clerk-supabase-game-architecture.md)
 >
@@ -16,14 +16,19 @@
 | `E04-S-01` 服務／流量引擎 | 已實作、targeted 驗收通過 | E-04 targeted tests 10/10；K/F contribution replay、候位／售罄、tick workflow 與 `FLOW_RISK_HIGH` 均通過 |
 | `E04-S-02` 品質與五維名譽 | 已實作、targeted 驗收通過 | contribution-scoped LOW KITCHEN penalty、AGED `−10`、foodQuality／serviceSpeed／五維名譽與 byte-identical replay 均通過 |
 | `E02-S-01` 需求預報與客群排程 | 已實作、整合測試通過 | 三情境二／三時段需求、客群／組數、天氣／價格邊界、預報 disclosure、seed schedule 與結算後 replay 均納入 API full suite |
-| `E02-S-02` 配置容量與 flow 指標 | canonical fixture 已完成；映射規則待確認 | `e02-space-v1` 三情境精確 limits、30／34／27 人尖峰、cap 邊界、配置時窗／尖峰鎖定、設備不改 premises limits、layout hash 與 deterministic raw metrics 均通過；raw flow → E-04 權重仍由 Architecture Decision Lab 單題收斂 |
-| `E03-S-01/02` 菜單、庫存、損耗與採購 | 已實作、整合測試通過 | E-03 targeted 16/16，API full suite 84/84；`e03-storage-capacity-v1`、移動平均成本／損耗、現貨與 take-or-pay reservation、market snapshot 與 OpenDay snapshot 均有直接測試 |
+| `E02-S-02` 配置容量與 flow 指標 | 已實作、domain 驗收通過 | `e02-space-v1` 三情境 limits、30／34／27 人尖峰、cap 邊界、配置時窗／尖峰鎖定、layout hash 與 deterministic raw metrics 均有測試；`e02-e04-floor-flow-v1` 將真實座位／候位與走道負荷以 deterministic 前場延遲接入 E-04，不改變需求、食材或既定 K/F 規則。 |
+| `E03-S-01/02` 菜單、庫存、損耗與採購 | domain 驗收通過；持久化前置 source/static 審查通過 | `e03-storage-capacity-v1`、移動平均成本／損耗、現貨與 take-or-pay reservation、market snapshot 與 OpenDay snapshot 均有直接測試；另有 inventory pool／成本池、command／ledger provenance、service-only market seed、Day-1 MarketTick command/job provenance、RLS 與 fail-closed rollback migration 的獨立審查。PostgreSQL runtime migration／RLS／延遲約束仍待補，且尚未接入 CONFIGURE／OPEN durable handler。 |
 | `E05-S-01/02` | 已實作、targeted 驗收通過 | E-05 targeted tests 18/18；固定日結欄位、episode baseline、狀態 counters、次日 revenue gate 與 `e05-risk-penalty-v1` replay 證據均通過 |
-| `E05-S-03` 封測交付閘門 | pure-domain contract 已完成；跨端整合待辦 | `mvp-release-evidence-v1` 依 sequence／simulation rule version 計算 eventHash，依完整 E-05 fixed fields／risk／reputation／final resource versions 計算 snapshotHash；Web／Discord 任一 hash 不同即 fail closed。targeted 5/5、API full suite 84/84、build 與專項 lint 0 warnings 通過；D03 persistence 與真實雙端證據未完成 |
-| `O02-S-01` CI/CD release gates | 本地基線已實作；promotion 證據待齊 | CI 已 fail-closed 執行四服務 format／lint／typecheck／test／build、SDK verify、Docker build 與 migration safety；candidate workflow 只驗證 commit-bound evidence、不部署。migration safety 掃描 51 檔通過，SDK 7/7、API 84/84、四服務 format／typecheck／build 與 lint 0 errors 已本地驗證；實際 CI run、RLS／E2E／雙 hash／rollback evidence 仍待相依 Story 與 O-01 環境 |
+| `E05-S-03` 封測交付閘門 | pure-domain 與 replay verification source/static contract 已完成；跨端整合待辦 | `mvp-release-evidence-v1` 依 sequence／simulation rule version 計算 eventHash，依完整 E-05 fixed fields／risk／reputation／final resource versions 計算 snapshotHash；Web／Discord 任一 hash 不同即 fail closed。`REQUEST_DAY_REPLAY` 現有 durable request／outbox／worker verification source/static path，並以同一 runtime hash module 重算 `MATCH`／`MISMATCH`；仍缺上游 durable 日結 evidence、PostgreSQL runtime、真實雙端與 staging 證據。 |
+| `D01-S-01` aggregate persistence／RLS | migration 與 source/static 驗證完成；PostgreSQL runtime 待補 | migration 以 tenant-scoped composite FK、防跨租戶關聯、RLS 與 service-only write 建模；靜態合約已通過。真實 PostgreSQL migration／RLS integration 仍是 release evidence 缺口。 |
+| `D02-S-01` 統一 mutation contract | 已實作、API contract 驗證通過 | 2026-08-18 API full suite 220/220 包含 Fastify HTTP envelope、idempotency、version、legacy default 404 與 persistence fail-closed 測試。遊戲六命令尚未全部接入 durable handler。 |
+| `D03-S-01/02` ledger、outbox、job／版本 replay | migration 與 source/static 驗證完成；PostgreSQL runtime 待補 | 雙分錄／outbox、lease/retry/DLQ、market tick 及 versioned replay contract 已具 migration/static 證據；Day replay request／artifact／worker verifier 已有 source/static 證據。真實 PostgreSQL runtime 與產生 `ReplayEvent`／`DayEndSnapshot` 的上游營業日 producer 仍未完成。 |
+| `D04-S-01` identity、RLS、Discord actor | 已實作、API contract 驗證通過；真實 provider/staging 待補 | JWT/JWKS validation、server-derived scope、Discord link、Bot principal 與 fail-closed production composition 均由 API suite 覆蓋；真實 Clerk／Supabase／Discord composition 仍待 staging evidence。 |
+| `D05-S-01/02` cohort、invite、wipe | source/static contract 驗證完成；durable runtime／演練待補 | invite、consent、eligibility、wipe authority／scope／lease 與 guarded rollback 已有 API/static 證據；PostgreSQL runtime、clear executor 與 staging wipe-resume drill 未完成。 |
+| `O02-S-01` CI/CD release gates | 本地基線已實作；promotion 證據待齊 | 靜態 migration/persistence contracts 2026-08-18 為 69/69；migration safety 95 個可執行／設定檔通過。supply-chain checker 目前正確 fail-closed：OCI signature／attestation／layer-CVE evidence 缺失。實際 CI、RLS／E2E／雙 hash／rollback evidence 仍待相依 Story 與 O-01 環境。 |
 | `O03-S-01` 最小營運與復原 | 本地 runbook／fail-closed registry 已完成；staging drills 待辦 | 已建立事故分級／feature-flag freeze、隔離 backup restore、market／replay rebuild、cohort 與 wipe fail／resume runbooks；promotion registry 強制要求 incident、restore、rebuild、wipe-resume 四項 immutable evidence。checker 目前因未演練而正確阻擋；實際 drills 依賴 O-01、D-03、D-05 |
 
-上述 targeted 證據只完成對應 Story，不代表「遊戲流程」或其他封測 Gate 已通過；Gate 仍須待相依 Story、跨端整合與最終 E2E 的直接證據齊備。
+上述 source、unit 與 static evidence 只完成對應契約，不代表任何封測 Gate 已通過；Gate 仍須待 durable PostgreSQL runtime、跨端整合、staging drill 與最終 E2E 的直接證據齊備。
 
 ## 1. 主控結論
 
@@ -31,10 +36,11 @@
 2. D-01 的封測一致性固定採 `ReplayEvent` eventHash＋`DayEndSnapshot` snapshotHash 雙層 SHA-256；任一不一致即阻擋放行。
 3. A-01 不是核心經濟封測阻擋；AI feature flag 維持關閉，延後至 AI cohort 啟用前完成。
 4. A-02 延後 Beta；MVP 不開放公開 UGC、圖片／Logo／菜單資產、公開評論或申訴。
-5. O-01、O-02、O-03 是受邀 MVP 封測的 P0 阻擋項。
-6. 本交接只證明規格與派發條件已齊備，不代表產品、環境、測試或封測 Gate 已完成。
+5. O-01、O-02、O-03 是受邀 MVP 封測的 P0 阻擋項；O-01 仍需要使用者指定雲端帳號、billing owner、region 與 platform owner。
+6. P0-PLAT-01 的 save-scoped gameplay RBAC 已由 catalog 導出並保持未實作命令 fail-closed；仍缺六個遊戲命令的 durable orchestration，不能當成已可玩的流程。
+7. 本交接只記錄可重跑的本地證據，不把 source/static 測試當作 production、staging 或封測放行證據。
 
-## 2. 可立即開工
+## 2. 歷史初始派發（不代表目前尚未實作）
 
 | Story | Owner | 優先級 | 估時 | DoD |
 |---|---|---:|---:|---|
@@ -44,7 +50,7 @@
 
 兩項可共用已確認的 E-04 pure-domain 規則並行；若共享模型尚未固定，由 Owner 先協調邊界，不得自行改寫公式。
 
-## 3. 可立即開票，但須依依賴執行
+## 3. 歷史 Story 矩陣（以第 0 節現況為準）
 
 | Story | Owner | 優先級 | 估時 | 主要依賴 | DoD 摘要 |
 |---|---|---:|---:|---|---|
@@ -82,12 +88,12 @@
 
 | Gate | 必要證據 | 關聯 Story | 目前狀態 |
 |---|---|---|---|
-| 遊戲流程 | 完整開局 snapshot、需求預報／客群、配置 flow、售罄改點、候位、服務 tick、品質與名譽 deterministic replay | `E01-S-01`、`E02-S-01/02`、`E04-S-01/02` | 部分完成：E01、E02-S-01、E04 與 E02 canonical fixture 通過；flow→E04 映射待確認／實作 |
-| 經濟結算 | 菜單／庫存／採購輸入、固定日結欄位、雙分錄平衡、shortfall 與風險狀態可重放 | `E03-S-01/02`、`E05-S-01/02`、`D03-S-01` | 部分完成：E03、E05 通過；D03 ledger／outbox 未開始 |
-| Replay 一致性 | 同 seed／rule version 的 eventHash 與 snapshotHash 雙層一致；缺歷史版本明確阻擋 | `D03-S-02`、`E05-S-03` | 部分完成：雙 hash pure-domain contract／fail-closed 比對通過；D03 persistence、歷史版本 replay 與跨端證據未完成 |
+| 遊戲流程 | 完整開局 snapshot、需求預報／客群、配置 flow、售罄改點、候位、服務 tick、品質與名譽 deterministic replay | `E01-S-01`、`E02-S-01/02`、`E04-S-01/02` | 部分完成：E01、E02、E04 與 `e02-e04-floor-flow-v1` pure-domain bridge 可重放；尚未由 durable command orchestration 串成一個玩家可操作的營業日。 |
+| 經濟結算 | 菜單／庫存／採購輸入、固定日結欄位、雙分錄平衡、shortfall 與風險狀態可重放 | `E03-S-01/02`、`E05-S-01/02`、`D03-S-01` | 部分完成：E03/E05 與 D03 source/static contract 可驗證；尚無一條 durable command transaction 串起完整日結。 |
+| Replay 一致性 | 同 seed／rule version 的 eventHash 與 snapshotHash 雙層一致；缺歷史版本明確阻擋 | `D03-S-02`、`E05-S-03` | 部分完成：雙 hash pure-domain、Day replay request／artifact／worker verifier 與 job/outbox source/static contract 已有；日結 evidence producer、PostgreSQL runtime 與跨端證據未完成。 |
 | Web／Discord 一致性 | 兩端使用同 API／state machine；完整流程快照與結果一致 | `D02-S-01`、`D04-S-01`、`P0-PLAT-01` | 未實作 |
-| 身份與安全 | aggregate tenant boundary、Clerk JWT、server-derived RBAC、RLS isolation、一次性 Discord link、Bot 最小權限 | `D01-S-01`、`D04-S-01` | 未實作 |
-| 邀請與 wipe | cohort allowlist、可稽核 invite、雙人覆核 wipe、resume／verify、歷史隔離 | `D05-S-01/02` | 未實作 |
+| 身份與安全 | aggregate tenant boundary、Clerk JWT、server-derived RBAC、RLS isolation、一次性 Discord link、Bot 最小權限 | `D01-S-01`、`D04-S-01` | 部分完成：來源與 API contract 可驗證；真實 PostgreSQL RLS 與 Clerk/Supabase/Discord staging composition 未驗證。 |
+| 邀請與 wipe | cohort allowlist、可稽核 invite、雙人覆核 wipe、resume／verify、歷史隔離 | `D05-S-01/02` | 部分完成：source/static contract 可驗證；真實 PostgreSQL、clear executor 與 staging wipe-resume drill 未完成。 |
 | 環境與 secrets | staging／封測隔離、Owner、最小權限 principal、集中 secrets 與撤銷路徑 | `O01-S-01` | 外部決策阻擋 |
 | CI/CD | 所有必要測試自動執行；failure 不得 promotion；rollback 可用 | `O02-S-01` | 部分完成：fail-closed workflows／evidence registry／migration scan 已實作；實際 CI 與 staging rollback 證據待相依 Story／O-01 |
 | 可觀測性與復原 | correlation／audit、告警、backup restore、market/replay rebuild、wipe fail/resume 演練 | `O03-S-01` | 部分完成：最小 runbooks 與 fail-closed evidence gates 已建立；staging incident／restore／rebuild／wipe-resume drills 待 O-01、D-03、D-05 |
@@ -103,7 +109,7 @@
 | 全域真實時間共享市場 | Beta／正式版 | 個人存檔營業日 market tick 已穩定且另有市場架構決策。 |
 | 完整城市、供應鏈、股市與公司治理 | 正式版 | MVP／Beta 門檻完成並另行規劃。 |
 
-## 7. 主控派發順序
+## 7. 歷史主控派發順序（已被現況取代）
 
 1. 立即平行派發 `E01-S-01`、`E04-S-01`、`E04-S-02`；同時取得 O-01 外部決策並開立 `O01-S-01`。
 2. `E01-S-01` 後平行執行 `E02-S-01`、`E03-S-01`；`O01-S-01` 後執行 `D01-S-01`；E-04 完成後接 `E05-S-01/02`。

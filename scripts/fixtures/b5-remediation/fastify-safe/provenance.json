@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-16T13:10:26Z",
+  "source": "npm registry isolated package-lock resolution",
+  "registry": "https://registry.npmjs.org/",
+  "workingDirectory": "/tmp/econ-b5-fastify-fixture.sneueQ",
+  "command": ["npm", "install", "fastify@5.8.5", "--package-lock-only", "--ignore-scripts", "--save"],
+  "sourceServiceLockSha256": "3389d7af6ffe99b56d648cf4044d5c727109094a94e8225070759ca233dac80b",
+  "fixture": "package-lock.json",
+  "fixtureSha256": "715b16404d714b9f8d8aacc72384df4815ac6af3ce78c64e84d778f7458a3637",
+  "expected": {
+    "rootDependency": "^5.8.5",
+    "resolvedFastify": "5.8.5",
+    "resolvedFindMyWay": "9.3.0"
+  },
+  "sharedServicePackageOrLockModified": false
+}

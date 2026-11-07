@@ -9,6 +9,7 @@ import {
   configureFirstDayLayout,
   createFirstDayDemandSchedule,
   createPreOpeningForecast,
+  deriveFloorFlowServiceProfile,
   discloseDemandReplay,
   FORECAST_ERROR_RATE,
   FIRST_DAY_SPACE_CATALOG_VERSION,
@@ -16,6 +17,7 @@ import {
   lockServerDemandDifficulty,
   NORMAL_DEMAND_GROUPS,
   resolveFirstDaySpaceLimits,
+  serializeFloorFlowServiceProfile,
   validateFirstDayLayout,
   type FirstDayDemandInput,
   type FirstDayFixture,
@@ -36,10 +38,11 @@ function demandInput(overrides: Partial<FirstDayDemandInput> = {}): FirstDayDema
     operatingMode: 'STRATEGY',
     demandSeed: 'competitive-save-seed-001',
     weather: { label: 'LIGHT_CLOUD', demandModifierPercent: 0 },
-    priceModifierPercentByCohort: {
-      PRICE_SENSITIVE: 0,
-      TIME_SENSITIVE: 0,
-      EXPERIENCE_ORIENTED: 0,
+    activeRecipeVersionIds: ['noodles:v1', 'rice:v1', 'stew:v1'],
+    priceModifierPercentByRecipe: {
+      'noodles:v1': 0,
+      'rice:v1': 0,
+      'stew:v1': 0,
     },
     basePatienceTicks: { min: 8, max: 12 },
     periodTickWindows: { LUNCH: tickWindows.LUNCH, DINNER: tickWindows.DINNER },
@@ -129,10 +132,10 @@ test('applies the exact E03 elasticity formula, 1% steps, and the first-day tota
 
   const expensive = createFirstDayDemandSchedule(
     demandInput({
-      priceModifierPercentByCohort: {
-        PRICE_SENSITIVE: 10,
-        TIME_SENSITIVE: 10,
-        EXPERIENCE_ORIENTED: 10,
+      priceModifierPercentByRecipe: {
+        'noodles:v1': 10,
+        'rice:v1': 10,
+        'stew:v1': 10,
       },
     }),
   );
@@ -145,10 +148,10 @@ test('applies the exact E03 elasticity formula, 1% steps, and the first-day tota
 
   const discounted = createFirstDayDemandSchedule(
     demandInput({
-      priceModifierPercentByCohort: {
-        PRICE_SENSITIVE: -10,
-        TIME_SENSITIVE: -10,
-        EXPERIENCE_ORIENTED: -10,
+      priceModifierPercentByRecipe: {
+        'noodles:v1': -10,
+        'rice:v1': -10,
+        'stew:v1': -10,
       },
     }),
   );
@@ -156,6 +159,20 @@ test('applies the exact E03 elasticity formula, 1% steps, and the first-day tota
     discounted.actualDemandGroups <= Math.floor(discounted.weatherAdjustedGroups * 1.1 + 0.5),
   );
   assert.ok(discounted.actualDemandGroups > expensive.actualDemandGroups);
+  assert.equal(
+    JSON.stringify(discounted),
+    JSON.stringify(
+      createFirstDayDemandSchedule(
+        demandInput({
+          priceModifierPercentByRecipe: {
+            'noodles:v1': -10,
+            'rice:v1': -10,
+            'stew:v1': -10,
+          },
+        }),
+      ),
+    ),
+  );
 });
 
 test('limits forecastable first-day weather to plus or minus 5 percent before price conversion', () => {
@@ -191,6 +208,15 @@ test('same seed and locked inputs produce byte-identical replay schedules', () =
     const factor =
       group.cohort === 'TIME_SENSITIVE' ? 0.75 : group.cohort === 'EXPERIENCE_ORIENTED' ? 1.25 : 1;
     assert.equal(group.hiddenPatienceTicks, Math.floor(group.basePatienceTicks * factor + 0.5));
+    assert.equal(Object.isFrozen(group.recipePreferenceOrder), true);
+    assert.equal(group.recipePreferenceOrder.length, 3);
+    assert.equal(new Set(group.recipePreferenceOrder).size, 3);
+    assert.deepEqual(
+      new Set(group.recipePreferenceOrder),
+      new Set(['noodles:v1', 'rice:v1', 'stew:v1']),
+    );
+    const event = first.replayEvents.find((candidate) => candidate.subjectId === group.groupId);
+    assert.equal(event?.details.primaryRecipeVersionId, group.recipePreferenceOrder[0]);
   }
 
   const otherSeed = createFirstDayDemandSchedule(demandInput({ demandSeed: 'different-seed' }));
@@ -265,6 +291,8 @@ test('pre-opening forecast rounds scenario error to whole groups and leaks no se
   assert.equal(publicJson.includes(schedule.demandSeed), false);
   assert.equal(publicJson.includes('arrivalTick'), false);
   assert.equal(publicJson.includes('groupId'), false);
+  assert.equal(publicJson.includes('recipePreferenceOrder'), false);
+  assert.equal(publicJson.includes('primaryRecipeVersionId'), false);
 });
 
 test('demand seed and exact schedule are disclosed only after settlement', () => {
@@ -280,11 +308,44 @@ test('demand seed and exact schedule are disclosed only after settlement', () =>
   });
 });
 
-test('rejects invalid plans, missing windows, empty seed, and invalid patience ranges', () => {
+test('rejects invalid plans, recipe mappings, missing windows, empty seed, and patience ranges', () => {
   assert.throws(() => createFirstDayDemandSchedule(demandInput({ demandSeed: ' ' })), /seed/);
   assert.throws(
     () => createFirstDayDemandSchedule(demandInput({ basePatienceTicks: { min: 0, max: 1 } })),
     /patience/,
+  );
+  assert.throws(
+    () =>
+      createFirstDayDemandSchedule(
+        demandInput({
+          activeRecipeVersionIds: ['rice:v1', 'rice:v1'],
+          priceModifierPercentByRecipe: { 'rice:v1': 0 },
+        }),
+      ),
+    /duplicates/,
+  );
+  assert.throws(
+    () =>
+      createFirstDayDemandSchedule(
+        demandInput({
+          priceModifierPercentByRecipe: { 'rice:v1': 0, 'stew:v1': 0 },
+        }),
+      ),
+    /exactly the active recipe/,
+  );
+  assert.throws(
+    () =>
+      createFirstDayDemandSchedule(
+        demandInput({
+          priceModifierPercentByRecipe: {
+            'noodles:v1': 0,
+            'rice:v1': 0,
+            'stew:v1': 0,
+            'unknown:v1': 0,
+          },
+        }),
+      ),
+    /exactly the active recipe/,
   );
   assert.throws(
     () =>
@@ -535,6 +596,75 @@ test('layout snapshot, replay, limits, and raw metrics are deterministic across 
   assert.equal(
     JSON.stringify(calculateFlowIndicators(layout, 'DEFAULT_SMALL_SHOP', state, 'BASIC')),
     JSON.stringify(calculateFlowIndicators(layout, 'DEFAULT_SMALL_SHOP', state, 'REPAIRED')),
+  );
+});
+
+test('derives byte-stable E02 floor-flow service profiles from canonical layout revisions', () => {
+  const reversed = { ...layout, fixtures: [...layout.fixtures].reverse() };
+  const firstSnapshot = configureFirstDayLayout(
+    0,
+    layout,
+    'DEFAULT_SMALL_SHOP',
+    'TWO_PERIODS',
+    'PRE_OPEN',
+  ).snapshot;
+  const secondSnapshot = configureFirstDayLayout(
+    0,
+    reversed,
+    'DEFAULT_SMALL_SHOP',
+    'TWO_PERIODS',
+    'PRE_OPEN',
+  ).snapshot;
+  const state = { seatedGuests: 2, waitingGroups: 3, activeGuests: 6, demandGroups: 10 };
+  const first = deriveFloorFlowServiceProfile(firstSnapshot, state);
+  const second = deriveFloorFlowServiceProfile(secondSnapshot, state);
+
+  assert.equal(first.layoutRevision, 1);
+  assert.equal(first.seatCapacity, 2);
+  assert.equal(first.waitingCapacity, 2);
+  assert.equal(first.queueVisibility, 0.5);
+  assert.equal(first.frontServiceDelayTicks, 2);
+  assert.equal(serializeFloorFlowServiceProfile(first), serializeFloorFlowServiceProfile(second));
+  assert.equal(JSON.stringify(first), JSON.stringify(second));
+  assert.equal(Object.isFrozen(first), true);
+});
+
+test('recomputes E02 indicators from canonical layout state and rejects forged profile inputs', () => {
+  const snapshot = configureFirstDayLayout(
+    0,
+    layout,
+    'DEFAULT_SMALL_SHOP',
+    'TWO_PERIODS',
+    'PRE_OPEN',
+  ).snapshot;
+  const state = { seatedGuests: 2, waitingGroups: 3, activeGuests: 6, demandGroups: 10 };
+  const profile = deriveFloorFlowServiceProfile(snapshot, state);
+
+  assert.equal(profile.queueVisibility, 0.5);
+  assert.equal(profile.frontServiceDelayTicks, 2);
+  assert.throws(
+    () =>
+      deriveFloorFlowServiceProfile(
+        snapshot,
+        {
+          seatCapacity: 999,
+          waitingCapacity: 999,
+          walkwayCells: 999,
+          averageSeatWalkwayDistanceSteps: 999,
+          maximumSeatWalkwayDistanceSteps: 999,
+          visibleWaitingAreas: 999,
+          waitingVisibilityRatio: 1,
+          seatedGuestPressure: 0,
+          waitingGroupPressure: 0,
+          walkwayLoad: 999,
+          queueDemandRatio: 999,
+        } as unknown as typeof state,
+      ),
+    /must be a non-negative integer/,
+  );
+  assert.throws(
+    () => deriveFloorFlowServiceProfile({ ...snapshot, layoutHash: '0'.repeat(64) }, state),
+    /must match the canonical layout/,
   );
 });
 

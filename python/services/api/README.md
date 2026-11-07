@@ -15,14 +15,7 @@ uv run --project python/services/api api-dev
 
 ## Environment
 
-Copy `.env.example` to `.env` or set vars some other way.
-
-```
-DATABASE_URL=postgresql+asyncpg://game:gamepass@localhost:5432/game
-REDIS_URL=redis://localhost:6379/0
-PORT=4000
-LOG_LEVEL=info
-```
+Provide `DATABASE_URL` and `REDIS_URL` through an owner-only, untracked `.env` or the deployment platform's protected secret mechanism. `PORT` and `LOG_LEVEL` are non-secret runtime settings. Do not place connection credentials in commands or documentation.
 
 ## Scripts
 

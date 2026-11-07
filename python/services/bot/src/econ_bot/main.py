@@ -1,6 +1,5 @@
 """Entry script for the Discord bot."""
 
-import asyncio
 import logging
 
 from .client import EconBot

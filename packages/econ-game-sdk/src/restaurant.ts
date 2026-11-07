@@ -129,8 +129,9 @@ export type BootstrapDemoInput = {
 /**
  * Client for the current Node/Fastify restaurant scaffold.
  *
- * This is not the future authoritative game contract: see the package README
- * before using it for a new product feature.
+ * This is an explicit legacy-compatibility surface, not the authoritative game
+ * contract. Default API composition does not register its mutation routes;
+ * Web/Discord migration to D02 remains a P0 platform dependency.
  */
 export class RestaurantApiClient extends EconGameHttpClient {
   getHealth(): Promise<HealthResponse> {

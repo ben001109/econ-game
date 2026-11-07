@@ -5,6 +5,7 @@ export {
   isEconGameApiError,
   type EconGameApiErrorInit,
   type EconGameClientOptions,
+  type EconGameHttpResponse,
   type FetchLike,
 } from './core.js';
 
@@ -43,3 +44,50 @@ export {
   type PreviewPlayer,
   type PythonPreviewHealthResponse,
 } from './python-preview.js';
+
+export {
+  COMMAND_ENVELOPE_VERSION,
+  GameCommandClient,
+  createGameCommandClient,
+  type CommandValue,
+  type GameCommandAccepted,
+  type GameCommandCompleted,
+  type GameCommandEnvelope,
+  type GameCommandSuccess,
+} from './game-command.js';
+
+export {
+  BOOTSTRAP_COMMAND_ENVELOPE_VERSION,
+  GAMEPLAY_RESPONSE_VALIDATION_VERSION,
+  GameplayApiClient,
+  createGameplayResponseValidationGuard,
+  createGameplayApiClient,
+  type ActiveGameplaySaveDiscovery,
+  type AdvanceServicePeriodIntent,
+  type ConfigurePreopenDayIntent,
+  type FloorFixtureIntent,
+  type GameplayCommandInput,
+  type GameplayCommandReceipt,
+  type GameplayReplayRequestReceipt,
+  type GameplayResponseValidationGuard,
+  type GameplayCommandType,
+  type GameplayPhase,
+  type GameplayProjection,
+  type InitializeCompetitiveSaveInput,
+  type InitializeCompetitiveSaveIntent,
+  type OpenBusinessDayIntent,
+  type PreopenConfigurationChoices,
+  type PreopenFloorChoices,
+  type PreopenIngredientRequirement,
+  type PreopenMoney,
+  type PreopenQuote,
+  type PreopenRecipeCard,
+  type PreopenSubstitution,
+  type ReplayJobCompletedProjection,
+  type ReplayJobFailedProjection,
+  type ReplayJobPendingProjection,
+  type ReplayJobPollResponse,
+  type ReplayJobProjection,
+  type RequestDayReplayIntent,
+  type SettleBusinessDayIntent,
+} from './gameplay.js';

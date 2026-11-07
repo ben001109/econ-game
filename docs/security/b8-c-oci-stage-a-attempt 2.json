@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-08-16T16:53:21Z",
+  "stage": "B8-C-A",
+  "status": "BLOCKED_HTTP_429",
+  "command": "docker buildx imagetools inspect node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 --format '{{json .}}'",
+  "commandTimestamp": "not captured by the approved command handoff; recordedAt is the evidence-recording timestamp",
+  "environment": {
+    "dockerClient": "29.4.0 (build 9d7ad9f)",
+    "buildx": "v0.33.0 (f7897eba028583e0071642db3c011e860444f8cf)",
+    "dockerContext": "orbstack"
+  },
+  "representativeImage": "node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
+  "registryResult": {
+    "registry": "Docker Hub",
+    "authentication": "unauthenticated",
+    "httpStatus": 429,
+    "statusText": "Too Many Requests"
+  },
+  "manifestReview": {
+    "expectedReferences": 13,
+    "completedReferences": 0,
+    "status": "INCOMPLETE_RATE_LIMITED",
+    "retryAttempted": false
+  },
+  "tooling": {
+    "cosignInstalled": false,
+    "orasInstalled": false,
+    "trustedIdentityPolicyConfigured": false
+  },
+  "sideEffects": {
+    "imageLayersPulled": false,
+    "imagesBuilt": false,
+    "containersRun": false,
+    "imagesScanned": false,
+    "imagesDeployed": false
+  }
+}

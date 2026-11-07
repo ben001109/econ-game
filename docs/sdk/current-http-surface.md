@@ -6,27 +6,21 @@
 >
 > **Last checked:** 2026-08-01
 
-This document makes the package boundary reviewable without treating runtime Swagger output or database models as a public contract. The source-only verifier at [`packages/econ-game-sdk/scripts/check-source-surface.mjs`](../../packages/econ-game-sdk/scripts/check-source-surface.mjs) compares these supported route sets with the actual route declarations. It never starts a server, reads an environment file, contacts a database, or calls a queue.
+This document makes the package boundary reviewable without treating runtime Swagger output or database models as a public contract. The source-only verifier at [`packages/econ-game-sdk/scripts/check-source-surface.mjs`](../../packages/econ-game-sdk/scripts/check-source-surface.mjs) compares the D02 command route used by this SDK and the Python preview route list with their designated source modules. It is not a complete production API route inventory; server integration tests are authoritative for production composition. The verifier never starts a server, reads an environment file, contacts a database, or calls a queue.
 
-## Node/Fastify restaurant scaffold
+## Node/Fastify D02 command surface supported by this SDK
 
-Source: [`services/api/src/index.ts`](../../services/api/src/index.ts). Client module: `createRestaurantApiClient`.
+Route source: [`services/api/src/commands/command-routes.ts`](../../services/api/src/commands/command-routes.ts). The production composition is assembled in [`services/api/src/app-composition.ts`](../../services/api/src/app-composition.ts). Client module: `createGameCommandClient`.
 
 | Method | Route | SDK method | Notes |
 |---|---|---|---|
-| GET | `/health` | `getHealth()` | Process health only in the current route. |
-| GET | `/restaurants` | `listRestaurants()` | Returns restaurants with branches and tables. |
-| POST | `/bootstrap` | `bootstrapDemo({ confirm })` | Explicit demo-data mutation; requires the exported confirmation constant. |
-| GET | `/menus` | `listMenuItems()` | Returns current menu-item records. |
-| POST | `/orders` | `createOrder(input)` | Current scaffold's POS order creation. |
-| POST | `/orders/:id/items` | `addOrderItem(id, input)` | Current scaffold accepts an item payload. |
-| POST | `/orders/:id/payments` | `addPayment(id, input)` | Current scaffold accepts a payment payload. |
-| GET | `/orders/:id` | `getOrder(id)` | Returns order detail and related records. |
-| GET | `/kds/tickets` | `listKdsTickets()` | Returns active tickets. |
-| POST | `/kds/tickets/:id/start` | `startKdsTicket(id)` | Current KDS transition. |
-| POST | `/kds/tickets/:id/serve` | `serveKdsTicket(id)` | Current KDS transition. |
+| POST | `/saves/:saveId/actions/:commandType` | `executeSaveAction(saveId, commandType, envelope)` | D02 command envelope; the server derives trusted actor/scope and rejects legacy client context. |
 
-The SDK preserves money-like fields as `ApiMoney = string | number`; it intentionally does not add rounding or price logic. It also performs no automatic retry of mutations. The Architecture plan requires a different, approved server-side contract before money, authorization, idempotency, or game state may be relied on.
+`GameCommandClient` exposes the approved D02 transport envelope, but it does not create trusted identity or authorization context; D04 does that server-side. The Architecture plan remains authoritative for game rules and money semantics.
+
+## Legacy restaurant/POS/KDS compatibility
+
+`createRestaurantApiClient` and the underlying restaurant/POS/KDS scaffold are migration-only compatibility code. They are never registered by the default or production API composition, where every corresponding path returns `404`. They are excluded from this supported route list and must not be used by new clients or treated as a production public contract.
 
 ## Python/uv preview player API
 

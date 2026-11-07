@@ -13,6 +13,7 @@ OS_ID_LIKE=""
 PKG_MANAGER=""
 APT_UPDATED=0
 AUTO_INSTALL="${AUTO_INSTALL:-1}"
+DOCKER_INSTALL_SCRIPT_SHA256="${DOCKER_INSTALL_SCRIPT_SHA256:-}"
 INSTALL_PORTAINER=0
 PORTAINER_EDITION="${PORTAINER_EDITION:-}"
 VERBOSE_SELECTED=0
@@ -83,7 +84,11 @@ print_summary() {
 
 ensure_env_file() {
   local path="$1"
+  if [[ -L "$path" ]]; then
+    fail "Refusing symbolic-link credential file: ${path}"
+  fi
   if [[ -f "$path" ]]; then
+    chmod 600 "$path"
     return 0
   fi
   local example="${path}.example"
@@ -92,6 +97,7 @@ ensure_env_file() {
   else
     : >"$path"
   fi
+  chmod 600 "$path"
 }
 
 update_env_file() {
@@ -147,6 +153,7 @@ update_env_file() {
 
   if [[ "$changed" == "1" ]]; then
     printf '%s\n' "${lines[@]}" >"$path"
+    chmod 600 "$path"
     return 0
   fi
   return 1
@@ -206,6 +213,13 @@ configure_monitoring() {
       "SENTRY_RELEASE=${sentry_release_value}"
     )
     if [[ "$env_file" == "${SERVICES_DIR}/frontend/.env" || "$env_file" == "${SERVICES_DIR}/frontend/.env.local" ]]; then
+      updates=(
+        "SENTRY_DSN=${sentry_dsn_value}"
+        "SENTRY_ENVIRONMENT=${sentry_env}"
+        "SENTRY_TRACES_SAMPLE_RATE=${sentry_traces}"
+        "SENTRY_PROFILES_SAMPLE_RATE=${sentry_profiles}"
+        "SENTRY_RELEASE=${sentry_release_value}"
+      )
       updates+=(
         "NEXT_PUBLIC_SENTRY_DSN=${sentry_dsn_value}"
         "NEXT_PUBLIC_SENTRY_ENVIRONMENT=${sentry_env}"
@@ -390,14 +404,43 @@ download_to_file() {
   return 1
 }
 
+verify_sha256() {
+  local path="$1"
+  local expected="$2"
+  local actual=""
+
+  if [[ ${#expected} -ne 64 || "$expected" == *[!0-9A-Fa-f]* ]]; then
+    warn "Expected SHA-256 must contain exactly 64 hexadecimal characters."
+    return 1
+  fi
+  if ! command_exists sha256sum; then
+    warn "sha256sum is required to verify downloaded bootstrap scripts."
+    return 1
+  fi
+  read -r actual _ < <(sha256sum -- "$path")
+  if [[ "${actual,,}" != "${expected,,}" ]]; then
+    warn "Downloaded bootstrap script SHA-256 did not match the trusted value."
+    return 1
+  fi
+  return 0
+}
+
 install_docker_via_convenience_script() {
   local tmp=""
+  if [[ -z "$DOCKER_INSTALL_SCRIPT_SHA256" ]]; then
+    warn "Docker convenience-script installation is disabled without DOCKER_INSTALL_SCRIPT_SHA256."
+    return 1
+  fi
   tmp="$(mktemp)" || tmp=""
   if [[ -z "$tmp" ]]; then
     warn "mktemp failed; cannot stage Docker installation script."
     return 1
   fi
   if ! download_to_file "https://get.docker.com" "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if ! verify_sha256 "$tmp" "$DOCKER_INSTALL_SCRIPT_SHA256"; then
     rm -f "$tmp"
     return 1
   fi
@@ -707,7 +750,8 @@ prompt_monitoring_options() {
     y|yes|1)
       USE_NEW_RELIC=1
       printf 'Enter New Relic license key: ' >&2
-      read -r NEW_RELIC_LICENSE || NEW_RELIC_LICENSE=""
+      read -r -s NEW_RELIC_LICENSE || NEW_RELIC_LICENSE=""
+      printf '\n' >&2
       NEW_RELIC_LICENSE="${NEW_RELIC_LICENSE//$'\r'/}"
       if [[ -z "$NEW_RELIC_LICENSE" ]]; then
         warn 'New Relic enabled but license key empty. Agent will remain disabled.'
@@ -726,7 +770,8 @@ prompt_monitoring_options() {
     y|yes|1)
       USE_SENTRY=1
       printf 'Enter Sentry DSN: ' >&2
-      read -r SENTRY_DSN || SENTRY_DSN=""
+      read -r -s SENTRY_DSN || SENTRY_DSN=""
+      printf '\n' >&2
       SENTRY_DSN="${SENTRY_DSN//$'\r'/}"
       if [[ -z "$SENTRY_DSN" ]]; then
         warn 'Sentry enabled but DSN empty. Monitoring will remain disabled.'
@@ -832,12 +877,8 @@ record_docker_summary() {
   fi
   add_summary_line "Frontend: $(format_local_and_lan http 3000)"
   add_summary_line "API (REST): $(format_local_and_lan http 4000)"
-  add_summary_line "Adminer (Postgres UI): $(format_local_and_lan http 8080)"
-  add_summary_line "Redis Commander: $(format_local_and_lan http 8081)"
-  add_summary_line "Postgres: postgres://game:gamepass@localhost:5432/game"
-  if [[ -n "$PRIVATE_IP" ]]; then
-    add_summary_line "Postgres from LAN: postgres://game:gamepass@${PRIVATE_IP}:5432/game"
-  fi
+  add_summary_line "Administration tools: disabled unless the tools profile is explicitly enabled"
+  add_summary_line "Postgres: localhost:5432 (credentials are read from the private root .env)"
   add_summary_line "Redis: redis://localhost:6379"
   add_summary_line "Inspect containers with: docker compose ps"
   if [[ "$dev_flag" == "1" ]]; then
@@ -1112,7 +1153,8 @@ setup_docker() {
       warn "No existing dev containers to remove or cleanup failed; continuing."
     fi
     log "Starting dev profile containers (api-dev, worker-dev, frontend-dev, bot-dev, dbs)..."
-    docker_compose --profile dev up --build -d postgres redis api-dev worker-dev frontend-dev bot-dev adminer redis-commander
+    docker_compose --profile dev up --build -d postgres redis api-dev worker-dev frontend-dev bot-dev
+    log "Administration tools remain disabled; enable the tools profile explicitly if required."
   else
     log "Building and starting production-like stack..."
     docker_compose up --build -d

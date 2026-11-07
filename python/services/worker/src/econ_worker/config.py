@@ -7,11 +7,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    database_url: str = Field(
-        default="postgresql+asyncpg://game:gamepass@localhost:5432/game",
-        alias="DATABASE_URL",
-    )
-    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
+    database_url: str = Field(alias="DATABASE_URL", min_length=1)
+    redis_url: str = Field(alias="REDIS_URL", min_length=1)
     tick_interval_seconds: float = Field(default=10, alias="TICK_INTERVAL_SECONDS")
 
 

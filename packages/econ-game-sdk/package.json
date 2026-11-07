@@ -28,13 +28,14 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check:surface": "node scripts/check-source-surface.mjs",
-    "test": "npm run build && node --test test/core.test.mjs test/restaurant-client.test.mjs test/python-preview-client.test.mjs",
-    "verify": "npm run check:surface && npm run test",
+    "test": "npm run build && node --test test/core.test.mjs test/restaurant-client.test.mjs test/python-preview-client.test.mjs test/game-command-client.test.mjs test/gameplay-client.test.mjs",
+    "typecheck:contract": "tsc -p test/tsconfig.contract.json --noEmit",
+    "verify": "npm run check:surface && npm run typecheck:contract && npm run test",
     "pack:dry-run": "npm pack --dry-run"
   },
   "devDependencies": {
