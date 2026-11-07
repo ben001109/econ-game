@@ -7,6 +7,8 @@
 > **唯一完整規格：** [Clerk + Supabase 遊戲架構計畫](../../.hermes/plans/2026-07-30_082729-clerk-supabase-game-architecture.md)
 >
 > **決策與 Story 索引：** [架構決策總表](decision-register.md)
+>
+> **2026-11-08 主線調整：** 主線改為 Discord 優先的 `discord-first` 分支，Web 前端延到 M2。本文件以下內容為 2026-08-18 的進度紀錄，提到的 Web 端與雙端條件需依決策總表 PLAT-01～03 重新確認。目前方向見 [roadmap](../roadmap.md)。
 
 ## 0. 主控實作進度
 

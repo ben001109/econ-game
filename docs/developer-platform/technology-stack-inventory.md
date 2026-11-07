@@ -8,6 +8,8 @@
 >
 > **Method:** read non-secret source, manifests, lockfiles, CI, Docker/Compose, Pterodactyl eggs, and the accessible Econ Game task histories. No environment files, credentials, services, databases, queues, migrations, or deployments were accessed.
 
+> **2026-11-08 scope change:** the `discord-first` mainline now contains only the Node 22 API, worker, Bot, SDK, and release-evidence packages. Frontend, Bun, Python/uv, and Pterodactyl rows below are historical and describe code that now lives on milestone branches; see the [roadmap](../roadmap.md).
+
 ## Adoption boundary
 
 The architecture record names the Node/TypeScript line as the formal product direction. The Python/uv files are a parallel preview and are inventoried for maintenance visibility, not adopted as an alternative product line. The current Node restaurant routes are also a scaffold rather than the approved future game contract. See [the Architecture decision register](../architecture/decision-register.md) and [the SDK boundary](../sdk/current-http-surface.md).

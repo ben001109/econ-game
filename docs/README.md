@@ -1,6 +1,6 @@
 # Econ Game 文件導覽
 
-> 文件階段：架構與遊戲設計確認；尚未進入正式 MVP implementation。
+> 文件階段：Discord 優先主線（`discord-first`）實作中；目前進度與里程碑見 [roadmap.md](roadmap.md)。
 
 本目錄只保存可版本控制、可審查的產品與工程文件。確認過的遊戲決策不在導覽文件中重述；導覽只連結其唯一來源，避免產生第二份真相。
 
@@ -16,6 +16,7 @@
 
 | 區域 | 用途 | 入口 |
 |---|---|---|
+| `roadmap.md` | 主線方向、M1 目標與里程碑分支對照 | [roadmap.md](roadmap.md) |
 | `architecture/` | 系統邊界、domain model、資料／安全／整合與決策索引 | [architecture/README.md](architecture/README.md) |
 | `game-design/` | 可執行的遊戲規則、經濟公式、狀態機與內容設計 | [game-design/README.md](game-design/README.md) |
 | `adr/` | 已決定且需要保留背景、取捨與影響的架構決策紀錄 | [adr/README.md](adr/README.md) |
@@ -23,6 +24,7 @@
 | `testing/` | 測試策略、品質門檻、情境、invariant 與演練證據 | [testing/README.md](testing/README.md) |
 | `sdk/` | 現有 HTTP surface 的內部 SDK、型別邊界與可離線驗證 | [sdk/README.md](sdk/README.md) |
 | `developer-platform/` | 全技術棧 inventory、runtime／CI 事實與 package 邊界 | [developer-platform/README.md](developer-platform/README.md) |
+| `archive/` | 不再適用於主線的歷史文件 | [archive/README.md](archive/README.md) |
 | `skills/` | 官方工程來源、可重用 Hermes skills、開發平台路線圖與驗證索引 | [skills/source-map.md](skills/source-map.md)；[developer-platform-roadmap.md](skills/developer-platform-roadmap.md) |
 
 ## 撰寫規則

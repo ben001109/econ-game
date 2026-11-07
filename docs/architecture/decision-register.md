@@ -18,10 +18,10 @@
 
 | 範圍 | 已確認決策 |
 |---|---|
-| 正式產品線 | TypeScript／Fastify／Prisma／Next.js／Discord Bot；Python 不做正式產品主線。 |
+| 正式產品線 | TypeScript／Fastify／Prisma／Discord Bot，Node 22 單一 runtime。2026-11-08 起 Discord 優先：Next.js 前端延到 M2，Python、Bun 不在主線（見「主線調整」）。 |
 | 身份 | Clerk User 為唯一身份真相；Discord 透過短效一次性 IdentityLink 連到 Clerk User 與 Player。 |
 | 資料與授權 | Supabase PostgreSQL、RLS 與 Fastify RBAC 雙層保護；client 不直接寫高風險遊戲資料。 |
-| 跨平台一致性 | Web 與 Discord 共用 API state machine；採 version、idempotency key、SHA-256 request fingerprint。 |
+| 跨平台一致性 | 所有介面共用 API state machine；採 version、idempotency key、SHA-256 request fingerprint。M1 只有 Discord 一個介面，雙端一致性 gate 待 PLAT-03 改寫。 |
 | 資料可追溯 | 金錢、契約、股權與市場事件 append-only；一般營運狀態可更新但保留 version/audit；修正用補償／沖銷 event。 |
 | 人工補償治理 | 系統依審核規則可自動補償；人工補償需提出者與 approver 雙人覆核。 |
 | 經濟世界 | 正式公開版是持續世界、使用績效窗排行榜；MVP／Beta 為受邀刪檔封測。 |
@@ -83,6 +83,17 @@
 - 共享市場、有限玩家交易、公開職缺與跨城市徵才。
 - 圖片／Logo／菜單資產 moderation pipeline。
 - 完整供應鏈、物流、公司、股市、公司治理與跨境經濟。
+
+## 主線調整（2026-11-08）
+
+| ID | 題目 | 內容 | 狀態 |
+|---|---|---|---|
+| PLAT-00 | Discord 優先主線 | 主線改為 `discord-first`，範圍只含 API、worker、Bot、SDK、release-evidence。前端、Bun、Python、Pterodactyl、Godot 移到里程碑分支，Web 前端延到 M2。取代 Godot 分支規劃中「Bot 只做附屬介面」的定位。里程碑與分支對照見 [roadmap](../roadmap.md)。 | 已確認 |
+| PLAT-01 | 存檔建立入口 | 現行 bootstrap 限 Web、Bot 不可執行。M1 需決定改為 Bot 可建立存檔，或保留極簡 Web 頁。 | 待決（M1 阻擋） |
+| PLAT-02 | Discord 身份 | 現行 Clerk 為唯一身份，Discord 綁定需瀏覽器 Clerk 登入。M1 需決定保留 Clerk 加極簡綁定頁，或允許只有 Discord 的 Player。 | 待決（M1 阻擋） |
+| PLAT-03 | 一致性 gate 改寫 | 原「Web／Discord 雙端 hash 一致」改為「Discord 操作結果與 server replay hash 一致」；E05-S-03、P0-PLAT-01、O-02 的雙端條件隨之調整。 | 待決 |
+
+以下各節中「Web／Discord 雙端」「Next.js」相關描述，在 PLAT-01～03 定案前維持原文作為歷史脈絡。
 
 ## 下一步
 
