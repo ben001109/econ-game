@@ -30,8 +30,6 @@ const workerPackage = JSON.parse(
 );
 const apiNpmLock = readFileSync(`${repositoryRoot}/services/api/package-lock.json`, 'utf8');
 const workerNpmLock = readFileSync(`${repositoryRoot}/services/worker/package-lock.json`, 'utf8');
-const apiBunLock = readFileSync(`${repositoryRoot}/services/api/bun.lock`, 'utf8');
-const workerBunLock = readFileSync(`${repositoryRoot}/services/worker/bun.lock`, 'utf8');
 const apiDockerfile = readFileSync(`${repositoryRoot}/services/api/Dockerfile`, 'utf8');
 const workerDockerfile = readFileSync(`${repositoryRoot}/services/worker/Dockerfile`, 'utf8');
 const compose = readFileSync(`${repositoryRoot}/docker-compose.yml`, 'utf8');
@@ -127,11 +125,11 @@ test('API and worker consume one authoritative runtime E05 hashing package', asy
   );
 });
 
-test('npm, Bun, Docker, Compose, and CI preserve the local package production path', () => {
+test('npm, Docker, Compose, and CI preserve the local package production path', () => {
   const dependency = 'file:../../packages/econ-game-release-evidence';
   assert.equal(apiPackage.dependencies['@econ-game/release-evidence'], dependency);
   assert.equal(workerPackage.dependencies['@econ-game/release-evidence'], dependency);
-  for (const lock of [apiNpmLock, workerNpmLock, apiBunLock, workerBunLock]) {
+  for (const lock of [apiNpmLock, workerNpmLock]) {
     assert.match(lock, /@econ-game\/release-evidence/);
     assert.match(lock, /\.\.\/\.\.\/packages\/econ-game-release-evidence/);
   }

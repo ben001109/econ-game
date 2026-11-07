@@ -36,7 +36,7 @@ test('CI runs the root supply-chain policy and checked static migration inventor
     'node --test scripts/check-supply-chain.test.mjs',
   );
   assert.equal(
-    exactRunner(supplyChain, 'Verify locks, advisories, actions, images, Bun, and bootstrap policy'),
+    exactRunner(supplyChain, 'Verify locks, advisories, actions, images, and bootstrap policy'),
     'node scripts/check-supply-chain.mjs --online',
   );
   assert.equal(

@@ -5,11 +5,11 @@ import { basename, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const roots = ['.github', 'scripts', 'services', 'pterodactyl'];
-const rootFiles = ['docker-compose.yml', 'docker-compose.python.yml'];
+const roots = ['.github', 'scripts', 'services'];
+const rootFiles = ['docker-compose.yml'];
 const ignoredDirectories = new Set(['.git', 'dist', 'node_modules', '.next']);
 const executableExtensions = new Set(['.json', '.mjs', '.js', '.cjs', '.sh', '.yml', '.yaml']);
-const executableNames = new Set(['Dockerfile', 'Dockerfile.bun', 'package.json']);
+const executableNames = new Set(['Dockerfile', 'package.json']);
 const forbiddenSchemaPush = new RegExp(
   String.raw`(?:npx|bunx|pnpm\s+exec|npm\s+exec)?\s*prisma\s+db\s+push\b|["']db:push["']\s*:`,
   'i',

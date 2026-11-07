@@ -63,21 +63,6 @@ services:
       redis:
         condition: service_started
 
-  frontend:
-    build: ./services/frontend
-    profiles: [ "prod" ]
-    command: sh -c "npm run start | tee -a /logs/frontend.log"
-    env_file:
-      - ./services/frontend/.env
-      - ./services/frontend/.env.local
-    ports:
-      - "${ECON_BIND_ADDRESS:-127.0.0.1}:3000:3000"
-    volumes:
-      - ./logs:/logs
-    depends_on:
-      api:
-        condition: service_started
-
   bot:
     build: ./services/bot
     profiles: [ "prod" ]
@@ -174,26 +159,6 @@ services:
       redis:
         condition: service_started
 
-  frontend-dev:
-    profiles: [ "dev" ]
-    image: node:22-bookworm-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436
-    working_dir: /app
-    command: sh -c "npm install && (npm run dev | tee -a /logs/frontend-dev.log)"
-    environment:
-      NODE_ENV: development
-    env_file:
-      - ./services/frontend/.env
-      - ./services/frontend/.env.local
-    volumes:
-      - ./services/frontend:/app
-      - /app/node_modules
-      - ./logs:/logs
-    ports:
-      - "${ECON_BIND_ADDRESS:-127.0.0.1}:3000:3000"
-    depends_on:
-      api-dev:
-        condition: service_started
-
   bot-dev:
     profiles: [ "dev" ]
     image: node:22-bookworm-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436
@@ -210,83 +175,6 @@ services:
       - ./logs:/logs
     depends_on:
       api-dev:
-        condition: service_started
-      redis:
-        condition: service_started
-
-  # Bun profile: run services with Bun-based images
-  api-bun:
-    profiles: [ "bun" ]
-    build:
-      context: .
-      dockerfile: services/api/Dockerfile.bun
-    command: sh -c "bun run bun:start | tee -a /logs/api-bun.log"
-    environment:
-      NODE_ENV: production
-    env_file:
-      - ./services/api/.env
-      - ./services/api/.env.local
-    ports:
-      - "${ECON_BIND_ADDRESS:-127.0.0.1}:4000:4000"
-    volumes:
-      - ./logs:/logs
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-
-  worker-bun:
-    profiles: [ "bun" ]
-    build:
-      context: .
-      dockerfile: services/worker/Dockerfile.bun
-    command: sh -c "bun run bun:start | tee -a /logs/worker-bun.log"
-    environment:
-      NODE_ENV: production
-    env_file:
-      - ./services/worker/.env
-      - ./services/worker/.env.local
-    volumes:
-      - ./logs:/logs
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-
-  frontend-bun:
-    profiles: [ "bun" ]
-    build:
-      context: ./services/frontend
-      dockerfile: Dockerfile.bun
-    command: sh -c "bunx next start -p 3000 | tee -a /logs/frontend-bun.log"
-    env_file:
-      - ./services/frontend/.env
-      - ./services/frontend/.env.local
-    ports:
-      - "${ECON_BIND_ADDRESS:-127.0.0.1}:3000:3000"
-    volumes:
-      - ./logs:/logs
-    depends_on:
-      api-bun:
-        condition: service_started
-
-  bot-bun:
-    profiles: [ "bun" ]
-    build:
-      context: ./services/bot
-      dockerfile: Dockerfile.bun
-    command: sh -c "bun run bun:start | tee -a /logs/bot-bun.log"
-    environment:
-      NODE_ENV: production
-    env_file:
-      # - ./services/bot/.env
-      - ./services/bot/.env.local
-    volumes:
-      - ./logs:/logs
-    depends_on:
-      api-bun:
         condition: service_started
       redis:
         condition: service_started

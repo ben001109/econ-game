@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path';
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, '..');
-const services = ['api', 'worker', 'frontend', 'bot'];
+const services = ['api', 'worker', 'bot'];
 const steps = [
   ['prisma:generate', ['run', 'prisma:generate', '--if-present']],
   ['format', ['run', 'format:check']],

@@ -28,7 +28,7 @@ jobs:
           node-version-file: '.nvmrc'
       - name: Test supply-chain checker policy
         run: node --test scripts/check-supply-chain.test.mjs
-      - name: Verify locks, advisories, actions, images, Bun, and bootstrap policy
+      - name: Verify locks, advisories, actions, images, and bootstrap policy
         run: node scripts/check-supply-chain.mjs --online
 
   migration-safety:
@@ -63,8 +63,6 @@ jobs:
             dir: services/api
           - service: worker
             dir: services/worker
-          - service: frontend
-            dir: services/frontend
           - service: bot
             dir: services/bot
     defaults:
@@ -150,9 +148,6 @@ jobs:
           - service: worker
             context: .
             dockerfile: services/worker/Dockerfile
-          - service: frontend
-            context: services/frontend
-            dockerfile: services/frontend/Dockerfile
           - service: bot
             context: services/bot
             dockerfile: services/bot/Dockerfile

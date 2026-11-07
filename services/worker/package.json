@@ -8,8 +8,6 @@
     "build": "tsc -p .",
     "test": "tsx --test src/simulation-platform.test.ts",
     "start": "node dist/index.js",
-    "bun:dev": "bun --hot src/index.ts",
-    "bun:start": "bun src/index.ts",
     "lint": "eslint .",
     "typecheck": "tsc -p . --noEmit",
     "lint:fix": "eslint . --fix",

@@ -194,8 +194,6 @@ configure_monitoring() {
     "${SERVICES_DIR}/worker/.env.local"
     "${SERVICES_DIR}/bot/.env"
     "${SERVICES_DIR}/bot/.env.local"
-    "${SERVICES_DIR}/frontend/.env"
-    "${SERVICES_DIR}/frontend/.env.local"
   )
 
   local env_file=""
@@ -212,21 +210,6 @@ configure_monitoring() {
       "SENTRY_PROFILES_SAMPLE_RATE=${sentry_profiles}"
       "SENTRY_RELEASE=${sentry_release_value}"
     )
-    if [[ "$env_file" == "${SERVICES_DIR}/frontend/.env" || "$env_file" == "${SERVICES_DIR}/frontend/.env.local" ]]; then
-      updates=(
-        "SENTRY_DSN=${sentry_dsn_value}"
-        "SENTRY_ENVIRONMENT=${sentry_env}"
-        "SENTRY_TRACES_SAMPLE_RATE=${sentry_traces}"
-        "SENTRY_PROFILES_SAMPLE_RATE=${sentry_profiles}"
-        "SENTRY_RELEASE=${sentry_release_value}"
-      )
-      updates+=(
-        "NEXT_PUBLIC_SENTRY_DSN=${sentry_dsn_value}"
-        "NEXT_PUBLIC_SENTRY_ENVIRONMENT=${sentry_env}"
-        "NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=${sentry_traces}"
-        "NEXT_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE=${sentry_profiles}"
-      )
-    fi
     if update_env_file "$env_file" "${updates[@]}"; then
       local rel_path="${env_file#"${ROOT}/"}"
       log "Updated monitoring settings in ${rel_path}"
@@ -642,7 +625,7 @@ prompt_docker_options() {
   if [[ ! -t 0 ]]; then
     return 0
   fi
-  printf 'Include developer containers (api-dev, worker-dev, frontend-dev, bot-dev)? [Y/n]: ' >&2
+  printf 'Include developer containers (api-dev, worker-dev, bot-dev)? [Y/n]: ' >&2
   local answer=""
   read -r answer || answer=""
   case "${answer,,}" in
@@ -871,11 +854,10 @@ format_local_and_lan() {
 record_docker_summary() {
   local dev_flag="$1"
   if [[ "$dev_flag" == "1" ]]; then
-    add_summary_line "Docker dev profile running (api-dev, worker-dev, frontend-dev, bot-dev)."
+    add_summary_line "Docker dev profile running (api-dev, worker-dev, bot-dev)."
   else
     add_summary_line "Docker stack running with production profile containers."
   fi
-  add_summary_line "Frontend: $(format_local_and_lan http 3000)"
   add_summary_line "API (REST): $(format_local_and_lan http 4000)"
   add_summary_line "Administration tools: disabled unless the tools profile is explicitly enabled"
   add_summary_line "Postgres: localhost:5432 (credentials are read from the private root .env)"
@@ -894,7 +876,7 @@ record_local_summary() {
   add_summary_line "Local development ready in services/."
   add_summary_line "API: cd services/api && npm run dev"
   add_summary_line "Worker: cd services/worker && npm run dev"
-  add_summary_line "Frontend: cd services/frontend && npm run dev"
+  add_summary_line "Bot: cd services/bot && npm run dev"
   if [[ "$start_db" == "1" ]]; then
     add_summary_line "Postgres & Redis started via docker compose up -d postgres redis"
   else
@@ -1148,12 +1130,12 @@ setup_docker() {
   log_section "Docker Workflow"
   ensure_docker
   if [[ "$dev" == "1" ]]; then
-    log "Cleaning previous dev containers (api-dev, worker-dev, frontend-dev, bot-dev)..."
-    if ! docker_compose rm -s -f api-dev worker-dev frontend-dev bot-dev >/dev/null 2>&1; then
+    log "Cleaning previous dev containers (api-dev, worker-dev, bot-dev)..."
+    if ! docker_compose rm -s -f api-dev worker-dev bot-dev >/dev/null 2>&1; then
       warn "No existing dev containers to remove or cleanup failed; continuing."
     fi
-    log "Starting dev profile containers (api-dev, worker-dev, frontend-dev, bot-dev, dbs)..."
-    docker_compose --profile dev up --build -d postgres redis api-dev worker-dev frontend-dev bot-dev
+    log "Starting dev profile containers (api-dev, worker-dev, bot-dev, dbs)..."
+    docker_compose --profile dev up --build -d postgres redis api-dev worker-dev bot-dev
     log "Administration tools remain disabled; enable the tools profile explicitly if required."
   else
     log "Building and starting production-like stack..."
@@ -1243,8 +1225,8 @@ setup_local() {
     install_package_deps "${SERVICES_DIR}/api"
     log "Installing dependencies for worker..."
     install_package_deps "${SERVICES_DIR}/worker"
-    log "Installing dependencies for frontend..."
-    install_package_deps "${SERVICES_DIR}/frontend"
+    log "Installing dependencies for bot..."
+    install_package_deps "${SERVICES_DIR}/bot"
   else
     log "Skipping npm install for services."
   fi
@@ -1258,7 +1240,7 @@ setup_local() {
   log "Next steps:"
   log "- API:      cd services/api && npm run dev"
   log "- Worker:   cd services/worker && npm run dev"
-  log "- Frontend: cd services/frontend && npm run dev"
+  log "- Bot:      cd services/bot && npm run dev"
   record_local_summary "$skip_install" "$start_db"
 }
 

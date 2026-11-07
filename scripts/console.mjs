@@ -12,11 +12,10 @@ const root = resolve(process.cwd());
 const servicesDir = join(root, 'services');
 const CONFIG_PATH = join(root, '.econ-console.json');
 const services = {
-  dev: ['api-dev', 'worker-dev', 'frontend-dev', 'bot-dev'],
+  dev: ['api-dev', 'worker-dev', 'bot-dev'],
   aux: ['adminer', 'redis-commander'],
   db: ['postgres', 'redis'],
-  prod: ['api', 'worker', 'frontend', 'bot'],
-  bun: ['api-bun', 'worker-bun', 'frontend-bun', 'bot-bun'],
+  prod: ['api', 'worker', 'bot'],
 };
 
 const ENV_GROUPS = [
@@ -29,12 +28,6 @@ const ENV_GROUPS = [
   {
     name: 'worker',
     dir: join(root, 'services', 'worker'),
-    files: ['.env', '.env.local'],
-    example: '.env.example',
-  },
-  {
-    name: 'frontend',
-    dir: join(root, 'services', 'frontend'),
     files: ['.env', '.env.local'],
     example: '.env.example',
   },
@@ -122,7 +115,7 @@ const I18N = {
     services_opt_5: 'Quick Restart (Dev)',
     services_opt_6: 'Quick Restart (Prod)',
     services_select: 'Choose (1-6, 0=back): ',
-    services_scope: 'Scope: [1] Dev, [2] Prod, [3] Bun, [4] Pick dev services [1]: ',
+    services_scope: 'Scope: [1] Dev, [2] Prod, [3] Pick dev services [1]: ',
     // Build flags
     build_no_cache: 'Rebuild without cache?',
     build_pull_base: 'Pull base images before build?',
@@ -212,7 +205,7 @@ const I18N = {
     services_opt_5: '快速重啟（開發）',
     services_opt_6: '快速重啟（正式）',
     services_select: '請選擇（1-6，0 返回）：',
-    services_scope: '操作範圍：[1] 開發、[2] 正式、[3] Bun、[4] 自選（Dev） [1]：',
+    services_scope: '操作範圍：[1] 開發、[2] 正式、[3] 自選（Dev） [1]：',
     // Build flags
     build_no_cache: '重建時不使用快取？',
     build_pull_base: '重建前先拉取基底映像？',
@@ -409,20 +402,6 @@ function configureMonitoringFromSetup(monitoring) {
         ['SENTRY_RELEASE', sentryRelease],
       ],
     },
-    {
-      path: join(servicesDir, 'frontend', '.env'),
-      entries: [
-        ['SENTRY_DSN', sentryDsn],
-        ['SENTRY_ENVIRONMENT', sentryEnvironment],
-        ['SENTRY_TRACES_SAMPLE_RATE', sentryTraces.toString()],
-        ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfiles.toString()],
-        ['SENTRY_RELEASE', sentryRelease],
-        ['NEXT_PUBLIC_SENTRY_DSN', sentryDsn],
-        ['NEXT_PUBLIC_SENTRY_ENVIRONMENT', sentryEnvironment],
-        ['NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE', sentryTraces.toString()],
-        ['NEXT_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE', sentryProfiles.toString()],
-      ],
-    },
   ];
 
   for (const { path, entries } of updates) {
@@ -486,14 +465,14 @@ function readNvmrc() {
 async function setupDockerWorkflow(includeDevProfile) {
   await setupEnsureDocker();
   if (includeDevProfile) {
-    console.log('[console] Cleaning previous dev containers (api-dev, worker-dev, frontend-dev, bot-dev)...');
+    console.log('[console] Cleaning previous dev containers (api-dev, worker-dev, bot-dev)...');
     try {
-      await dockerCompose(['rm', '-s', '-f', 'api-dev', 'worker-dev', 'frontend-dev', 'bot-dev']);
+      await dockerCompose(['rm', '-s', '-f', 'api-dev', 'worker-dev', 'bot-dev']);
     } catch {
       console.warn('[console] No existing dev containers to remove or cleanup failed; continuing.');
     }
-    console.log('[console] Starting dev profile containers (api-dev, worker-dev, frontend-dev, bot-dev, postgres, redis).');
-    await dockerCompose(['--profile', 'dev', 'up', '--build', '-d', 'postgres', 'redis', 'api-dev', 'worker-dev', 'frontend-dev', 'bot-dev']);
+    console.log('[console] Starting dev profile containers (api-dev, worker-dev, bot-dev, postgres, redis).');
+    await dockerCompose(['--profile', 'dev', 'up', '--build', '-d', 'postgres', 'redis', 'api-dev', 'worker-dev', 'bot-dev']);
     console.log('[console] Administration tools remain disabled; enable the tools profile explicitly.');
   } else {
     console.log('[console] Building and starting production-like stack...');
@@ -527,7 +506,7 @@ async function setupLocalWorkflow({ skipInstall, startDb }) {
   const packages = [
     { name: 'api', dir: join(servicesDir, 'api') },
     { name: 'worker', dir: join(servicesDir, 'worker') },
-    { name: 'frontend', dir: join(servicesDir, 'frontend') },
+    { name: 'bot', dir: join(servicesDir, 'bot') },
   ];
 
   for (const pkg of packages) {
@@ -552,7 +531,7 @@ async function setupLocalWorkflow({ skipInstall, startDb }) {
   console.log('[console] Next steps:');
   console.log('- API:      cd services/api && npm run dev');
   console.log('- Worker:   cd services/worker && npm run dev');
-  console.log('- Frontend: cd services/frontend && npm run dev');
+  console.log('- Bot:      cd services/bot && npm run dev');
 }
 
 async function setupAskQuestion(prompt, defaultValue = '') {
@@ -648,7 +627,7 @@ async function gatherSetupSelections() {
   console.log(`[console] Selected workflow: ${mode}.`);
 
   if (mode === 'docker') {
-    state.dockerDev = await setupAskYesNo('Include developer containers (api-dev, worker-dev, frontend-dev, bot-dev)?', true);
+    state.dockerDev = await setupAskYesNo('Include developer containers (api-dev, worker-dev, bot-dev)?', true);
     console.log(`[console] Docker dev profile: ${state.dockerDev ? 'enabled' : 'disabled'}.`);
   } else {
     state.localSkipInstall = await setupAskYesNo('Skip Node.js package installation (npm install)?', false);
@@ -774,7 +753,6 @@ function getEnvGroupNameForService(service) {
   if (/^api(-|$)/.test(service)) return 'api';
   if (/^bot(-|$)/.test(service)) return 'bot';
   if (/^worker(-|$)/.test(service)) return 'worker';
-  if (/^frontend(-|$)/.test(service)) return 'frontend';
   return null;
 }
 
@@ -1325,15 +1303,6 @@ async function stopProd() {
   await dockerCompose(['rm', '-s', '-f', ...services.prod]);
 }
 
-async function startBun() {
-  await ensureEnvForServices([...services.bun], { promptTokens: true });
-  await dockerCompose(['--profile', 'bun', 'up', '-d', ...services.db, ...services.bun]);
-}
-
-async function stopBun() {
-  await dockerCompose(['rm', '-s', '-f', ...services.bun]);
-}
-
 async function status() {
   await dockerCompose(['ps']);
 }
@@ -1354,7 +1323,7 @@ async function tailLogs() {
 }
 
 async function restartServices() {
-  const all = [...services.dev, ...services.prod, ...services.bun];
+  const all = [...services.dev, ...services.prod];
   all.forEach((s, i) => console.log(`  [${i + 1}] ${s}`));
   const sel = (await rlPrompt(LANG === 'zh' ? '要重啟哪些服務（輸入編號，空白＝dev）：' : 'Restart which (indices, empty for dev apps): ')).trim();
   let chosen = services.dev;
@@ -1441,16 +1410,13 @@ async function servicesMenu() {
   }
   const scope = (await rlPrompt(t('services_scope'))).trim();
   const isProd = scope === '2';
-  const isBun = scope === '3';
-  const isPick = scope === '4';
+  const isPick = scope === '3';
   if (choice === '1') {
     if (isProd) await startProd();
-    else if (isBun) await startBun();
     else if (isPick) await startDev(); // startDev already allows picking dev services and extras
     else await startDev();
   } else if (choice === '2') {
     if (isProd) await stopProd();
-    else if (isBun) await stopBun();
     else if (isPick) await stopDev(); // stopDev allows picking dev services + extras
     else await stopDev();
   } else if (choice === '4') {
@@ -1459,7 +1425,7 @@ async function servicesMenu() {
 }
 
 async function buildService() {
-  const all = [...services.prod, ...services.dev, ...services.bun];
+  const all = [...services.prod, ...services.dev];
   all.forEach((s, i) => console.log(`  [${i + 1}] ${s}`));
   const sel = (await rlPrompt(LANG === 'zh' ? '要 build/重建 哪些服務（輸入編號，空白＝全部）：' : 'Build/Rebuild which (indices, empty for all prod+dev): ')).trim();
   let chosen = all;
@@ -1517,7 +1483,6 @@ async function execShell() {
 
 async function openUrls() {
   const urls = [
-    { name: 'Frontend', url: 'http://localhost:3000' },
     { name: 'API Docs', url: 'http://localhost:4000/docs' },
     { name: 'Adminer', url: 'http://localhost:8080' },
     { name: 'Redis Commander', url: 'http://localhost:8081' },
