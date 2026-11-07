@@ -37,9 +37,9 @@ Runtime 只有 Node 22（`.nvmrc`）。前端、Bun、Python、Pterodactyl、God
 
 ### 工作項目
 
-- 先修好 8 月留下的紅燈：API 1 個失敗測試、API／worker 的 TypeScript 錯誤、API／bot 的 lint error、三個服務的 format。
+- ~~先修好 8 月留下的紅燈~~（2026-11-08 完成：三個服務的 format、lint、typecheck、test、build 均通過）。
 - 延後：自有登入（ADR 0001 後續工作）。在那之前，Bot 建立存檔仍需要一個已綁定 Clerk 的 Player。
-- `/game` 子命令背後的遊戲命令全部接上 durable handler（handoff 文件列為「六個遊戲命令尚未全部接入 durable handler」）。
+- `/game` 子命令背後的五個遊戲命令（CONFIGURE／OPEN／ADVANCE／SETTLE／REQUEST_DAY_REPLAY）已在 `app-composition.ts` 註冊 durable handler，但還沒在真的 PostgreSQL 上從頭串跑過一次。
 - PostgreSQL runtime 實跑：migration、RLS、延遲約束（`services/api` 的 `test:d0x:postgres` 系列）。
 - 日結 evidence producer：產生 `ReplayEvent`／`DayEndSnapshot`，讓 replay 驗證有上游資料。
 - Bot 部署方式。原本的 Pterodactyl eggs 只有 Bun／Python 版，需要新增 Node 版或改用其他部署方式。
