@@ -73,7 +73,9 @@ type DatabaseState = {
 };
 
 function durableDatabase(state: DatabaseState): ProductionApiDatabase {
-  const database: ProductionApiDatabase = {
+  const database: ProductionApiDatabase & {
+    $executeRawUnsafe(query: string, ...values: readonly unknown[]): Promise<number>;
+  } = {
     player: {
       async findUnique() {
         return { id: 'player-1', clerkUserId: 'clerk-user-1' };

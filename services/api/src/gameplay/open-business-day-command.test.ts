@@ -547,7 +547,7 @@ test('strict input and snapshot pins reject without OPEN transition or outbox si
       preopenSnapshotHash: 'a'.repeat(64),
       demandSeed: 'client-forged',
     },
-  ]) {
+  ] as Readonly<Record<string, string>>[]) {
     const database = new OpenDatabase();
     await assert.rejects(
       dispatch(database, openCommand(database, { payload })),

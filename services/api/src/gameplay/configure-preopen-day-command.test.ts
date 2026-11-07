@@ -11,6 +11,7 @@ import {
 import { CommandDispatcher } from '../commands/command-dispatcher.js';
 import type { D03Database, D03Queryable } from '../domains/ledger/postgres-ledger-store.js';
 import { PostgresDurableCommandExecutionStore } from '../domains/ledger/postgres-ledger-store.js';
+import { createMoney } from '../domains/money/money.js';
 import { createOpeningSnapshot } from '../domains/opening-scenario/snapshot.js';
 import { MVP_OPENING_VERSIONS } from '../domains/opening-scenario/registry.js';
 import {
@@ -682,10 +683,7 @@ test('forged opening accounting authority is rejected before gameplay or ledger 
     ...openingSnapshot,
     settlementCash: Object.freeze({
       ...openingSnapshot.settlementCash,
-      amount: Object.freeze({
-        ...openingSnapshot.settlementCash.amount,
-        minorUnits: '999999999',
-      }),
+      amount: createMoney(openingSnapshot.settlementCash.amount.currency, '999999999'),
     }),
   });
 

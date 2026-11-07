@@ -26,6 +26,7 @@ import {
   hashDayReplayEvents,
   hashDayReplaySnapshot,
   type DayReplayEvidenceSource,
+  unavailableDayReplaySource,
 } from './day-replay-evidence.js';
 
 const catalogPayload = Object.freeze({
@@ -717,7 +718,9 @@ test('only explicit database infrastructure codes are classified for loop retry'
 
 test('market replay is deterministic, bounded, sorted, and day one uses references', () => {
   const dayTwo = createMarketTickReplay({
+    restaurantId: 'restaurant-a',
     saveId: 'save-a',
+    dayReplaySource: unavailableDayReplaySource,
     businessDay: 2,
     rule: ruleV1,
     catalogs: [catalogV1],
@@ -726,7 +729,9 @@ test('market replay is deterministic, bounded, sorted, and day one uses referenc
   assert.deepEqual(
     dayTwo,
     createMarketTickReplay({
+      restaurantId: 'restaurant-a',
       saveId: 'save-a',
+      dayReplaySource: unavailableDayReplaySource,
       businessDay: 2,
       rule: ruleV1,
       catalogs: [catalogV1],
@@ -748,7 +753,9 @@ test('market replay is deterministic, bounded, sorted, and day one uses referenc
   );
 
   const dayOne = createMarketTickReplay({
+    restaurantId: 'restaurant-a',
     saveId: 'save-a',
+    dayReplaySource: unavailableDayReplaySource,
     businessDay: 1,
     rule: ruleV1,
     catalogs: [catalogV1],
@@ -761,7 +768,9 @@ test('market replay is deterministic, bounded, sorted, and day one uses referenc
   assert.throws(
     () =>
       createMarketTickReplay({
+        restaurantId: 'restaurant-a',
         saveId: 'save-a',
+        dayReplaySource: unavailableDayReplaySource,
         businessDay: 2,
         rule: ruleV1,
         catalogs: [catalogV1],

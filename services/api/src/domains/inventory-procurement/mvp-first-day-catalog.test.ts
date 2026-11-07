@@ -180,7 +180,7 @@ test('resolver rejects mutable accessor inputs at both authority boundaries', ()
     })(),
   });
   assert.throws(
-    () => resolveMvpFirstDayCatalog(hostileVersions, TWD),
+    () => resolveMvpFirstDayCatalog(hostileVersions as ReturnType<typeof selection>, TWD),
     /accessor properties are not allowed/,
   );
 });

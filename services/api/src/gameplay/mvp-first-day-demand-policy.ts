@@ -116,7 +116,12 @@ function assertMenuAuthority(
   }
   for (const recipeId of recipeIds) {
     const modifier = priceModifierPercentByRecipe[recipeId];
-    if (!Number.isInteger(modifier) || modifier < -10 || modifier > 10) {
+    if (
+      typeof modifier !== 'number' ||
+      !Number.isInteger(modifier) ||
+      modifier < -10 ||
+      modifier > 10
+    ) {
       throw new Error('first-day price modifiers must be whole percentages from -10 through 10');
     }
   }

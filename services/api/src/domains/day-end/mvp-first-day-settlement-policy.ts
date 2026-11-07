@@ -583,9 +583,9 @@ function parseEquipmentDepreciation(
       return deepFreeze({
         assetKey: string(entry.assetKey, 'equipment depreciation assetKey'),
         termsVersion: string(entry.termsVersion, 'equipment depreciation termsVersion'),
-        depreciationMethod: entry.depreciationMethod,
-        depreciationTiming: entry.depreciationTiming,
-        cashImpact: entry.cashImpact,
+        depreciationMethod: 'STRAIGHT_LINE_COMPLETED_DAY' as const,
+        depreciationTiming: 'DAY_END_AFTER_COMPLETED_BUSINESS_DAY' as const,
+        cashImpact: 'NON_CASH' as const,
         amount: parseMoney(entry.amount, 'equipment depreciation amount', currency),
       });
     })

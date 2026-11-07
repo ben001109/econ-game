@@ -334,7 +334,7 @@ class SettlementDatabase implements D03Database {
       dayStatus: 'SERVICE_COMPLETE',
       settledByCommandId: null,
       stocks: new Map(this.fixture.stocks.map((stock) => [stock.id, structuredClone(stock)])),
-      serviceAudits: structuredClone(this.fixture.audits),
+      serviceAudits: [...structuredClone(this.fixture.audits)],
       wasteAudits: [],
       replay: [],
       dayEnd: null,
