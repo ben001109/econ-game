@@ -37,8 +37,7 @@ export type MvpFirstDayCurrencySelection = Readonly<{
   metadataVersion: string;
 }>;
 
-export const MVP_FIRST_DAY_CURRENCY_METADATA_VERSION =
-  MVP_OPENING_VERSIONS.currencyMetadataVersion;
+export const MVP_FIRST_DAY_CURRENCY_METADATA_VERSION = MVP_OPENING_VERSIONS.currencyMetadataVersion;
 
 export type MvpFirstDayCatalog = Readonly<{
   versions: MvpFirstDayCatalogVersionSelection;
@@ -244,7 +243,10 @@ export function resolveMvpFirstDayCatalog(
     catalogRevision: canonicalSelection.recipeCatalog,
     themeId: BISTRO_THEME_ID,
     baseQuality: definition.baseQuality,
-    ingredients: definition.ingredientIds.map((ingredientId) => ({ ingredientId, quantityPoints: 1 })),
+    ingredients: definition.ingredientIds.map((ingredientId) => ({
+      ingredientId,
+      quantityPoints: 1,
+    })),
   }));
   const substitutionCatalog = SUBSTITUTION_DEFINITIONS.map((definition) => ({
     id: definition.id,
@@ -252,7 +254,10 @@ export function resolveMvpFirstDayCatalog(
     recipeVersionId: definition.recipeVersionId,
     priority: definition.priority,
     qualityDelta: definition.qualityDelta,
-    ingredients: definition.ingredientIds.map((ingredientId) => ({ ingredientId, quantityPoints: 1 })),
+    ingredients: definition.ingredientIds.map((ingredientId) => ({
+      ingredientId,
+      quantityPoints: 1,
+    })),
   }));
 
   assertCatalogContract(recipeCatalog, ingredientCatalog, substitutionCatalog);

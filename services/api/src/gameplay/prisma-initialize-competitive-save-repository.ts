@@ -40,8 +40,7 @@ export class PrismaInitializeCompetitiveSaveRepository
   ): Promise<InitializeCompetitiveSaveResult> {
     try {
       return await this.database.$transaction(
-        async (transaction) =>
-          provisionCompetitiveSaveInTransaction(transaction, input),
+        async (transaction) => provisionCompetitiveSaveInTransaction(transaction, input),
         { isolationLevel: 'Serializable' },
       );
     } catch (error) {
@@ -64,9 +63,7 @@ export function provisionCompetitiveSaveInTransaction(
   );
 }
 
-class PrismaInitializeCompetitiveSaveUnitOfWork
-  implements InitializeCompetitiveSaveUnitOfWork
-{
+class PrismaInitializeCompetitiveSaveUnitOfWork implements InitializeCompetitiveSaveUnitOfWork {
   constructor(private readonly transaction: BootstrapSqlTransaction) {}
 
   async findCommandReplay(
@@ -324,5 +321,7 @@ class PrismaInitializeCompetitiveSaveUnitOfWork
 function isRetryableConflict(error: unknown): boolean {
   if (typeof error !== 'object' || error === null || !('code' in error)) return false;
   const code = (error as Readonly<{ code?: unknown }>).code;
-  return code === '23505' || code === '40001' || code === '40P01' || code === 'P2002' || code === 'P2034';
+  return (
+    code === '23505' || code === '40001' || code === '40P01' || code === 'P2002' || code === 'P2034'
+  );
 }

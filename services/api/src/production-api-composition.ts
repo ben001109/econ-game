@@ -2,10 +2,7 @@ import type { FastifyServerOptions } from 'fastify';
 
 import { createApiComposition } from './app-composition.js';
 import { CommandError } from './commands/command-contract.js';
-import {
-  RoleMatrixAuthorizationPolicy,
-  mergeCommandRoleMatrices,
-} from './auth/authorization.js';
+import { RoleMatrixAuthorizationPolicy, mergeCommandRoleMatrices } from './auth/authorization.js';
 import { CachingJwksProvider, ClerkJwtVerifier, type JwksDocument } from './auth/jwt-verifier.js';
 import {
   HashedBotServiceCredentialVerifier,

@@ -127,7 +127,11 @@ const goldenFixedFieldSnapshot = Object.freeze({
     amount: money('0'),
     accruedTotal: money('0'),
     currency: 'USD',
-    idempotencyKey: Object.freeze({ gameId: 'game-1', dayIndex: 1, version: 'e05-risk-penalty-v1' }),
+    idempotencyKey: Object.freeze({
+      gameId: 'game-1',
+      dayIndex: 1,
+      version: 'e05-risk-penalty-v1',
+    }),
   }),
   dailyNet: money('3400'),
   resolutionComparisonShortfall: money('0'),
@@ -453,7 +457,10 @@ test('production outbox mapping accepts only the exact API DAY_REPLAY business i
         ...event,
         payload: {
           ...request,
-          replay: { ...dayReplayJob(), catalogs: [{ kind: 'CATALOG', key: 'EXTRA', version: 'v1' }] },
+          replay: {
+            ...dayReplayJob(),
+            catalogs: [{ kind: 'CATALOG', key: 'EXTRA', version: 'v1' }],
+          },
         },
       }),
     (error: unknown) =>
@@ -543,7 +550,11 @@ test('E05 DAY_REPLAY permanently rejects tampered locators and corrupt or missin
       createDayReplayEvidenceVerification({
         ...base,
         replayPayload: dayReplayJob().replayPayload,
-        dayReplaySource: { async load() { return undefined; } },
+        dayReplaySource: {
+          async load() {
+            return undefined;
+          },
+        },
       }),
     (error: unknown) =>
       error instanceof SimulationJobError && error.code === 'DAY_REPLAY_SOURCE_MISSING',

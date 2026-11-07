@@ -40,7 +40,10 @@ test('the catalog fixes the v1 command order and permits each command exactly on
       'REQUEST_DAY_REPLAY',
     ],
   );
-  assert.deepEqual(gameplayCommandTypes, gameplayCommandCatalog.map((entry) => entry.commandType));
+  assert.deepEqual(
+    gameplayCommandTypes,
+    gameplayCommandCatalog.map((entry) => entry.commandType),
+  );
   assert.equal(new Set(gameplayCommandCatalog.map((entry) => entry.commandType)).size, 6);
 });
 
@@ -67,7 +70,9 @@ test('each command carries minimal roles and explicit server-derived projection 
   }
 
   assert.deepEqual(gameplayCommandCatalog[0]?.allowedRoles, ['OWNER']);
-  assert.ok(gameplayCommandCatalog.slice(1).every((command) => command.allowedRoles.includes('MANAGER')));
+  assert.ok(
+    gameplayCommandCatalog.slice(1).every((command) => command.allowedRoles.includes('MANAGER')),
+  );
   assert.equal(gameplayCommandCatalog[5]?.projection.job.required, true);
   assert.equal(gameplayCommandCatalog[5]?.projection.job.acceptedStatus, 202);
   assert.equal(gameplayCommandCatalog[5]?.projection.job.projection, 'DAY_REPLAY');
@@ -75,13 +80,17 @@ test('each command carries minimal roles and explicit server-derived projection 
 
 test('only replay requests require a 202 job projection', () => {
   const jobCommands = gameplayCommandCatalog.filter((command) => command.projection.job.required);
-  assert.deepEqual(jobCommands.map((command) => command.commandType), ['REQUEST_DAY_REPLAY']);
+  assert.deepEqual(
+    jobCommands.map((command) => command.commandType),
+    ['REQUEST_DAY_REPLAY'],
+  );
   assert.ok(
     gameplayCommandCatalog
       .filter((command) => !command.projection.job.required)
       .every(
         (command) =>
-          command.projection.job.acceptedStatus === 200 && command.projection.job.projection === 'NONE',
+          command.projection.job.acceptedStatus === 200 &&
+          command.projection.job.projection === 'NONE',
       ),
   );
 });

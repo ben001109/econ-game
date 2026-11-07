@@ -149,8 +149,10 @@ export class PrismaWipeBatchRepository implements WipeBatchRepository {
       await assertOwner(transaction, input.actorPlayerId, input.restaurantId);
       const expected = scopeCandidates(batch.scope);
       const current = await activeSaveCandidates(transaction, input.restaurantId, true);
-      if (canonicalJson(expected.map(({ id, version }) => ({ id, version }))) !==
-          canonicalJson(current.map(({ id, version }) => ({ id, version })))) {
+      if (
+        canonicalJson(expected.map(({ id, version }) => ({ id, version }))) !==
+        canonicalJson(current.map(({ id, version }) => ({ id, version })))
+      ) {
         throw new CommandError(409, 'WIPE_SCOPE_STALE');
       }
       await transaction.$queryRawUnsafe(
@@ -314,9 +316,8 @@ export class PrismaWipeBatchRepository implements WipeBatchRepository {
       assertVersion(input, version);
       const latest = await latestCheckpoint(transaction, batch.id);
       const sequence = latest ? numeric(latest.sequence) + 1 : 1;
-      const attempt = latest?.outcome === 'FAILED' && latest.phase === phase
-        ? latest.attempt + 1
-        : 1;
+      const attempt =
+        latest?.outcome === 'FAILED' && latest.phase === phase ? latest.attempt + 1 : 1;
       const evidence = {
         version: 'd05-wipe-checkpoint-evidence/v1',
         phase,

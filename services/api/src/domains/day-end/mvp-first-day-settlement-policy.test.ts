@@ -104,12 +104,20 @@ function configured() {
     },
     inventoryPoolAuthorities: [
       {
-        saveId: 'save-1', pool: 'DURABLE', revision: 1, capacityPoints: 305,
-        storageBundleVersion: 'mvp-storage/v1', storageBundleKind: 'BASIC',
+        saveId: 'save-1',
+        pool: 'DURABLE',
+        revision: 1,
+        capacityPoints: 305,
+        storageBundleVersion: 'mvp-storage/v1',
+        storageBundleKind: 'BASIC',
       },
       {
-        saveId: 'save-1', pool: 'PERISHABLE', revision: 1, capacityPoints: 305,
-        storageBundleVersion: 'mvp-storage/v1', storageBundleKind: 'BASIC',
+        saveId: 'save-1',
+        pool: 'PERISHABLE',
+        revision: 1,
+        capacityPoints: 305,
+        storageBundleVersion: 'mvp-storage/v1',
+        storageBundleKind: 'BASIC',
       },
     ],
     spotPurchaseIdFactory: {
@@ -140,13 +148,33 @@ function configured() {
         height: 9,
         servicePoint: { x: 1, y: 0 },
         fixtures: [
-          ...Array.from({ length: 8 }, (_, index) => ({ fixtureId: `walkway-${index + 1}`, kind: 'WALKWAY', x: 1, y: index + 1 })),
-          ...Array.from({ length: 9 }, (_, index) => ({ fixtureId: `seat-${index + 1}`, kind: 'SEAT', x: 2, y: index })),
-          ...Array.from({ length: 4 }, (_, index) => ({ fixtureId: `waiting-${index + 1}`, kind: 'WAITING_ZONE', x: 0, y: index + 1 })),
+          ...Array.from({ length: 8 }, (_, index) => ({
+            fixtureId: `walkway-${index + 1}`,
+            kind: 'WALKWAY',
+            x: 1,
+            y: index + 1,
+          })),
+          ...Array.from({ length: 9 }, (_, index) => ({
+            fixtureId: `seat-${index + 1}`,
+            kind: 'SEAT',
+            x: 2,
+            y: index,
+          })),
+          ...Array.from({ length: 4 }, (_, index) => ({
+            fixtureId: `waiting-${index + 1}`,
+            kind: 'WAITING_ZONE',
+            x: 0,
+            y: index + 1,
+          })),
         ],
       },
-      spotPurchaseDeltas: ['bistro-rice', 'bistro-sauce', 'bistro-chicken', 'bistro-greens', 'bistro-herbs']
-        .map((ingredientId) => ({ ingredientId, quantityPoints: 20 })),
+      spotPurchaseDeltas: [
+        'bistro-rice',
+        'bistro-sauce',
+        'bistro-chicken',
+        'bistro-greens',
+        'bistro-herbs',
+      ].map((ingredientId) => ({ ingredientId, quantityPoints: 20 })),
     }),
     artifacts,
   );
@@ -162,15 +190,17 @@ function openingInventory(plan: ReturnType<typeof configured>['plan']): Inventor
     orderReservations: opening.openingReservations,
     reservedUndelivered: opening.reservedUndelivered,
     transactions: Object.freeze(
-      opening.openingStocks.map((stock, index) => Object.freeze({
-        sequence: index + 1,
-        transactionId: `opening-receipt:${stock.ingredientId}`,
-        type: 'RECEIPT' as const,
-        ingredientId: stock.ingredientId,
-        quantityPoints: stock.onHandPoints,
-        amount: stock.costPool,
-        referenceId: plan.privateEnvelope.preopenSnapshotId,
-      })),
+      opening.openingStocks.map((stock, index) =>
+        Object.freeze({
+          sequence: index + 1,
+          transactionId: `opening-receipt:${stock.ingredientId}`,
+          type: 'RECEIPT' as const,
+          ingredientId: stock.ingredientId,
+          quantityPoints: stock.onHandPoints,
+          amount: stock.costPool,
+          referenceId: plan.privateEnvelope.preopenSnapshotId,
+        }),
+      ),
     ),
   });
 }
@@ -179,12 +209,15 @@ function lockedRecords(): MvpFirstDaySettlementLockedRecords {
   const { openingSnapshot, plan } = configured();
   const envelope = plan.privateEnvelope;
   const catalog = resolveMvpFirstDayCatalog(MVP_FIRST_DAY_CATALOG_VERSIONS, {
-    code: 'TWD', metadataVersion: openingSnapshot.currencyMetadataVersion,
+    code: 'TWD',
+    metadataVersion: openingSnapshot.currencyMetadataVersion,
   });
   const menuIds = envelope.menu.items.map((item) => item.recipeVersionId);
   const recipeVersions = catalog.recipeCatalog.filter((recipe) => menuIds.includes(recipe.id));
   const enabledIds = new Set(envelope.menu.items.flatMap((item) => item.enabledSubstitutionIds));
-  const enabledSubstitutions = catalog.substitutionCatalog.filter((entry) => enabledIds.has(entry.id));
+  const enabledSubstitutions = catalog.substitutionCatalog.filter((entry) =>
+    enabledIds.has(entry.id),
+  );
   const recipes: readonly RecipeServiceSnapshot[] = recipeVersions.map((recipe) => {
     const item = envelope.menu.items.find((candidate) => candidate.recipeVersionId === recipe.id)!;
     return Object.freeze({
@@ -229,67 +262,99 @@ function lockedRecords(): MvpFirstDaySettlementLockedRecords {
         previousResult,
       },
     );
-    executions.push(Object.freeze({
-      id: `execution:${index + 1}`,
-      ordinal: index + 1,
-      periodKey: period,
-      commandId: `command:${index + 1}`,
-      simulationRuleVersion: openingSnapshot.simulationRuleVersion,
-      inputSnapshot: result.inputSnapshot,
-      inputHash: result.inputSnapshot.inputHash,
-      resultSnapshot: result.resultSnapshot,
-      resultHash: result.resultSnapshot.resultHash,
-    }));
+    executions.push(
+      Object.freeze({
+        id: `execution:${index + 1}`,
+        ordinal: index + 1,
+        periodKey: period,
+        commandId: `command:${index + 1}`,
+        simulationRuleVersion: openingSnapshot.simulationRuleVersion,
+        inputSnapshot: result.inputSnapshot,
+        inputHash: result.inputSnapshot.inputHash,
+        resultSnapshot: result.resultSnapshot,
+        resultHash: result.resultSnapshot.resultHash,
+      }),
+    );
     previousResult = result.resultSnapshot;
   }
   const finalInventory = previousResult!.inventoryState;
-  const inventoryStocks: PersistedInventoryStock[] = finalInventory.stocks.map((stock, index) => Object.freeze({
-    id: `stock:${index}`,
-    inventoryItemId: `item:${index}`,
-    ingredientId: stock.ingredientId,
-    pool: stock.pool,
-    version: 1,
-    onHandPoints: stock.onHandPoints,
-    reservedUndeliveredPoints: finalInventory.reservedUndelivered
-      .filter((entry) => entry.ingredientId === stock.ingredientId)
-      .reduce((total, entry) => total + entry.quantityPoints, 0),
-    costPoolMinor: stock.costPool.minorUnits,
-  }));
+  const inventoryStocks: PersistedInventoryStock[] = finalInventory.stocks.map((stock, index) =>
+    Object.freeze({
+      id: `stock:${index}`,
+      inventoryItemId: `item:${index}`,
+      ingredientId: stock.ingredientId,
+      pool: stock.pool,
+      version: 1,
+      onHandPoints: stock.onHandPoints,
+      reservedUndeliveredPoints: finalInventory.reservedUndelivered
+        .filter((entry) => entry.ingredientId === stock.ingredientId)
+        .reduce((total, entry) => total + entry.quantityPoints, 0),
+      costPoolMinor: stock.costPool.minorUnits,
+    }),
+  );
   const inventoryAudits: PersistedInventoryAudit[] = executions.flatMap((execution) => {
     const prior = execution.inputSnapshot.inventoryState.transactions.length;
-    return execution.resultSnapshot.inventoryState.transactions.slice(prior).map((transaction, commandSequence) => Object.freeze({
-      commandId: execution.commandId,
-      commandSequence,
-      ingredientId: transaction.ingredientId,
-      metadata: Object.freeze({
-        schemaVersion: 'gameplay.service-inventory-audit/v1',
-        domainSequence: transaction.sequence,
-        domainTransactionId: transaction.transactionId,
-        domainType: transaction.type,
-        ingredientId: transaction.ingredientId,
-        quantityPoints: transaction.quantityPoints,
-      }),
-    }));
+    return execution.resultSnapshot.inventoryState.transactions
+      .slice(prior)
+      .map((transaction, commandSequence) =>
+        Object.freeze({
+          commandId: execution.commandId,
+          commandSequence,
+          ingredientId: transaction.ingredientId,
+          metadata: Object.freeze({
+            schemaVersion: 'gameplay.service-inventory-audit/v1',
+            domainSequence: transaction.sequence,
+            domainTransactionId: transaction.transactionId,
+            domainType: transaction.type,
+            ingredientId: transaction.ingredientId,
+            quantityPoints: transaction.quantityPoints,
+          }),
+        }),
+      );
   });
   const openAuthority: FirstDayOpenAuthority = Object.freeze({
     save: Object.freeze({
-      id: 'save-1', scenario: 'DEFAULT_SMALL_SHOP', operatingMode: 'STRATEGY', servicePeriodPlan: 'TWO_PERIODS',
-      demandSeed: DEMAND_SEED, simulationRuleVersion: openingSnapshot.simulationRuleVersion,
-      openingSnapshot, openingSnapshotHash: openingSnapshot.openingSnapshotHash,
+      id: 'save-1',
+      scenario: 'DEFAULT_SMALL_SHOP',
+      operatingMode: 'STRATEGY',
+      servicePeriodPlan: 'TWO_PERIODS',
+      demandSeed: DEMAND_SEED,
+      simulationRuleVersion: openingSnapshot.simulationRuleVersion,
+      openingSnapshot,
+      openingSnapshotHash: openingSnapshot.openingSnapshotHash,
     }),
     businessDay: Object.freeze({
-      id: 'business-day:1', status: 'SERVICE_COMPLETE', servicePeriodPlan: 'TWO_PERIODS',
+      id: 'business-day:1',
+      status: 'SERVICE_COMPLETE',
+      servicePeriodPlan: 'TWO_PERIODS',
       simulationRuleVersion: openingSnapshot.simulationRuleVersion,
     }),
     preopenSnapshot: Object.freeze({
-      id: envelope.preopenSnapshotId, revision: 1, commandId: '11111111-1111-4111-8111-111111111111',
+      id: envelope.preopenSnapshotId,
+      revision: 1,
+      commandId: '11111111-1111-4111-8111-111111111111',
       snapshotSchemaVersion: envelope.envelopeVersion,
       simulationRuleVersion: openingSnapshot.simulationRuleVersion,
-      payload: envelope, snapshotHash: envelope.preopenSnapshotHash,
+      payload: envelope,
+      snapshotHash: envelope.preopenSnapshotHash,
     }),
     inventoryPoolAuthorities: Object.freeze([
-      Object.freeze({ saveId: 'save-1', pool: 'DURABLE', revision: 1, capacityPoints: 305, storageBundleVersion: 'mvp-storage/v1', storageBundleKind: 'BASIC' }),
-      Object.freeze({ saveId: 'save-1', pool: 'PERISHABLE', revision: 1, capacityPoints: 305, storageBundleVersion: 'mvp-storage/v1', storageBundleKind: 'BASIC' }),
+      Object.freeze({
+        saveId: 'save-1',
+        pool: 'DURABLE',
+        revision: 1,
+        capacityPoints: 305,
+        storageBundleVersion: 'mvp-storage/v1',
+        storageBundleKind: 'BASIC',
+      }),
+      Object.freeze({
+        saveId: 'save-1',
+        pool: 'PERISHABLE',
+        revision: 1,
+        capacityPoints: 305,
+        storageBundleVersion: 'mvp-storage/v1',
+        storageBundleKind: 'BASIC',
+      }),
     ]),
   });
   return Object.freeze({
@@ -300,11 +365,15 @@ function lockedRecords(): MvpFirstDaySettlementLockedRecords {
     e03: Object.freeze({
       openingInventory: initialInventory,
       finalInventoryBeforeWaste: finalInventory,
-      periodOutcomes: Object.freeze(executions.map((execution) => Object.freeze({
-        ordinal: execution.ordinal,
-        resultHash: execution.resultHash,
-        outcomes: execution.resultSnapshot.inventoryOutcomes,
-      }))),
+      periodOutcomes: Object.freeze(
+        executions.map((execution) =>
+          Object.freeze({
+            ordinal: execution.ordinal,
+            resultHash: execution.resultHash,
+            outcomes: execution.resultSnapshot.inventoryOutcomes,
+          }),
+        ),
+      ),
       inventoryStocks: Object.freeze(inventoryStocks),
       inventoryAudits: Object.freeze(inventoryAudits),
     }),
@@ -314,17 +383,34 @@ function lockedRecords(): MvpFirstDaySettlementLockedRecords {
 test('derives cash, P&L, payroll, rent, waste, and depreciation only from locked records', () => {
   const records = lockedRecords();
   const evidence = composeMvpFirstDaySettlementEvidence(records);
-  const openingCash = BigInt(records.openAuthority.save.openingSnapshot.settlementCash.amount.minorUnits);
-  const procurement = records.e03.openingInventory.transactions.reduce((total, entry) => total + BigInt(entry.amount.minorUnits), 0n);
+  const openingCash = BigInt(
+    records.openAuthority.save.openingSnapshot.settlementCash.amount.minorUnits,
+  );
+  const procurement = records.e03.openingInventory.transactions.reduce(
+    (total, entry) => total + BigInt(entry.amount.minorUnits),
+    0n,
+  );
   const revenue = BigInt(evidence.profitAndLoss.grossRevenue.minorUnits);
   const payroll = BigInt(evidence.profitAndLoss.payroll.minorUnits);
   const rent = BigInt(evidence.profitAndLoss.rent.minorUnits);
   const cogs = BigInt(evidence.profitAndLoss.cogs.minorUnits);
   const waste = BigInt(evidence.profitAndLoss.wasteLoss.minorUnits);
-  assert.equal(evidence.cashFlow.openingCashAfterPreopenProcurement.minorUnits, (openingCash - procurement).toString());
-  assert.equal(evidence.cashFlow.cashBeforeE05RiskPenalty.minorUnits, (openingCash - procurement + revenue - payroll - rent).toString());
-  assert.equal(evidence.profitAndLoss.operatingProfit.minorUnits, (revenue - cogs - waste - payroll - rent).toString());
-  assert.deepEqual(evidence.payrollEntries.map((entry) => entry.contractKey), ['npc-contract:cashier:1', 'npc-contract:kitchen:1']);
+  assert.equal(
+    evidence.cashFlow.openingCashAfterPreopenProcurement.minorUnits,
+    (openingCash - procurement).toString(),
+  );
+  assert.equal(
+    evidence.cashFlow.cashBeforeE05RiskPenalty.minorUnits,
+    (openingCash - procurement + revenue - payroll - rent).toString(),
+  );
+  assert.equal(
+    evidence.profitAndLoss.operatingProfit.minorUnits,
+    (revenue - cogs - waste - payroll - rent).toString(),
+  );
+  assert.deepEqual(
+    evidence.payrollEntries.map((entry) => entry.contractKey),
+    ['npc-contract:cashier:1', 'npc-contract:kitchen:1'],
+  );
   assert.equal(evidence.profitAndLoss.equipmentDepreciation.minorUnits, '200');
   assert.equal(evidence.cashFlow.preopenProcurementRecharged, false);
   assert.equal(evidence.cashFlow.cogsCashChargedAtSettlement, false);
@@ -338,9 +424,14 @@ test('derives fairness from replayed assignments and keeps canonical Day1 risk/z
   assert.equal(evidence.fairness.scheduledTickUnits, 50);
   assert.equal(evidence.fairness.fulfilledTickUnits, 50);
   assert.deepEqual(evidence.riskOpeningState, {
-    state: 'NORMAL', consecutiveDelinquentDays: 0, consecutiveResolutionDays: 0, delinquencyBaselineShortfall: null,
+    state: 'NORMAL',
+    consecutiveDelinquentDays: 0,
+    consecutiveResolutionDays: 0,
+    delinquencyBaselineShortfall: null,
   });
-  assert.ok(Object.values(evidence.explicitFirstDayZeroPolicy).every((amount) => amount.minorUnits === '0'));
+  assert.ok(
+    Object.values(evidence.explicitFirstDayZeroPolicy).every((amount) => amount.minorUnits === '0'),
+  );
 });
 
 test('rejects independently supplied financial/risk/evidence authority and forged immutable rows', () => {
@@ -354,11 +445,17 @@ test('rejects independently supplied financial/risk/evidence authority and forge
   assert.throws(() => composeMvpFirstDaySettlementEvidence(forgedCogs), /forged or noncanonical/);
   const forgedStock = mutableClone(lockedRecords());
   forgedStock.e03.inventoryStocks[0].costPoolMinor = '999999';
-  assert.throws(() => composeMvpFirstDaySettlementEvidence(forgedStock), /persisted stock projection is stale/);
+  assert.throws(
+    () => composeMvpFirstDaySettlementEvidence(forgedStock),
+    /persisted stock projection is stale/,
+  );
 });
 
 test('rejects canonically rehashed cross-period continuation forks', () => {
-  const mutations: readonly Readonly<{ name: string; mutate: (input: any, records: any) => void }>[] = [
+  const mutations: readonly Readonly<{
+    name: string;
+    mutate: (input: any, records: any) => void;
+  }>[] = [
     {
       name: 'inventoryState',
       mutate: (input, records) => {
@@ -410,7 +507,12 @@ test('rejects canonically rehashed cross-period continuation forks', () => {
 
 test('rejects canonical alternate inputs that mismatch locked demand/menu/catalog/NPC/floor/opening sources', () => {
   const mutations: readonly Readonly<{ name: string; mutate: (input: any) => void }>[] = [
-    { name: 'demand seed', mutate: (input) => { input.demandSeed = 'forged-demand-seed'; } },
+    {
+      name: 'demand seed',
+      mutate: (input) => {
+        input.demandSeed = 'forged-demand-seed';
+      },
+    },
     {
       name: 'period arrivals',
       mutate: (input) => {
@@ -418,7 +520,12 @@ test('rejects canonical alternate inputs that mismatch locked demand/menu/catalo
           input.arrivals[0].cohort === 'PRICE_SENSITIVE' ? 'TIME_SENSITIVE' : 'PRICE_SENSITIVE';
       },
     },
-    { name: 'menu price', mutate: (input) => { input.recipes[0].salePrice += 1; } },
+    {
+      name: 'menu price',
+      mutate: (input) => {
+        input.recipes[0].salePrice += 1;
+      },
+    },
     {
       name: 'recipe version',
       mutate: (input) => {
@@ -432,7 +539,12 @@ test('rejects canonical alternate inputs that mismatch locked demand/menu/catalo
         input.enabledSubstitutions[0].qualityDelta -= 1;
       },
     },
-    { name: 'NPC roster', mutate: (input) => { input.workers[0].id = 'npc:forged:1'; } },
+    {
+      name: 'NPC roster',
+      mutate: (input) => {
+        input.workers[0].id = 'npc:forged:1';
+      },
+    },
     {
       name: 'kitchen modifier',
       mutate: (input) => {
@@ -480,11 +592,17 @@ test('rejects canonical alternate inputs that mismatch locked demand/menu/catalo
 });
 
 test('rejects unknown simulation rules without a latest-version fallback', () => {
-  assert.throws(() => resolveMvpFirstDaySettlementSimulationRule('mvp-e01-v2'), /fallback is prohibited/);
+  assert.throws(
+    () => resolveMvpFirstDaySettlementSimulationRule('mvp-e01-v2'),
+    /fallback is prohibited/,
+  );
   const forged = mutableClone(lockedRecords());
   forged.openAuthority.save.simulationRuleVersion = 'mvp-e01-v2';
   assert.throws(() => composeMvpFirstDaySettlementEvidence(forged), /fallback is prohibited/);
-  assert.throws(() => resolveMvpFirstDaySettlementPolicy('mvp-first-day-settlement-policy/v2'), /unknown MVP first-day settlement policy version/);
+  assert.throws(
+    () => resolveMvpFirstDaySettlementPolicy('mvp-first-day-settlement-policy/v2'),
+    /unknown MVP first-day settlement policy version/,
+  );
 });
 
 test('self-consistency parser checks shape/arithmetic/hash but is not an authority provider', () => {
@@ -494,14 +612,23 @@ test('self-consistency parser checks shape/arithmetic/hash but is not an authori
   assert.ok(Object.isFrozen(evidence.fairness.workers));
   const tampered = mutableClone(evidence);
   tampered.cashFlow.cashBeforeE05RiskPenalty.minorUnits = '1';
-  assert.throws(() => parseMvpFirstDaySettlementEvidenceSelfConsistency(tampered), /cash-flow arithmetic is invalid|hash does not match payload/);
+  assert.throws(
+    () => parseMvpFirstDaySettlementEvidenceSelfConsistency(tampered),
+    /cash-flow arithmetic is invalid|hash does not match payload/,
+  );
   const unknown = mutableClone(evidence);
   unknown.authorityValidated = true;
-  assert.throws(() => parseMvpFirstDaySettlementEvidenceSelfConsistency(unknown), /must contain exactly/);
+  assert.throws(
+    () => parseMvpFirstDaySettlementEvidenceSelfConsistency(unknown),
+    /must contain exactly/,
+  );
 });
 
 test('rejects noncanonical equipment term ordering in evidence self-consistency checks', () => {
   const evidence = mutableClone(composeMvpFirstDaySettlementEvidence(lockedRecords()));
   evidence.authorityReferences.equipmentTermsVersions = ['z-terms', 'a-terms'];
-  assert.throws(() => parseMvpFirstDaySettlementEvidenceSelfConsistency(evidence), /must be canonically sorted/);
+  assert.throws(
+    () => parseMvpFirstDaySettlementEvidenceSelfConsistency(evidence),
+    /must be canonically sorted/,
+  );
 });

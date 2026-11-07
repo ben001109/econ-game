@@ -3,7 +3,11 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import type { JwtVerifier } from '../auth/jwt-verifier.js';
 import { JwtVerificationError } from '../auth/jwt-verifier.js';
 import type { PlayerRecord } from '../auth/trusted-command-context.js';
-import { CommandError, hashCommandRequest, parseCommandEnvelope } from '../commands/command-contract.js';
+import {
+  CommandError,
+  hashCommandRequest,
+  parseCommandEnvelope,
+} from '../commands/command-contract.js';
 import { canonicalJson, sha256 } from './wipe-batch.js';
 import type { D05Database } from './prisma-closed-beta-repository.js';
 
@@ -12,12 +16,13 @@ type CheckpointPhase = 'ISOLATED' | Phase;
 type Queryable = Readonly<{
   $queryRawUnsafe<T>(query: string, ...values: readonly unknown[]): Promise<T>;
 }>;
-type ExecutionDatabase = D05Database & Readonly<{
-  $transaction<T>(
-    operation: (transaction: Queryable) => Promise<T>,
-    options?: Readonly<{ isolationLevel: 'Serializable'; timeout: number }>,
-  ): Promise<T>;
-}>;
+type ExecutionDatabase = D05Database &
+  Readonly<{
+    $transaction<T>(
+      operation: (transaction: Queryable) => Promise<T>,
+      options?: Readonly<{ isolationLevel: 'Serializable'; timeout: number }>,
+    ): Promise<T>;
+  }>;
 type MarkerRow = Readonly<{ environment: string; fixtureNonceHash: string }>;
 type IdRow = Readonly<{ id: string }>;
 
@@ -51,7 +56,9 @@ export class WipeExecutionLeaseService {
     private readonly fixtureNonce: string,
   ) {}
 
-  isDurable() { return true; }
+  isDurable() {
+    return true;
+  }
 
   async request(
     token: string,
@@ -134,102 +141,109 @@ export class PrismaWipeExecutionRepository {
   }
 
   requestLease(input: LeaseRequest): Promise<WipeExecutionLeaseView> {
-    return this.database.$transaction(async (transaction) => {
-      const authority = await executionAuthority(
-        transaction,
-        input.batchId,
-        input.restaurantId,
-        input.expectedEnvironment,
-        input.fixtureNonceHash,
-      );
-      await activeOwner(transaction, input.actorPlayerId, input.restaurantId);
-      const version = await aggregateVersion(transaction, input.batchId, authority.approved);
-      if (version !== input.expectedVersion) {
-        throw new CommandError(409, 'EXPECTED_VERSION_CONFLICT', {
-          actualVersion: version,
-          expectedVersion: input.expectedVersion,
-        });
-      }
-      const actorScope = `${input.restaurantId}:${input.actorPlayerId}:WipeExecutionLease`;
-      const existing = await transaction.$queryRawUnsafe<readonly {
-        requestFingerprint: string;
-        responseSnapshot: unknown;
-        status: string;
-      }[]>(
-        `SELECT "requestFingerprint", "responseSnapshot", "status" FROM "IdempotencyRecord"
+    return this.database.$transaction(
+      async (transaction) => {
+        const authority = await executionAuthority(
+          transaction,
+          input.batchId,
+          input.restaurantId,
+          input.expectedEnvironment,
+          input.fixtureNonceHash,
+        );
+        await activeOwner(transaction, input.actorPlayerId, input.restaurantId);
+        const version = await aggregateVersion(transaction, input.batchId, authority.approved);
+        if (version !== input.expectedVersion) {
+          throw new CommandError(409, 'EXPECTED_VERSION_CONFLICT', {
+            actualVersion: version,
+            expectedVersion: input.expectedVersion,
+          });
+        }
+        const actorScope = `${input.restaurantId}:${input.actorPlayerId}:WipeExecutionLease`;
+        const existing = await transaction.$queryRawUnsafe<
+          readonly {
+            requestFingerprint: string;
+            responseSnapshot: unknown;
+            status: string;
+          }[]
+        >(
+          `SELECT "requestFingerprint", "responseSnapshot", "status" FROM "IdempotencyRecord"
          WHERE "actorScope" = $1 AND "idempotencyKey" = $2 FOR UPDATE`,
-        actorScope,
-        input.idempotencyKey,
-      );
-      if (existing[0]) {
-        if (existing[0].requestFingerprint !== input.requestFingerprint) {
-          throw new CommandError(409, 'IDEMPOTENCY_KEY_REUSED');
+          actorScope,
+          input.idempotencyKey,
+        );
+        if (existing[0]) {
+          if (existing[0].requestFingerprint !== input.requestFingerprint) {
+            throw new CommandError(409, 'IDEMPOTENCY_KEY_REUSED');
+          }
+          if (existing[0].status !== 'COMPLETED' || !existing[0].responseSnapshot) {
+            throw new CommandError(409, 'COMMAND_IN_PROGRESS');
+          }
+          return existing[0].responseSnapshot as WipeExecutionLeaseView;
         }
-        if (existing[0].status !== 'COMPLETED' || !existing[0].responseSnapshot) {
-          throw new CommandError(409, 'COMMAND_IN_PROGRESS');
-        }
-        return existing[0].responseSnapshot as WipeExecutionLeaseView;
-      }
-      await expireClaimedLease(transaction, input.batchId, input.phase);
-      const attempt = await expectedLeaseAttempt(transaction, input.batchId, input.phase);
-      const leaseId = randomUUID();
-      const leaseToken = randomBytes(32).toString('hex');
-      const leaseTokenHash = sha256(leaseToken);
-      const authorityHash = sha256(canonicalJson({
-        batchId: input.batchId,
-        restaurantId: input.restaurantId,
-        phase: input.phase,
-        attempt,
-        scopeHash: authority.scopeHash,
-        policyHash: authority.policyHash,
-        manifestHash: authority.manifestHash,
-        environment: input.expectedEnvironment,
-        fixtureNonceHash: input.fixtureNonceHash,
-      }));
-      const inserted = await transaction.$queryRawUnsafe<readonly { expiresAt: Date }[]>(
-        `INSERT INTO "WipeExecutionLease" (
+        await expireClaimedLease(transaction, input.batchId, input.phase);
+        const attempt = await expectedLeaseAttempt(transaction, input.batchId, input.phase);
+        const leaseId = randomUUID();
+        const leaseToken = randomBytes(32).toString('hex');
+        const leaseTokenHash = sha256(leaseToken);
+        const authorityHash = sha256(
+          canonicalJson({
+            batchId: input.batchId,
+            restaurantId: input.restaurantId,
+            phase: input.phase,
+            attempt,
+            scopeHash: authority.scopeHash,
+            policyHash: authority.policyHash,
+            manifestHash: authority.manifestHash,
+            environment: input.expectedEnvironment,
+            fixtureNonceHash: input.fixtureNonceHash,
+          }),
+        );
+        const inserted = await transaction.$queryRawUnsafe<readonly { expiresAt: Date }[]>(
+          `INSERT INTO "WipeExecutionLease" (
           "id", "wipeBatchId", "restaurantId", "phase", "attempt", "requestedByPlayerId",
           "executorEnvironment", "scopeEnvironment", "databaseFixtureNonceHash",
           "authorityHash", "leaseTokenHash", "claimedAt", "expiresAt"
         ) VALUES ($1,$2,$3,$4::"WipeLifecyclePhase",$5,$6,$7,$7,$8,$9,$10,
           CURRENT_TIMESTAMP,CURRENT_TIMESTAMP + INTERVAL '10 minutes') RETURNING "expiresAt"`,
-        leaseId,
-        input.batchId,
-        input.restaurantId,
-        input.phase,
-        attempt,
-        input.actorPlayerId,
-        input.expectedEnvironment,
-        input.fixtureNonceHash,
-        authorityHash,
-        leaseTokenHash,
-      );
-      const result = Object.freeze({
-        leaseId,
-        batchId: input.batchId,
-        phase: input.phase,
-        attempt,
-        leaseToken,
-        expiresAt: inserted[0]!.expiresAt.toISOString(),
-        authorityHash,
-      });
-      await transaction.$queryRawUnsafe(
-        `INSERT INTO "IdempotencyRecord" (
+          leaseId,
+          input.batchId,
+          input.restaurantId,
+          input.phase,
+          attempt,
+          input.actorPlayerId,
+          input.expectedEnvironment,
+          input.fixtureNonceHash,
+          authorityHash,
+          leaseTokenHash,
+        );
+        const result = Object.freeze({
+          leaseId,
+          batchId: input.batchId,
+          phase: input.phase,
+          attempt,
+          leaseToken,
+          expiresAt: inserted[0]!.expiresAt.toISOString(),
+          authorityHash,
+        });
+        await transaction.$queryRawUnsafe(
+          `INSERT INTO "IdempotencyRecord" (
           "id", "restaurantId", "playerId", "actorScope", "idempotencyKey", "requestFingerprint",
           "status", "aggregateType", "aggregateId", "responseSnapshot", "createdAt", "terminalAt", "expiresAt"
         ) VALUES ($1,$2,$3,$4,$5,$6,'COMPLETED','WipeExecutionLease',$7,$8::jsonb,
           CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP + INTERVAL '30 days')`,
-        input.commandId,
-        input.restaurantId,
-        input.actorPlayerId,
-        actorScope,
-        input.idempotencyKey,
-        input.requestFingerprint,
-        input.batchId,
-        JSON.stringify(result),
-      );
-      return result;
-    }, { isolationLevel: 'Serializable', timeout: 60_000 });
+          input.commandId,
+          input.restaurantId,
+          input.actorPlayerId,
+          actorScope,
+          input.idempotencyKey,
+          input.requestFingerprint,
+          input.batchId,
+          JSON.stringify(result),
+        );
+        return result;
+      },
+      { isolationLevel: 'Serializable', timeout: 60_000 },
+    );
   }
 }
 
@@ -253,7 +267,9 @@ async function executionAuthority(
   environment: string,
   fixtureNonceHash: string,
 ): Promise<Authority> {
-  const rows = await database.$queryRawUnsafe<readonly (Authority & { scopeEnvironment: string })[]>(
+  const rows = await database.$queryRawUnsafe<
+    readonly (Authority & { scopeEnvironment: string })[]
+  >(
     `SELECT "scopeHash", "policyHash", "dryRunManifestHash" AS "manifestHash",
        "approvedByPlayerId" IS NOT NULL AS "approved", "scope"->>'environment' AS "scopeEnvironment"
      FROM "WipeBatch" WHERE "id" = $1 AND "restaurantId" = $2 FOR UPDATE`,
@@ -266,8 +282,12 @@ async function executionAuthority(
   );
   const row = rows[0];
   const marker = markers[0];
-  if (!row || row.scopeEnvironment !== environment || marker?.environment !== environment
-      || marker.fixtureNonceHash !== fixtureNonceHash) {
+  if (
+    !row ||
+    row.scopeEnvironment !== environment ||
+    marker?.environment !== environment ||
+    marker.fixtureNonceHash !== fixtureNonceHash
+  ) {
     throw new CommandError(409, 'WIPE_EXECUTION_ENVIRONMENT_MISMATCH');
   }
   return row;
@@ -281,24 +301,26 @@ async function expectedLeaseAttempt(database: Queryable, batchId: string, phase:
   );
   const latest = rows[0];
   if (!latest) throw new CommandError(409, 'WIPE_STATE_CONFLICT');
+  if (latest.phase !== 'ISOLATED' && latest.phase === phase && latest.outcome === 'FAILED')
+    return latest.attempt + 1;
   if (
-    latest.phase !== 'ISOLATED'
-    && latest.phase === phase
-    && latest.outcome === 'FAILED'
-  ) return latest.attempt + 1;
-  if ((latest.phase === 'ISOLATED' && phase === 'CLEARED' && latest.outcome === 'SUCCEEDED')
-      || (phase === 'VERIFIED' && latest.phase === 'CLEARED' && latest.outcome === 'SUCCEEDED')) return 1;
+    (latest.phase === 'ISOLATED' && phase === 'CLEARED' && latest.outcome === 'SUCCEEDED') ||
+    (phase === 'VERIFIED' && latest.phase === 'CLEARED' && latest.outcome === 'SUCCEEDED')
+  )
+    return 1;
   throw new CommandError(409, 'WIPE_NOT_RESUMABLE');
 }
 
 async function expireClaimedLease(database: Queryable, batchId: string, phase: Phase) {
-  const rows = await database.$queryRawUnsafe<readonly {
-    id: string;
-    attempt: number;
-    requestedByPlayerId: string;
-    manifestHash: string;
-    authorityHash: string;
-  }[]>(
+  const rows = await database.$queryRawUnsafe<
+    readonly {
+      id: string;
+      attempt: number;
+      requestedByPlayerId: string;
+      manifestHash: string;
+      authorityHash: string;
+    }[]
+  >(
     `SELECT lease."id", lease."attempt", lease."requestedByPlayerId",
        batch."dryRunManifestHash" AS "manifestHash", lease."authorityHash"
      FROM "WipeExecutionLease" lease JOIN "WipeBatch" batch ON batch."id" = lease."wipeBatchId"
@@ -318,8 +340,15 @@ async function expireClaimedLease(database: Queryable, batchId: string, phase: P
       "manifestHash", "evidence", "evidenceHash", "errorCode", "errorDetails", "occurredAt"
     ) VALUES ($1,$2,$3,$4::"WipeLifecyclePhase",$5,'FAILED',$6,$7,$8::jsonb,$9,
       'LEASE_EXPIRED_MANUAL_RESUME_REQUIRED',$10::jsonb,CURRENT_TIMESTAMP)`,
-    randomUUID(), batchId, sequence, phase, expired.attempt, expired.requestedByPlayerId,
-    expired.manifestHash, JSON.stringify(evidence), sha256(canonicalJson(evidence)),
+    randomUUID(),
+    batchId,
+    sequence,
+    phase,
+    expired.attempt,
+    expired.requestedByPlayerId,
+    expired.manifestHash,
+    JSON.stringify(evidence),
+    sha256(canonicalJson(evidence)),
     JSON.stringify({ manualResumeRequired: true }),
   );
   await database.$queryRawUnsafe(

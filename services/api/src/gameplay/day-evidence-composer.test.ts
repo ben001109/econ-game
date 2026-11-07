@@ -64,13 +64,33 @@ function input(plan: 'TWO_PERIODS' | 'THREE_PERIODS' = 'TWO_PERIODS'): ComposeDa
   const periods =
     plan === 'TWO_PERIODS'
       ? [
-          { period: 'LUNCH' as const, servicePeriodExecutionId: 'execution-lunch', event: descriptor('period-lunch', 1, { period: 'LUNCH' }) },
-          { period: 'DINNER' as const, servicePeriodExecutionId: 'execution-dinner', event: descriptor('period-dinner', 2, { period: 'DINNER' }) },
+          {
+            period: 'LUNCH' as const,
+            servicePeriodExecutionId: 'execution-lunch',
+            event: descriptor('period-lunch', 1, { period: 'LUNCH' }),
+          },
+          {
+            period: 'DINNER' as const,
+            servicePeriodExecutionId: 'execution-dinner',
+            event: descriptor('period-dinner', 2, { period: 'DINNER' }),
+          },
         ]
       : [
-          { period: 'LUNCH' as const, servicePeriodExecutionId: 'execution-lunch', event: descriptor('period-lunch', 1, { period: 'LUNCH' }) },
-          { period: 'OFF_PEAK' as const, servicePeriodExecutionId: 'execution-off-peak', event: descriptor('period-off-peak', 2, { period: 'OFF_PEAK' }) },
-          { period: 'DINNER' as const, servicePeriodExecutionId: 'execution-dinner', event: descriptor('period-dinner', 3, { period: 'DINNER' }) },
+          {
+            period: 'LUNCH' as const,
+            servicePeriodExecutionId: 'execution-lunch',
+            event: descriptor('period-lunch', 1, { period: 'LUNCH' }),
+          },
+          {
+            period: 'OFF_PEAK' as const,
+            servicePeriodExecutionId: 'execution-off-peak',
+            event: descriptor('period-off-peak', 2, { period: 'OFF_PEAK' }),
+          },
+          {
+            period: 'DINNER' as const,
+            servicePeriodExecutionId: 'execution-dinner',
+            event: descriptor('period-dinner', 3, { period: 'DINNER' }),
+          },
         ];
   const finalSequence = periods.length + 1;
   return {
@@ -91,15 +111,21 @@ function input(plan: 'TWO_PERIODS' | 'THREE_PERIODS' = 'TWO_PERIODS'): ComposeDa
 test('composes two-period authoritative evidence into immutable, contiguous persistence records', () => {
   const result = composeDayEvidence(input());
   assert.equal(result.version, DAY_EVIDENCE_COMPOSER_VERSION);
-  assert.deepEqual(result.replayEvents.map((event) => event.sequence), [0, 1, 2, 3, 4, 5]);
-  assert.deepEqual(result.replayEvents.map((event) => event.eventType), [
-    DAY_EVIDENCE_EVENT_TYPES.open,
-    DAY_EVIDENCE_EVENT_TYPES.servicePeriod,
-    DAY_EVIDENCE_EVENT_TYPES.servicePeriod,
-    DAY_EVIDENCE_EVENT_TYPES.inventory,
-    DAY_EVIDENCE_EVENT_TYPES.dayEnd,
-    DAY_EVIDENCE_EVENT_TYPES.risk,
-  ]);
+  assert.deepEqual(
+    result.replayEvents.map((event) => event.sequence),
+    [0, 1, 2, 3, 4, 5],
+  );
+  assert.deepEqual(
+    result.replayEvents.map((event) => event.eventType),
+    [
+      DAY_EVIDENCE_EVENT_TYPES.open,
+      DAY_EVIDENCE_EVENT_TYPES.servicePeriod,
+      DAY_EVIDENCE_EVENT_TYPES.servicePeriod,
+      DAY_EVIDENCE_EVENT_TYPES.inventory,
+      DAY_EVIDENCE_EVENT_TYPES.dayEnd,
+      DAY_EVIDENCE_EVENT_TYPES.risk,
+    ],
+  );
   assert.equal(result.replayEvents.length, 6);
   assert.equal(result.replayEvents[1]?.servicePeriodExecutionId, 'execution-lunch');
   assert.equal(result.replayEvents[0]?.servicePeriodExecutionId, undefined);
@@ -110,7 +136,7 @@ test('composes two-period authoritative evidence into immutable, contiguous pers
   assert.equal(Object.isFrozen(result.replayEvents[0]!.payload), true);
   assert.equal(Object.isFrozen(result.dayEnd.fixedFieldSnapshot), true);
   assert.throws(
-    () => (result.replayEvents[0] as { eventHash: string }).eventHash = 'forged',
+    () => ((result.replayEvents[0] as { eventHash: string }).eventHash = 'forged'),
     /read only|readonly|Cannot assign/i,
   );
 });
@@ -136,7 +162,10 @@ test('re-sequences validated canonical source records and delegates both hashes 
     ...source,
     open: { ...source.open, localSequence: 1 },
     servicePeriods: [
-      { ...source.servicePeriods[0]!, event: { ...source.servicePeriods[0]!.event, localSequence: 0 } },
+      {
+        ...source.servicePeriods[0]!,
+        event: { ...source.servicePeriods[0]!.event, localSequence: 0 },
+      },
       source.servicePeriods[1]!,
     ],
   } as ComposeDayEvidenceInput;
@@ -164,18 +193,33 @@ test('rejects source gaps, duplicate local sequences, missing required final evi
     /local sequences must be contiguous/,
   );
   assert.throws(
-    () => composeDayEvidence({ ...source, risk: { ...source.risk, localSequence: source.dayEnd.event.localSequence } }),
+    () =>
+      composeDayEvidence({
+        ...source,
+        risk: { ...source.risk, localSequence: source.dayEnd.event.localSequence },
+      }),
     /duplicate local sequences/,
   );
   const missingRisk = { ...source } as Record<string, unknown>;
   delete missingRisk.risk;
-  assert.throws(() => composeDayEvidence(missingRisk as unknown as ComposeDayEvidenceInput), /unknown or missing authority fields/);
   assert.throws(
-    () => composeDayEvidence({ ...source, open: { ...source.open, eventHash: 'forged' } } as unknown as ComposeDayEvidenceInput),
+    () => composeDayEvidence(missingRisk as unknown as ComposeDayEvidenceInput),
     /unknown or missing authority fields/,
   );
   assert.throws(
-    () => composeDayEvidence({ ...source, scope: { ...source.scope, playerId: 'client-owned' } } as unknown as ComposeDayEvidenceInput),
+    () =>
+      composeDayEvidence({
+        ...source,
+        open: { ...source.open, eventHash: 'forged' },
+      } as unknown as ComposeDayEvidenceInput),
+    /unknown or missing authority fields/,
+  );
+  assert.throws(
+    () =>
+      composeDayEvidence({
+        ...source,
+        scope: { ...source.scope, playerId: 'client-owned' },
+      } as unknown as ComposeDayEvidenceInput),
     /unknown or missing authority fields/,
   );
 });
@@ -183,18 +227,32 @@ test('rejects source gaps, duplicate local sequences, missing required final evi
 test('rejects timestamp/self-hash descriptor fields and fixed snapshots that do not exactly match E05', () => {
   const source = input();
   assert.throws(
-    () => composeDayEvidence({ ...source, dayEnd: { ...source.dayEnd, snapshotHash: 'forged' } } as unknown as ComposeDayEvidenceInput),
+    () =>
+      composeDayEvidence({
+        ...source,
+        dayEnd: { ...source.dayEnd, snapshotHash: 'forged' },
+      } as unknown as ComposeDayEvidenceInput),
     /unknown or missing authority fields/,
   );
   assert.throws(
-    () => composeDayEvidence({ ...source, inventory: { ...source.inventory, occurredAt: '2026-08-18T00:00:00.000Z' } } as unknown as ComposeDayEvidenceInput),
+    () =>
+      composeDayEvidence({
+        ...source,
+        inventory: { ...source.inventory, occurredAt: '2026-08-18T00:00:00.000Z' },
+      } as unknown as ComposeDayEvidenceInput),
     /unknown or missing authority fields/,
   );
   assert.throws(
-    () => composeDayEvidence({
-      ...source,
-      dayEnd: { ...source.dayEnd, fixedFieldSnapshot: { ...fixedFieldSnapshot, createdAt: 'forged' } },
-    } as unknown as ComposeDayEvidenceInput), /unknown or missing authority fields/);
+    () =>
+      composeDayEvidence({
+        ...source,
+        dayEnd: {
+          ...source.dayEnd,
+          fixedFieldSnapshot: { ...fixedFieldSnapshot, createdAt: 'forged' },
+        },
+      } as unknown as ComposeDayEvidenceInput),
+    /unknown or missing authority fields/,
+  );
 });
 
 test('rejects an E05 snapshot whose day index does not match the authoritative business-day scope', () => {

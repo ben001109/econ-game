@@ -5,9 +5,15 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../../../..', import.meta.url));
 const read = (path) => readFileSync(`${root}/${path}`, 'utf8');
-const migration = read('services/api/prisma/migrations/20260817000200_d05_wipe_execution_lease/migration.sql');
-const rollback = read('services/api/prisma/migrations/20260817000200_d05_wipe_execution_lease/rollback.sql');
-const d05b = read('services/api/prisma/migrations/20260817000100_d05_wipe_batch_persistence/migration.sql');
+const migration = read(
+  'services/api/prisma/migrations/20260817000200_d05_wipe_execution_lease/migration.sql',
+);
+const rollback = read(
+  'services/api/prisma/migrations/20260817000200_d05_wipe_execution_lease/rollback.sql',
+);
+const d05b = read(
+  'services/api/prisma/migrations/20260817000100_d05_wipe_batch_persistence/migration.sql',
+);
 const schema = read('services/api/prisma/schema.prisma');
 const source = read('services/api/src/closed-beta/wipe-execution.ts');
 const routes = read('services/api/src/closed-beta/wipe-execution-routes.ts');
@@ -24,7 +30,10 @@ test('D05-D migration is additive, paired, service constrained, and rollback gua
   assert.match(migration, /D05-D lease attempt must advance manually and exactly once/);
   assert.match(migration, /GRANT SELECT ON TABLE "WipeExecutionFixtureMarker" TO service_role/);
   assert.doesNotMatch(migration, /GRANT (?:INSERT|UPDATE|DELETE)[^;]+WipeExecutionFixtureMarker/);
-  assert.doesNotMatch(migration, /\b(?:DELETE|TRUNCATE)\s+(?:FROM\s+)?"?(?:Player|Order|CompetitiveSave)"?/i);
+  assert.doesNotMatch(
+    migration,
+    /\b(?:DELETE|TRUNCATE)\s+(?:FROM\s+)?"?(?:Player|Order|CompetitiveSave)"?/i,
+  );
   assert.match(rollback, /EXISTS \(SELECT 1 FROM "WipeExecutionLease"\)/);
   assert.match(rollback, /EXISTS \(SELECT 1 FROM "WipeExecutionFixtureMarker"\)/);
   assert.match(rollback, /"evidence"->>'version' = 'd05-lease-expiry\/v1'/);
@@ -35,7 +44,9 @@ test('D05-D migration is additive, paired, service constrained, and rollback gua
 
 test('environment triple and immutable authority reject before lease mutation', () => {
   const authorityRead = source.indexOf('const authority = await executionAuthority');
-  const idempotencyMutation = source.indexOf('UPDATE "WipeExecutionLease" SET "status" = \'EXPIRED\'');
+  const idempotencyMutation = source.indexOf(
+    'UPDATE "WipeExecutionLease" SET "status" = \'EXPIRED\'',
+  );
   assert.ok(authorityRead >= 0 && idempotencyMutation > authorityRead);
   assert.match(source, /row\.scopeEnvironment !== environment/);
   assert.match(source, /marker\?\.environment !== environment/);
@@ -69,18 +80,30 @@ test('lease request is fixture-harness-only, durable idempotent, and expiry is m
 
 test('D05-D0 declares the future order but exposes no clear executor or game-data mutation SQL', () => {
   const expected = [
-    'Payment', 'TaxLine', 'Tip', 'OrderItem', 'MenuSelection',
-    'Order:TOMBSTONE', 'InventoryStock:TOMBSTONE', 'Employee:TOMBSTONE',
+    'Payment',
+    'TaxLine',
+    'Tip',
+    'OrderItem',
+    'MenuSelection',
+    'Order:TOMBSTONE',
+    'InventoryStock:TOMBSTONE',
+    'Employee:TOMBSTONE',
     'CompetitiveSave:TOMBSTONE',
   ];
   for (const entry of expected) assert.match(source, new RegExp(`'${entry}'`));
   assert.doesNotMatch(source, /DedicatedWipeExecutor|executeClear|DELETE\s+FROM/i);
-  assert.doesNotMatch(source, /UPDATE\s+"(?:Player|RestaurantMembership|CompetitiveSave|Order|InventoryStock|Employee)"/i);
+  assert.doesNotMatch(
+    source,
+    /UPDATE\s+"(?:Player|RestaurantMembership|CompetitiveSave|Order|InventoryStock|Employee)"/i,
+  );
   assert.doesNotMatch(source, /SimulationJob|ClerkJwtVerifier|clerk\.com|fetch\(/);
 });
 
 test('30-day eligibility remains DB-clock derived and operator contract stays fixture-only', () => {
-  assert.match(d05b, /NEW\."clearEligibleAt" := \(\(NEW\."isolatedAt" AT TIME ZONE 'UTC'\) \+ INTERVAL '30 days'\)/);
+  assert.match(
+    d05b,
+    /NEW\."clearEligibleAt" := \(\(NEW\."isolatedAt" AT TIME ZONE 'UTC'\) \+ INTERVAL '30 days'\)/,
+  );
   assert.match(migration, /CURRENT_TIMESTAMP < batch_record\."clearEligibleAt"/);
   assert.match(runbook, /execution-created, nonce-marked disposable PostgreSQL fixture/);
   assert.match(runbook, /Runtime evidence gap/);

@@ -170,11 +170,13 @@ export type ServiceInventoryClosure = Readonly<{
 }>;
 
 export type ServiceInventoryAuthority = Readonly<{
-  reserveOrder: (input: Readonly<{
-    orderId: string;
-    servings: number;
-    recipePreferenceOrder: readonly string[];
-  }>) => ServiceInventoryReservationResult;
+  reserveOrder: (
+    input: Readonly<{
+      orderId: string;
+      servings: number;
+      recipePreferenceOrder: readonly string[];
+    }>,
+  ) => ServiceInventoryReservationResult;
   completeOrder: (orderId: string) => ServiceInventoryOrderOutcome;
   closePeriod: () => ServiceInventoryClosure;
 }>;
@@ -747,6 +749,7 @@ export function simulateServiceDay(input: ServiceDayInput): ServiceDayResult {
       for (
         let index = 0;
         index < waiting.length && admitted.length < tickInput.admissionCapacity;
+
       ) {
         const group = waiting[index]!;
         if (group.size <= availableSeats) {
@@ -853,10 +856,7 @@ export function simulateServiceDay(input: ServiceDayInput): ServiceDayResult {
 
     const readyAtTickStart = new Set(
       orders
-        .filter(
-          (order) =>
-            order.state === 'READY' && order.frontEligibleTick <= tickInput.tick,
-        )
+        .filter((order) => order.state === 'READY' && order.frontEligibleTick <= tickInput.tick)
         .map((order) => order.id),
     );
     for (const order of orders) {

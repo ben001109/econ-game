@@ -132,7 +132,10 @@ test('provider resolves the canonical MVP catalog and composes a redacted first-
   );
 
   const plan = createPreopenDayPlan(configureIntent(), artifacts);
-  assert.equal(plan.privateEnvelope.inventoryProcurement.market.marketSeed, 'independent-market-seed-1');
+  assert.equal(
+    plan.privateEnvelope.inventoryProcurement.market.marketSeed,
+    'independent-market-seed-1',
+  );
   const visible = JSON.stringify(plan.publicProjection);
   for (const hidden of [
     'independent-market-seed-1',
@@ -194,9 +197,7 @@ test('provider rejects market seed aliasing, unknown seed versions, and cross-sa
     { ...base.marketSeedAuthority, seedVersion: 'market-seed/v2' },
     { ...base.marketSeedAuthority, saveId: 'save-2' },
   ]) {
-    assert.throws(() =>
-      provideCanonicalFirstDayPreopenArtifacts({ ...base, marketSeedAuthority }),
-    );
+    assert.throws(() => provideCanonicalFirstDayPreopenArtifacts({ ...base, marketSeedAuthority }));
   }
 });
 

@@ -41,10 +41,20 @@ test('repository, command, and D03 retain locked-record, balanced-ledger, redact
     'composeDayEvidence',
     'cashBeforeE05RiskPenalty',
     "kind: 'ledger.posting/v1'",
-    "eventType: BUSINESS_DAY_SETTLED_EVENT_TYPE",
-  ]) assert.ok(command.includes(contract), contract);
-  for (const hidden of ['demandSeed', 'inventoryState', 'inventoryOutcomes', 'grossRevenue', 'cogs']) {
-    const publicProjection = command.slice(command.indexOf('const publicRisk'), command.indexOf('return Object.freeze({\n        aggregateVersion'));
+    'eventType: BUSINESS_DAY_SETTLED_EVENT_TYPE',
+  ])
+    assert.ok(command.includes(contract), contract);
+  for (const hidden of [
+    'demandSeed',
+    'inventoryState',
+    'inventoryOutcomes',
+    'grossRevenue',
+    'cogs',
+  ]) {
+    const publicProjection = command.slice(
+      command.indexOf('const publicRisk'),
+      command.indexOf('return Object.freeze({\n        aggregateVersion'),
+    );
     assert.equal(publicProjection.includes(hidden), false, `${hidden} leaked in public projection`);
   }
   assert.equal(command.includes('outbox.job-request/v1'), false);
@@ -57,13 +67,17 @@ test('repository, command, and D03 retain locked-record, balanced-ledger, redact
     'settle-business-day:insert-risk-state',
     'settle-business-day:insert-reputation-history',
     'settle-business-day:transition-day',
-  ]) assert.ok(repository.includes(marker), marker);
+  ])
+    assert.ok(repository.includes(marker), marker);
   assert.ok(d03.includes("constraint === 'BusinessDay_settled_evidence_check'"));
   assert.ok(d03.includes("throw new CommandError(409, 'SETTLEMENT_EVIDENCE_CONFLICT')"));
 });
 
 test('paired migration makes SETTLED evidence complete and rollback fail closed', async () => {
-  const root = new URL('../../prisma/migrations/20260823000200_settle_business_day_guards/', import.meta.url);
+  const root = new URL(
+    '../../prisma/migrations/20260823000200_settle_business_day_guards/',
+    import.meta.url,
+  );
   const [forward, rollback] = await Promise.all([
     readFile(new URL('migration.sql', root), 'utf8'),
     readFile(new URL('rollback.sql', root), 'utf8'),
@@ -78,7 +92,8 @@ test('paired migration makes SETTLED evidence complete and rollback fail closed'
     '"RiskState"',
     '"ReputationDimensionHistory"',
     'NUMERIC(9,6)',
-  ]) assert.ok(forward.includes(contract), contract);
+  ])
+    assert.ok(forward.includes(contract), contract);
   assert.ok(rollback.includes('rollback refused: settlement evidence exists'));
   assert.ok(rollback.includes('DROP TRIGGER IF EXISTS "BusinessDay_settled_evidence_guard"'));
 });

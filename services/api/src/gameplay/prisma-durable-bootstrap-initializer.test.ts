@@ -176,8 +176,7 @@ class FakeSqlTransaction implements BootstrapSqlTransaction {
     } else if (query.includes('p0-bootstrap:idempotency-lock')) {
       const [actorScope, idempotencyKey] = values as readonly string[];
       rows = this.state.receipts.filter(
-        (receipt) =>
-          receipt.actorScope === actorScope && receipt.idempotencyKey === idempotencyKey,
+        (receipt) => receipt.actorScope === actorScope && receipt.idempotencyKey === idempotencyKey,
       );
     } else if (query.includes('p0-bootstrap:authority-active')) {
       rows = this.state.authority && this.state.d05Active ? [this.state.authority] : [];
@@ -302,7 +301,14 @@ class FakeSqlTransaction implements BootstrapSqlTransaction {
         storageBundleVersion,
         storageBundleKind,
         updatedByCommandId,
-      ] = values as readonly [string, string, 'DURABLE' | 'PERISHABLE', number, number, ...string[]];
+      ] = values as readonly [
+        string,
+        string,
+        'DURABLE' | 'PERISHABLE',
+        number,
+        number,
+        ...string[],
+      ];
       this.state.inventoryPoolStates.push({
         restaurantId,
         saveId,
@@ -411,7 +417,9 @@ function subject(
   };
 }
 
-function input(overrides: Partial<Parameters<PrismaDurableBootstrapInitializer['initialize']>[0]> = {}) {
+function input(
+  overrides: Partial<Parameters<PrismaDurableBootstrapInitializer['initialize']>[0]> = {},
+) {
   return Object.freeze({
     actorPlayerId: 'player-1',
     aggregateScope: 'bootstrap-player:player-1',
@@ -508,7 +516,9 @@ test('same idempotency key with a different fingerprint returns stable 409', asy
   const { initializer } = subject(database);
   await initializer.initialize(input());
   await assert.rejects(
-    initializer.initialize(input({ commandId: OTHER_COMMAND_ID, requestFingerprint: OTHER_FINGERPRINT })),
+    initializer.initialize(
+      input({ commandId: OTHER_COMMAND_ID, requestFingerprint: OTHER_FINGERPRINT }),
+    ),
     commandError(409, 'IDEMPOTENCY_KEY_REUSED'),
   );
   assert.equal(database.snapshot().epochs.length, 1);

@@ -82,7 +82,10 @@ test('game slash adapter always acknowledges ephemerally and delegates only the 
     });
     if (expected[0] === 'advance') assert.equal(call[2], expected[2]);
     if (expected[0] === 'replay-status') assert.equal(call[2], expected[2]);
-    assert.doesNotMatch(JSON.stringify(call), /saveId|expectedVersion|businessDay|authorization|scope/i);
+    assert.doesNotMatch(
+      JSON.stringify(call),
+      /saveId|expectedVersion|businessDay|authorization|scope/i,
+    );
   }
 });
 

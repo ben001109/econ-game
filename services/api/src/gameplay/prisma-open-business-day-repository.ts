@@ -347,11 +347,7 @@ function sha256(value: unknown, name: string): string {
 }
 
 function scenario(value: unknown): FirstDayOpenAuthority['save']['scenario'] {
-  if (
-    value !== 'EMPTY_PREMISES' &&
-    value !== 'DEFAULT_SMALL_SHOP' &&
-    value !== 'TROUBLED_SHOP'
-  ) {
+  if (value !== 'EMPTY_PREMISES' && value !== 'DEFAULT_SMALL_SHOP' && value !== 'TROUBLED_SHOP') {
     throw new Error('unknown opening scenario');
   }
   return value;
@@ -379,12 +375,7 @@ function poolName(value: unknown): OpenInventoryPoolAuthority['pool'] {
 }
 
 function storageBundleKind(value: unknown): OpenInventoryPoolAuthority['storageBundleKind'] {
-  if (
-    value !== 'NONE' &&
-    value !== 'BASIC' &&
-    value !== 'AGED' &&
-    value !== 'VERSIONED_UPGRADE'
-  ) {
+  if (value !== 'NONE' && value !== 'BASIC' && value !== 'AGED' && value !== 'VERSIONED_UPGRADE') {
     throw new Error('unknown storage bundle kind');
   }
   return value;

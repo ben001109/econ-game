@@ -64,8 +64,16 @@ test('resolves the immutable first-day catalog from explicit supported server cu
       ingredients,
     })),
   );
-  assert.ok(twdCatalog.ingredientCatalog.every((ingredient) => ingredient.referenceUnitPrice.currency === 'TWD'));
-  assert.ok(usdCatalog.ingredientCatalog.every((ingredient) => ingredient.referenceUnitPrice.currency === 'USD'));
+  assert.ok(
+    twdCatalog.ingredientCatalog.every(
+      (ingredient) => ingredient.referenceUnitPrice.currency === 'TWD',
+    ),
+  );
+  assert.ok(
+    usdCatalog.ingredientCatalog.every(
+      (ingredient) => ingredient.referenceUnitPrice.currency === 'USD',
+    ),
+  );
   assert.equal(twdCatalog.ingredientCatalog[0]?.referenceUnitPrice.minorUnits, '30');
   assert.equal(usdCatalog.ingredientCatalog[0]?.referenceUnitPrice.minorUnits, '3000');
   assert.ok(Object.isFrozen(twdCatalog));
@@ -79,7 +87,11 @@ test('first-day bistro catalog has six controlled main-meal cards and satisfies 
   assert.equal(catalog.recipeCatalog.length, 6);
   assert.ok(catalog.recipeCatalog.every((recipe) => recipe.themeId === 'bistro'));
   assert.doesNotThrow(() =>
-    assertCatalogContract(catalog.recipeCatalog, catalog.ingredientCatalog, catalog.substitutionCatalog),
+    assertCatalogContract(
+      catalog.recipeCatalog,
+      catalog.ingredientCatalog,
+      catalog.substitutionCatalog,
+    ),
   );
   assert.deepEqual(
     catalog.substitutionCatalog.map((substitution) => substitution.priority),
@@ -107,7 +119,8 @@ test('first-day market quotes remain equal to the catalog reference prices', () 
   assert.ok(market.quotes.every((quote) => quote.priceModifierBps === 0));
   assert.ok(
     market.quotes.every(
-      (quote) => quote.unitPrice.currency === quote.referenceUnitPrice.currency &&
+      (quote) =>
+        quote.unitPrice.currency === quote.referenceUnitPrice.currency &&
         quote.unitPrice.minorUnits === quote.referenceUnitPrice.minorUnits,
     ),
   );
@@ -115,7 +128,8 @@ test('first-day market quotes remain equal to the catalog reference prices', () 
 
 test('exact resolver rejects unknown revisions, unsupported currency metadata, and malformed input', () => {
   assert.throws(
-    () => resolveMvpFirstDayCatalog({ ...selection(), recipeCatalog: 'mvp-first-day-recipes/v2' }, TWD),
+    () =>
+      resolveMvpFirstDayCatalog({ ...selection(), recipeCatalog: 'mvp-first-day-recipes/v2' }, TWD),
     /unknown first-day catalog revision/,
   );
   assert.throws(
@@ -123,14 +137,18 @@ test('exact resolver rejects unknown revisions, unsupported currency metadata, a
     /settlement currency is not supported/,
   );
   assert.throws(
-    () => resolveMvpFirstDayCatalog(selection(), { code: 'USD', metadataVersion: 'iso-4217-mvp/v2' }),
+    () =>
+      resolveMvpFirstDayCatalog(selection(), { code: 'USD', metadataVersion: 'iso-4217-mvp/v2' }),
     /unknown currency metadata version/,
   );
   assert.throws(
     () => resolveMvpFirstDayCatalog({ catalog: 'mvp-first-day-catalog/v1' } as never, TWD),
     /exactly four version keys/,
   );
-  assert.throws(() => resolveMvpFirstDayCatalog(null as never, TWD), /version selection is required/);
+  assert.throws(
+    () => resolveMvpFirstDayCatalog(null as never, TWD),
+    /version selection is required/,
+  );
 });
 
 test('resolver rejects mutable accessor inputs at both authority boundaries', () => {

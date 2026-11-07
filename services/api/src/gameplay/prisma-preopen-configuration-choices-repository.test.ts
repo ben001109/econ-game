@@ -45,7 +45,9 @@ function authorityRows(
   ];
 }
 
-function fakeDatabase(input: Readonly<{ scopeRows?: readonly unknown[]; authorityRows?: readonly unknown[] }>) {
+function fakeDatabase(
+  input: Readonly<{ scopeRows?: readonly unknown[]; authorityRows?: readonly unknown[] }>,
+) {
   const calls: Call[] = [];
   const transaction: D03Queryable = {
     async $queryRawUnsafe<T>(query: string, ...values: readonly unknown[]): Promise<T> {

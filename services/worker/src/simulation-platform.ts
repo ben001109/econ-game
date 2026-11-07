@@ -237,11 +237,7 @@ export class VersionedReplayEngine {
     this.processors = new Map(Object.entries(processors));
   }
 
-  async replay(
-    saveId: string,
-    rawJob: unknown,
-    restaurantId = '',
-  ): Promise<ReplayExecutionResult> {
+  async replay(saveId: string, rawJob: unknown, restaurantId = ''): Promise<ReplayExecutionResult> {
     const job = parseReplayJob(rawJob);
     const [rule, ...catalogs] = await Promise.all([
       this.registry.resolveExact(job.rule),

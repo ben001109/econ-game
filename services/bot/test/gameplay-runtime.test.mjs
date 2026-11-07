@@ -3,10 +3,7 @@ import test from 'node:test';
 
 import { createGameplayApiClient } from '../../../packages/econ-game-sdk/dist/index.js';
 
-import {
-  BotGameplayRuntime,
-  BotGameplayRuntimeError,
-} from '../dist/test-only/gameplay-runtime.js';
+import { BotGameplayRuntime, BotGameplayRuntimeError } from '../dist/test-only/gameplay-runtime.js';
 
 const hash = 'a'.repeat(64);
 const interaction = Object.freeze({
@@ -65,10 +62,7 @@ test('runtime and canonical SDK compose into the exact Bot HTTP command boundary
             return json(projection('OPEN_REQUIRED'));
           }
           commandRequest = { url: String(url), init };
-          return json(
-            { error: { version: 'd02-command-error/v1', code: 'COMMAND_INVALID' } },
-            422,
-          );
+          return json({ error: { version: 'd02-command-error/v1', code: 'COMMAND_INVALID' } }, 422);
         },
       });
     },
@@ -91,7 +85,10 @@ test('runtime and canonical SDK compose into the exact Bot HTTP command boundary
     expectedVersion: 4,
     payload: { preopenSnapshotId: 'preopen-1', preopenSnapshotHash: hash },
   });
-  assert.equal(commandRequest.url, 'https://api.example.test/saves/save-1/actions/OPEN_BUSINESS_DAY');
+  assert.equal(
+    commandRequest.url,
+    'https://api.example.test/saves/save-1/actions/OPEN_BUSINESS_DAY',
+  );
 });
 
 test('open derives save, version, and snapshot pins and uses interaction idempotency', async () => {
@@ -121,7 +118,15 @@ test('open derives save, version, and snapshot pins and uses interaction idempot
     },
   });
   assert.equal(display.kind, 'status');
-  for (const forbidden of ['actor', 'actorId', 'playerId', 'tenant', 'tenantId', 'roles', 'scope']) {
+  for (const forbidden of [
+    'actor',
+    'actorId',
+    'playerId',
+    'tenant',
+    'tenantId',
+    'roles',
+    'scope',
+  ]) {
     assert.equal(JSON.stringify(captured).includes(`"${forbidden}"`), false);
   }
 });
@@ -136,9 +141,7 @@ test('advance accepts only owner assignment and derives day, period, save, and v
       },
       async getGameplayProjection() {
         reads += 1;
-        return reads === 1
-          ? projection('ADVANCE_REQUIRED')
-          : projection('SETTLE_REQUIRED', 5);
+        return reads === 1 ? projection('ADVANCE_REQUIRED') : projection('SETTLE_REQUIRED', 5);
       },
       async advanceServicePeriod(saveId, input) {
         captured = { saveId, input };
@@ -156,7 +159,8 @@ test('advance accepts only owner assignment and derives day, period, save, and v
   assert.equal(captured.input.expectedVersion, 4);
   await assert.rejects(
     runtime.advance(interaction, 'OWNER'),
-    (error) => error instanceof BotGameplayRuntimeError && error.code === 'BOT_GAMEPLAY_INPUT_INVALID',
+    (error) =>
+      error instanceof BotGameplayRuntimeError && error.code === 'BOT_GAMEPLAY_INPUT_INVALID',
   );
 });
 
@@ -267,9 +271,7 @@ test('settlement payload is derived from the server first-day projection', async
       },
       async getGameplayProjection() {
         reads += 1;
-        return reads === 1
-          ? projection('SETTLE_REQUIRED')
-          : projection('REPLAY_AVAILABLE', 5);
+        return reads === 1 ? projection('SETTLE_REQUIRED') : projection('REPLAY_AVAILABLE', 5);
       },
       async settleBusinessDay(saveId, input) {
         captured = { saveId, input };

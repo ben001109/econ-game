@@ -52,7 +52,10 @@ test('forward and rollback pair only the additive bootstrap persistence objects'
 
 test('forward migration contains no destructive data or schema operation', () => {
   assert.doesNotMatch(migration, /^\s*(?:DELETE\s+FROM|UPDATE\s+"|TRUNCATE\b|DROP\s+)/im);
-  assert.doesNotMatch(migration, /ALTER\s+TABLE\s+"(?!BootstrapAuthority|BootstrapProvisioningEpoch)/i);
+  assert.doesNotMatch(
+    migration,
+    /ALTER\s+TABLE\s+"(?!BootstrapAuthority|BootstrapProvisioningEpoch)/i,
+  );
   assert.doesNotMatch(migration, /(?:Restaurant|CompetitiveSave).*DEFAULT\s+(?:'[^']+'|\d+)/i);
 });
 
@@ -69,10 +72,7 @@ test('immutable authority binds one player to qualifying invite consent provenan
     'ConsentDecision',
     'Restaurant',
   ]) {
-    assert.match(
-      migration,
-      new RegExp(`REFERENCES "${target}"\\("id"\\) ON DELETE RESTRICT`),
-    );
+    assert.match(migration, new RegExp(`REFERENCES "${target}"\\("id"\\) ON DELETE RESTRICT`));
   }
   assert.match(migration, /membership\."status" = 'ACTIVE'/);
   assert.match(migration, /invitation\."status" = 'CONSUMED'/);
@@ -100,10 +100,7 @@ test('epoch constraints bind tenant owner save audit and one active player epoch
     migration,
     /authority\."sourceEligibilityRestaurantId" = NEW\."provisionedRestaurantId"/,
   );
-  assert.match(
-    migration,
-    /membership\."restaurantId" = NEW\."provisionedRestaurantId"/,
-  );
+  assert.match(migration, /membership\."restaurantId" = NEW\."provisionedRestaurantId"/);
   assert.match(migration, /membership\."playerId" = NEW\."playerId"/);
   assert.match(migration, /save_row\."restaurantId" = NEW\."provisionedRestaurantId"/);
   assert.match(migration, /save_row\."ownerPlayerId" = NEW\."playerId"/);
@@ -156,14 +153,8 @@ test('static inspection does not claim transition or PostgreSQL runtime proof', 
 
 test('Player command state migration and rollback pair the additive version contract', () => {
   assert.match(playerCommandMigration, /CREATE TABLE "BootstrapPlayerCommandState"/);
-  assert.match(
-    playerCommandMigration,
-    /ADD COLUMN "playerCommandVersion" INTEGER NOT NULL/,
-  );
-  assert.match(
-    playerCommandRollback,
-    /DROP COLUMN IF EXISTS "playerCommandVersion"/,
-  );
+  assert.match(playerCommandMigration, /ADD COLUMN "playerCommandVersion" INTEGER NOT NULL/);
+  assert.match(playerCommandRollback, /DROP COLUMN IF EXISTS "playerCommandVersion"/);
   assert.match(playerCommandRollback, /DROP TABLE IF EXISTS "BootstrapPlayerCommandState"/);
   assert.match(
     playerCommandRollback,
@@ -182,23 +173,14 @@ test('Player version is durable monotonic state and cannot reset across epochs',
   assert.match(playerCommandMigration, /NEW\."version" <> 0/);
   assert.match(playerCommandMigration, /NEW\."version" <> OLD\."version" \+ 1/);
   assert.match(playerCommandMigration, /cannot be deleted or reset/);
-  assert.match(
-    playerCommandMigration,
-    /UNIQUE \("playerId", "playerCommandVersion"\)/,
-  );
+  assert.match(playerCommandMigration, /UNIQUE \("playerId", "playerCommandVersion"\)/);
   assert.match(playerCommandMigration, /epoch Player command version is immutable/);
   assert.doesNotMatch(playerCommandMigration, /authorityId[^\n]+playerCommandVersion/);
 });
 
 test('epoch and Player state form one locked CAS with deferred commit verification', () => {
-  assert.match(
-    playerCommandMigration,
-    /WHERE state\."playerId" = NEW\."playerId"\s+FOR UPDATE/,
-  );
-  assert.match(
-    playerCommandMigration,
-    /NEW\."playerCommandVersion" <> current_version \+ 1/,
-  );
+  assert.match(playerCommandMigration, /WHERE state\."playerId" = NEW\."playerId"\s+FOR UPDATE/);
+  assert.match(playerCommandMigration, /NEW\."playerCommandVersion" <> current_version \+ 1/);
   assert.match(
     playerCommandMigration,
     /epoch\."playerId" = NEW\."playerId"[\s\S]*epoch\."playerCommandVersion" = NEW\."version"/,

@@ -1,9 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import {
-  CommandError,
-  type CanonicalCommandValue,
-} from '../commands/command-contract.js';
+import { CommandError, type CanonicalCommandValue } from '../commands/command-contract.js';
 import type { CommandHandler } from '../commands/command-dispatcher.js';
 import {
   createMenuSelection,
@@ -29,9 +26,7 @@ import {
   type LayoutSnapshot,
   type PremisesEquipmentState,
 } from '../domains/demand-flow/demand-flow.js';
-import {
-  MVP_FIRST_DAY_ACCOUNTING_VERSION,
-} from './preopen-day-authority-provider.js';
+import { MVP_FIRST_DAY_ACCOUNTING_VERSION } from './preopen-day-authority-provider.js';
 import {
   PREOPEN_DAY_ENVELOPE_VERSION,
   parseOpenBusinessDayIntent,
@@ -54,10 +49,7 @@ export function createOpenBusinessDayCommandHandler(): CommandHandler {
   return Object.freeze({
     commandType: OPEN_BUSINESS_DAY,
     async execute({ context, command, currentVersion, persistence }) {
-      if (
-        command.commandType !== OPEN_BUSINESS_DAY ||
-        command.aggregateId !== context.saveId
-      ) {
+      if (command.commandType !== OPEN_BUSINESS_DAY || command.aggregateId !== context.saveId) {
         throw new CommandError(422, 'OPEN_COMMAND_SCOPE_INVALID');
       }
       let intent;
@@ -198,8 +190,7 @@ export function validateCanonicalOpenAuthority(
     authority.save.openingSnapshot.openingSnapshotHash !== authority.save.openingSnapshotHash ||
     authority.save.openingSnapshot.scenario !== authority.save.scenario ||
     authority.save.openingSnapshot.operatingMode !== authority.save.operatingMode ||
-    authority.save.openingSnapshot.simulationRuleVersion !==
-      authority.save.simulationRuleVersion
+    authority.save.openingSnapshot.simulationRuleVersion !== authority.save.simulationRuleVersion
   ) {
     throw new Error('opening snapshot does not match the competitive save authority');
   }
@@ -248,7 +239,13 @@ export function validateCanonicalOpenAuthority(
   const layout = validateLayout(payload.layout, authority);
   const inventory = validateInventory(payload.inventoryProcurement, authority, catalog, menu);
   validateInventoryPoolAuthority(authority, inventory);
-  const demand = validateDemand(payload.demandSchedule, payload.demandForecast, authority, menu, layout);
+  const demand = validateDemand(
+    payload.demandSchedule,
+    payload.demandForecast,
+    authority,
+    menu,
+    layout,
+  );
   validateAccounting(payload.accountingEvidence, authority);
 
   return Object.freeze({
@@ -488,7 +485,10 @@ function validateDemand(
     ),
     layout,
   });
-  if (!canonicalEqual(schedule, expected.schedule) || !canonicalEqual(forecast, expected.forecast)) {
+  if (
+    !canonicalEqual(schedule, expected.schedule) ||
+    !canonicalEqual(forecast, expected.forecast)
+  ) {
     throw new Error('demand schedule or forecast is not canonical for the persisted authority');
   }
   return expected;
@@ -509,8 +509,7 @@ function validateAccounting(value: unknown, authority: FirstDayOpenAuthority): v
       {
         referenceId: `opening-cash:${authority.save.openingSnapshotHash}`,
         kind: 'OPENING_CASH',
-        amountMinorUnits:
-          authority.save.openingSnapshot.settlementCash.amount.minorUnits,
+        amountMinorUnits: authority.save.openingSnapshot.settlementCash.amount.minorUnits,
         currency: authority.save.openingSnapshot.settlementCash.amount.currency,
       },
     ],

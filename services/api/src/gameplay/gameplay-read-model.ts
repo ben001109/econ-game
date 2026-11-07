@@ -11,11 +11,9 @@ import { INITIALIZE_COMPETITIVE_SAVE_ROUTE } from './initialize-competitive-save
 
 export const ACTIVE_GAMEPLAY_SAVE_ROUTE = '/gameplay/active-save' as const;
 export const GAMEPLAY_PROJECTION_ROUTE = '/saves/:saveId/gameplay' as const;
-export const GAMEPLAY_LATEST_REPLAY_JOB_ROUTE =
-  '/saves/:saveId/replay-jobs/latest' as const;
+export const GAMEPLAY_LATEST_REPLAY_JOB_ROUTE = '/saves/:saveId/replay-jobs/latest' as const;
 export const GAMEPLAY_REPLAY_JOB_ROUTE = '/saves/:saveId/replay-jobs/:jobId' as const;
-export const GAMEPLAY_ACTIVE_SAVE_PROJECTION_VERSION =
-  'gameplay.active-save-discovery/v1' as const;
+export const GAMEPLAY_ACTIVE_SAVE_PROJECTION_VERSION = 'gameplay.active-save-discovery/v1' as const;
 export const GAMEPLAY_CURRENT_PROJECTION_VERSION = 'gameplay.current-projection/v1' as const;
 export const GAMEPLAY_REPLAY_JOB_PROJECTION_VERSION = 'gameplay.replay-job/v1' as const;
 
@@ -113,7 +111,10 @@ export type SafeReplayJobProjection = Readonly<{
 
 export interface GameplayReadModelRepository {
   discoverActiveSave(playerId: string): Promise<ActiveSaveDiscovery>;
-  loadCurrentProjection(playerId: string, saveId: string): Promise<ScopedGameplayProjection | undefined>;
+  loadCurrentProjection(
+    playerId: string,
+    saveId: string,
+  ): Promise<ScopedGameplayProjection | undefined>;
   loadReplayJob(
     playerId: string,
     saveId: string,
@@ -166,16 +167,17 @@ type ReplayJobRow = Readonly<{
   resultPayload: unknown;
 }>;
 
-type LatestReplayJobRow = ReplayJobRow & Readonly<{
-  businessKey: string;
-  inputPayload: unknown;
-  sourceEventType: string;
-  sourceEventVersion: number;
-  sourcePayload: unknown;
-  replayExecutionId: string | null;
-  replayKind: string | null;
-  replayBusinessDay: number | null;
-}>;
+type LatestReplayJobRow = ReplayJobRow &
+  Readonly<{
+    businessKey: string;
+    inputPayload: unknown;
+    sourceEventType: string;
+    sourceEventVersion: number;
+    sourcePayload: unknown;
+    replayExecutionId: string | null;
+    replayKind: string | null;
+    replayBusinessDay: number | null;
+  }>;
 
 type DayReplayLocatorIdentity = Readonly<{
   dayEndSnapshotId: string;
@@ -948,7 +950,8 @@ function validBusinessDay(value: number | null): number {
 }
 
 function parseCount(value: number | bigint | string | undefined): number {
-  const parsed = typeof value === 'bigint' ? Number(value) : typeof value === 'string' ? Number(value) : value;
+  const parsed =
+    typeof value === 'bigint' ? Number(value) : typeof value === 'string' ? Number(value) : value;
   if (!isNonNegativeSafeInteger(parsed)) throw projectionUnavailable();
   return parsed;
 }

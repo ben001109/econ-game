@@ -323,8 +323,7 @@ test('accepted commands require one matching job outbox and memory execution fai
       context,
       { saveId: 'save-1', commandType: 'SAVE_TEST_JOB' },
     ),
-    (error) =>
-      error instanceof CommandError && error.code === 'COMMAND_PERSISTENCE_REQUIRED',
+    (error) => error instanceof CommandError && error.code === 'COMMAND_PERSISTENCE_REQUIRED',
   );
 
   const rejected: readonly Readonly<{ handler: CommandHandler; message: RegExp }>[] = [

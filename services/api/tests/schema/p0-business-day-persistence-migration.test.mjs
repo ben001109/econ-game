@@ -39,10 +39,7 @@ test('API and worker schemas share the BusinessDay persistence contract', () => 
     assert.match(snapshot, /payload\s+Json/);
     assert.match(snapshot, /snapshotHash\s+String\s+@db\.VarChar\(64\)/);
     assert.match(snapshot, /@@unique\(\[saveId, businessDay, revision\]\)/);
-    assert.match(
-      snapshot,
-      /@@unique\(\[restaurantId, saveId, businessDay, id\]\)/,
-    );
+    assert.match(snapshot, /@@unique\(\[restaurantId, saveId, businessDay, id\]\)/);
 
     assert.match(execution, /ordinal\s+Int/);
     assert.match(execution, /periodKey\s+String/);
@@ -70,7 +67,10 @@ test('API evidence models use scoped BusinessDay links without duplicating autho
   assert.match(dayEnd, /snapshotHash\s+String\s+@db\.VarChar\(64\)/);
   assert.equal((replayEvent.match(/eventHash/g) ?? []).length, 1);
   assert.equal((dayEnd.match(/snapshotHash/g) ?? []).length, 1);
-  assert.doesNotMatch(workerSchema, /model (?:ReplayEvent|DayEndSnapshot|VersionedReplayExecution|MarketTick) \{/);
+  assert.doesNotMatch(
+    workerSchema,
+    /model (?:ReplayEvent|DayEndSnapshot|VersionedReplayExecution|MarketTick) \{/,
+  );
 });
 
 test('forward migration refuses unprovable history and performs no automatic backfill', () => {
@@ -114,18 +114,9 @@ test('database constraints encode identities, scoped RESTRICT links, and no peri
 });
 
 test('triggers enforce ordered transitions and immutable snapshot/execution evidence', () => {
-  assert.match(
-    migration,
-    /OLD\."status" = 'PREOPEN' AND NEW\."status" = 'OPEN'/,
-  );
-  assert.match(
-    migration,
-    /OLD\."status" = 'OPEN' AND NEW\."status" = 'SERVICE_COMPLETE'/,
-  );
-  assert.match(
-    migration,
-    /OLD\."status" = 'SERVICE_COMPLETE' AND NEW\."status" = 'SETTLED'/,
-  );
+  assert.match(migration, /OLD\."status" = 'PREOPEN' AND NEW\."status" = 'OPEN'/);
+  assert.match(migration, /OLD\."status" = 'OPEN' AND NEW\."status" = 'SERVICE_COMPLETE'/);
+  assert.match(migration, /OLD\."status" = 'SERVICE_COMPLETE' AND NEW\."status" = 'SETTLED'/);
   assert.match(migration, /OPEN requires the matching scoped immutable pre-open snapshot/);
   assert.match(migration, /SETTLED requires a matching scoped DayEndSnapshot/);
   assert.match(migration, /PreopenDaySnapshot is immutable durable evidence/);
@@ -134,31 +125,15 @@ test('triggers enforce ordered transitions and immutable snapshot/execution evid
 });
 
 test('new tables are force-RLS and have only exact service-role grants', () => {
-  for (const table of [
-    'BusinessDay',
-    'PreopenDaySnapshot',
-    'ServicePeriodExecution',
-  ]) {
+  for (const table of ['BusinessDay', 'PreopenDaySnapshot', 'ServicePeriodExecution']) {
     assert.match(migration, new RegExp(`ALTER TABLE "${table}" FORCE ROW LEVEL SECURITY`));
     for (const role of ['PUBLIC', 'anon', 'authenticated']) {
-      assert.match(
-        migration,
-        new RegExp(`REVOKE ALL ON TABLE "${table}" FROM ${role}`),
-      );
+      assert.match(migration, new RegExp(`REVOKE ALL ON TABLE "${table}" FROM ${role}`));
     }
   }
-  assert.match(
-    migration,
-    /GRANT SELECT, INSERT, UPDATE ON TABLE "BusinessDay" TO service_role/,
-  );
-  assert.match(
-    migration,
-    /GRANT SELECT, INSERT ON TABLE "PreopenDaySnapshot" TO service_role/,
-  );
-  assert.match(
-    migration,
-    /GRANT SELECT, INSERT ON TABLE "ServicePeriodExecution" TO service_role/,
-  );
+  assert.match(migration, /GRANT SELECT, INSERT, UPDATE ON TABLE "BusinessDay" TO service_role/);
+  assert.match(migration, /GRANT SELECT, INSERT ON TABLE "PreopenDaySnapshot" TO service_role/);
+  assert.match(migration, /GRANT SELECT, INSERT ON TABLE "ServicePeriodExecution" TO service_role/);
   assert.doesNotMatch(migration, /CREATE\s+POLICY/i);
   assert.doesNotMatch(migration, /GRANT\s+[^;]+\s+TO\s+(?:anon|authenticated)/i);
 });

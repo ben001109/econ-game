@@ -18,10 +18,14 @@ const DIGEST_B = 'b'.repeat(64);
 class FakeWipeRepository implements WipeBatchRepository {
   readonly durability = 'test' as const;
   readonly calls: string[] = [];
-  previewValue = buildWipePreview('tenant-1', [
-    { id: 'save-b', version: 2, openingSnapshotHash: DIGEST_B },
-    { id: 'save-a', version: 1, openingSnapshotHash: DIGEST_A },
-  ], 'fixture');
+  previewValue = buildWipePreview(
+    'tenant-1',
+    [
+      { id: 'save-b', version: 2, openingSnapshotHash: DIGEST_B },
+      { id: 'save-a', version: 1, openingSnapshotHash: DIGEST_A },
+    ],
+    'fixture',
+  );
 
   async findPlayerByClerkSubject(subject: string) {
     if (subject === 'owner-1' || subject === 'owner-2') {
@@ -126,13 +130,20 @@ function command(
 }
 
 test('preview is byte-stable and independent of database input ordering', () => {
-  const left = buildWipePreview('tenant-1', [
-    { id: 'save-b', version: 2, openingSnapshotHash: DIGEST_B },
-    { id: 'save-a', version: 1, openingSnapshotHash: DIGEST_A },
-  ], 'fixture');
+  const left = buildWipePreview(
+    'tenant-1',
+    [
+      { id: 'save-b', version: 2, openingSnapshotHash: DIGEST_B },
+      { id: 'save-a', version: 1, openingSnapshotHash: DIGEST_A },
+    ],
+    'fixture',
+  );
   const right = buildWipePreview('tenant-1', [...left.saves].reverse(), 'fixture');
   assert.deepEqual(left, right);
-  assert.deepEqual(left.saves.map(({ id }) => id), ['save-a', 'save-b']);
+  assert.deepEqual(
+    left.saves.map(({ id }) => id),
+    ['save-a', 'save-b'],
+  );
   assert.equal(left.policyHash.length, 64);
   assert.equal(left.manifestHash.length, 64);
 });
@@ -154,7 +165,8 @@ test('dry-run is authenticated, exact, non-mutating, and rejects client scope fi
       'tenant-1',
       command('WIPE_DRY_RUN', 'tenant-1', 0, { saveId: 'client-save' }),
     ),
-    (error: unknown) => error instanceof CommandError && error.code === 'CLIENT_CONTEXT_FIELD_FORBIDDEN',
+    (error: unknown) =>
+      error instanceof CommandError && error.code === 'CLIENT_CONTEXT_FIELD_FORBIDDEN',
   );
 });
 

@@ -28,10 +28,8 @@ import {
 import { PREOPEN_DAY_ENVELOPE_VERSION } from './preopen-day-contract.js';
 
 const CONFIGURATION_PHASE = 'CONFIGURE_REQUIRED' as const;
-const PREOPEN_EQUIPMENT_INSTALLATION_REQUIRED =
-  'PREOPEN_EQUIPMENT_INSTALLATION_REQUIRED' as const;
-const PREOPEN_CONFIGURATION_AUTHORITY_INVALID =
-  'PREOPEN_CONFIGURATION_AUTHORITY_INVALID' as const;
+const PREOPEN_EQUIPMENT_INSTALLATION_REQUIRED = 'PREOPEN_EQUIPMENT_INSTALLATION_REQUIRED' as const;
+const PREOPEN_CONFIGURATION_AUTHORITY_INVALID = 'PREOPEN_CONFIGURATION_AUTHORITY_INVALID' as const;
 // Matches the first-day persisted bootstrap/pre-open storage entitlement.
 // It is intentionally not exposed as a client-selectable version.
 const MVP_FIRST_DAY_STORAGE_BUNDLE_VERSION = 'mvp-storage/v1' as const;
@@ -41,10 +39,7 @@ const scenarios = new Set<OpeningScenario>([
   'DEFAULT_SMALL_SHOP',
   'TROUBLED_SHOP',
 ]);
-const operatingModes = new Set<CompetitiveOperatingMode>([
-  'STRATEGY',
-  'LIGHTWEIGHT_REALTIME',
-]);
+const operatingModes = new Set<CompetitiveOperatingMode>(['STRATEGY', 'LIGHTWEIGHT_REALTIME']);
 const servicePeriodPlans = new Set<ServicePeriodPlan>(['TWO_PERIODS', 'THREE_PERIODS']);
 const fixtureKinds = Object.freeze([
   'SEAT',
@@ -168,10 +163,7 @@ function invalidAuthority(): never {
   throw new PreopenConfigurationChoicesError(PREOPEN_CONFIGURATION_AUTHORITY_INVALID);
 }
 
-function plainDataRecord(
-  value: unknown,
-  expectedKeys: readonly string[],
-): Record<string, unknown> {
+function plainDataRecord(value: unknown, expectedKeys: readonly string[]): Record<string, unknown> {
   if (
     value === null ||
     typeof value !== 'object' ||

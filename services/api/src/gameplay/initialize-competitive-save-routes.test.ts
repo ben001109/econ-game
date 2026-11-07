@@ -156,7 +156,11 @@ test('missing, Bot, unmapped, and nonqualifying principals fail closed without e
   });
 
   assertD02Error(
-    await app.inject({ method: 'POST', url: INITIALIZE_COMPETITIVE_SAVE_ROUTE, payload: envelope() }),
+    await app.inject({
+      method: 'POST',
+      url: INITIALIZE_COMPETITIVE_SAVE_ROUTE,
+      payload: envelope(),
+    }),
     401,
     'UNTRUSTED_COMMAND_CONTEXT',
   );

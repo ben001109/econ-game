@@ -11,7 +11,11 @@ import {
   type CommandEnvelope,
   type TrustedCommandContext,
 } from '../commands/command-contract.js';
-import { PostgresDurableCommandExecutionStore, type D03Database, type D03Queryable } from '../domains/ledger/postgres-ledger-store.js';
+import {
+  PostgresDurableCommandExecutionStore,
+  type D03Database,
+  type D03Queryable,
+} from '../domains/ledger/postgres-ledger-store.js';
 import {
   createRequestDayReplayCommandHandler,
   dayReplayJobId,
@@ -332,7 +336,10 @@ test('normal durable API composition reaches REQUEST_DAY_REPLAY with idempotency
       details: { actualVersion: 2, expectedVersion: 1 },
     },
   });
-  assert.equal(database.queries.filter((query) => query.includes('request-day-replay:evidence')).length, 1);
+  assert.equal(
+    database.queries.filter((query) => query.includes('request-day-replay:evidence')).length,
+    1,
+  );
   await app.close();
 });
 
@@ -359,7 +366,13 @@ test('durable scope rejection occurs before REQUEST_DAY_REPLAY evidence lookup',
           persistence,
         }),
     ),
-    (error) => error instanceof CommandError && error.status === 403 && error.code === 'LEDGER_SCOPE_FORBIDDEN',
+    (error) =>
+      error instanceof CommandError &&
+      error.status === 403 &&
+      error.code === 'LEDGER_SCOPE_FORBIDDEN',
   );
-  assert.equal(database.queries.some((query) => query.includes('request-day-replay:evidence')), false);
+  assert.equal(
+    database.queries.some((query) => query.includes('request-day-replay:evidence')),
+    false,
+  );
 });

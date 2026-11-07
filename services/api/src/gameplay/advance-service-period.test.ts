@@ -238,16 +238,24 @@ test('runs a resumable two-period plan with immutable hashes and continuous even
   assert.equal(lunch.resultSnapshot.inventoryState.stocks[0]?.reservedPoints, 0);
   assert.equal(lunch.resultSnapshot.inventoryState.orderReservations.length, 0);
   assert.deepEqual(
-    lunch.resultSnapshot.inventoryState.transactions.slice(-2).map((transaction) => transaction.type),
+    lunch.resultSnapshot.inventoryState.transactions
+      .slice(-2)
+      .map((transaction) => transaction.type),
     ['ORDER_RESERVED', 'ORDER_COMPLETED'],
   );
   assert.deepEqual(lunch.resultSnapshot.completedPeriodKeys, ['LUNCH']);
-  assert.equal(lunch.resultSnapshot.workerRoster.filter((worker) => worker.kind === 'PLAYER').length, 1);
+  assert.equal(
+    lunch.resultSnapshot.workerRoster.filter((worker) => worker.kind === 'PLAYER').length,
+    1,
+  );
   assert.equal(
     lunch.resultSnapshot.workerRoster.find((worker) => worker.kind === 'PLAYER')?.role,
     'OWNER_KITCHEN',
   );
-  assert.ok(lunch.resultSnapshot.closingTicks > 0, 'pending service drains after the period window');
+  assert.ok(
+    lunch.resultSnapshot.closingTicks > 0,
+    'pending service drains after the period window',
+  );
   assert.equal(Object.isFrozen(lunch.inputSnapshot), true);
   assert.equal(Object.isFrozen(lunch.resultSnapshot.events), true);
 
@@ -295,10 +303,7 @@ test('enforces LUNCH -> OFF_PEAK -> DINNER for the three-period plan', () => {
   assert.deepEqual(previous?.completedPeriodKeys, ['LUNCH', 'OFF_PEAK', 'DINNER']);
   assert.throws(
     () =>
-      createAdvanceServicePeriodInput(
-        intent('DINNER', 'NONE'),
-        authority('THREE_PERIODS', groups),
-      ),
+      createAdvanceServicePeriodInput(intent('DINNER', 'NONE'), authority('THREE_PERIODS', groups)),
     /stale|canonical order/,
   );
 });
@@ -311,7 +316,10 @@ test('maps manager assignment without adding any second PLAYER worker', () => {
     }),
   );
   const players = input.workers.filter((worker) => worker.kind === 'PLAYER');
-  assert.deepEqual(players.map((worker) => worker.role), ['MANAGER_FRONT']);
+  assert.deepEqual(
+    players.map((worker) => worker.role),
+    ['MANAGER_FRONT'],
+  );
   assert.equal(players[0]?.ability, 'MEDIUM');
   assert.equal(players[0]?.morale, 'NORMAL');
 });
@@ -430,8 +438,14 @@ test('refuses deterministic overflow immediately when the E02 waiting zone is fu
     (event) => event.type === 'WAITING_FULL_LEFT',
   );
   assert.equal(refused.length, 2);
-  assert.deepEqual(refused.map((event) => event.tick), [0, 0]);
-  assert.equal(refused.every((event) => event.details.waitedTicks === 0), true);
+  assert.deepEqual(
+    refused.map((event) => event.tick),
+    [0, 0],
+  );
+  assert.equal(
+    refused.every((event) => event.details.waitedTicks === 0),
+    true,
+  );
   assert.equal(
     execution.resultSnapshot.events.filter((event) => event.type === 'WAITING_LEFT').length,
     1,
@@ -447,22 +461,14 @@ test('uses E03 substitution priority and binds per-order quality and COGS to com
     recipeVersionId: recipe.id,
     priority: 10,
     qualityDelta: -3,
-    ingredients: Object.freeze([
-      { ingredientId: alternateIngredient.id, quantityPoints: 1 },
-    ]),
+    ingredients: Object.freeze([{ ingredientId: alternateIngredient.id, quantityPoints: 1 }]),
   });
   const execution = advanceServicePeriod(
     intent('LUNCH', 'NONE'),
-    authority(
-      'TWO_PERIODS',
-      [group('substitution:group', 'LUNCH', 0, { size: 2 })],
-      {
-        inventoryState: inventoryWithStocks([
-          { ingredient: alternateIngredient, quantityPoints: 4 },
-        ]),
-        enabledSubstitutions: Object.freeze([substitution]),
-      },
-    ),
+    authority('TWO_PERIODS', [group('substitution:group', 'LUNCH', 0, { size: 2 })], {
+      inventoryState: inventoryWithStocks([{ ingredient: alternateIngredient, quantityPoints: 4 }]),
+      enabledSubstitutions: Object.freeze([substitution]),
+    }),
   );
 
   const outcome = execution.resultSnapshot.inventoryOutcomes[0]!;
@@ -486,9 +492,7 @@ test('reserves a ranked alternative before creating the order and leaves cleanly
     id: alternativeServiceRecipe.id,
     recipeId: 'recipe:greens',
     baseQuality: alternativeServiceRecipe.baseQuality,
-    ingredients: Object.freeze([
-      { ingredientId: alternateIngredient.id, quantityPoints: 1 },
-    ]),
+    ingredients: Object.freeze([{ ingredientId: alternateIngredient.id, quantityPoints: 1 }]),
   });
   const preferenceOrder = Object.freeze([recipe.id, alternativeServiceRecipe.id]);
   const available = advanceServicePeriod(
@@ -506,7 +510,10 @@ test('reserves a ranked alternative before creating the order and leaves cleanly
     ),
   );
   assert.equal(available.resultSnapshot.orders[0]?.recipeId, alternativeServiceRecipe.id);
-  assert.equal(available.resultSnapshot.inventoryOutcomes[0]?.recipeId, alternativeServiceRecipe.id);
+  assert.equal(
+    available.resultSnapshot.inventoryOutcomes[0]?.recipeId,
+    alternativeServiceRecipe.id,
+  );
   assert.deepEqual(
     available.resultSnapshot.events
       .filter((event) => event.type === 'PREFERRED_SOLD_OUT' || event.type === 'RESELECTED_ONCE')
@@ -593,10 +600,9 @@ test('replays byte-identical results and rejects forged input or previous-result
     () =>
       createAdvanceServicePeriodInput(
         intent('DINNER', 'NONE'),
-        authority('TWO_PERIODS', [
-          group('lunch:1', 'LUNCH', 0),
-          group('dinner:1', 'DINNER', 10),
-        ], { previousResult: forgedPrevious }),
+        authority('TWO_PERIODS', [group('lunch:1', 'LUNCH', 0), group('dinner:1', 'DINNER', 10)], {
+          previousResult: forgedPrevious,
+        }),
       ),
     /hash does not match/,
   );

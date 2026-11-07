@@ -489,7 +489,10 @@ test('OPEN atomically consumes the exact immutable snapshot and emits only safe 
   for (const secret of [DEMAND_SEED, MARKET_SEED, 'inventory', 'cash', 'groups']) {
     assert.equal(serializedOutbox.includes(secret), false, `${secret} leaked to outbox`);
   }
-  assert.equal(database.calls.some(({ query }) => query.includes('LedgerTransaction')), false);
+  assert.equal(
+    database.calls.some(({ query }) => query.includes('LedgerTransaction')),
+    false,
+  );
   const openQueries = database.calls
     .map(({ query }) => query)
     .filter((query) => query.includes('open-business-day:'));
@@ -633,7 +636,10 @@ test('EMPTY NONE/0 authority cannot open and no BASIC installation is invented',
 });
 
 test('normal composition, RBAC, durable scope, and unknown command handling fail closed', async () => {
-  assert.equal(gameplaySaveScopedCommandAuthorizationPolicy.isAllowed(OPEN_BUSINESS_DAY, 'OWNER'), true);
+  assert.equal(
+    gameplaySaveScopedCommandAuthorizationPolicy.isAllowed(OPEN_BUSINESS_DAY, 'OWNER'),
+    true,
+  );
   assert.equal(
     gameplaySaveScopedCommandAuthorizationPolicy.isAllowed(OPEN_BUSINESS_DAY, 'MANAGER'),
     true,

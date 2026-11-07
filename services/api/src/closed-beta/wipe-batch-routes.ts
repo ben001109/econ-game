@@ -10,56 +10,60 @@ export function registerWipeBatchRoutes(
 ): void {
   app.post<{ Params: { tenantId: string }; Body: unknown }>(
     '/closed-beta/tenants/:tenantId/wipe-batches/dry-run',
-    async (request, reply) => wipeReply(reply, async () => ({
-      status: 200,
-      body: await configured(service, allowTestRepository).dryRun(
-        bearer(request.headers.authorization),
-        request.params.tenantId,
-        request.body,
-      ),
-    })),
+    async (request, reply) =>
+      wipeReply(reply, async () => ({
+        status: 200,
+        body: await configured(service, allowTestRepository).dryRun(
+          bearer(request.headers.authorization),
+          request.params.tenantId,
+          request.body,
+        ),
+      })),
   );
 
   app.post<{ Params: { tenantId: string }; Body: unknown }>(
     '/closed-beta/tenants/:tenantId/wipe-batches',
-    async (request, reply) => wipeReply(reply, async () => ({
-      status: 201,
-      body: await configured(service, allowTestRepository).request(
-        bearer(request.headers.authorization),
-        request.params.tenantId,
-        request.body,
-        request.id,
-      ),
-    })),
+    async (request, reply) =>
+      wipeReply(reply, async () => ({
+        status: 201,
+        body: await configured(service, allowTestRepository).request(
+          bearer(request.headers.authorization),
+          request.params.tenantId,
+          request.body,
+          request.id,
+        ),
+      })),
   );
 
   for (const action of ['approve', 'freeze', 'isolate', 'resume'] as const) {
     app.post<{ Params: { tenantId: string; batchId: string }; Body: unknown }>(
       `/closed-beta/tenants/:tenantId/wipe-batches/:batchId/${action}`,
-      async (request, reply) => wipeReply(reply, async () => {
-        const target = configured(service, allowTestRepository);
-        const result = await target[action](
-          bearer(request.headers.authorization),
-          request.params.tenantId,
-          request.params.batchId,
-          request.body,
-          request.id,
-        );
-        return { status: 200, body: result };
-      }),
+      async (request, reply) =>
+        wipeReply(reply, async () => {
+          const target = configured(service, allowTestRepository);
+          const result = await target[action](
+            bearer(request.headers.authorization),
+            request.params.tenantId,
+            request.params.batchId,
+            request.body,
+            request.id,
+          );
+          return { status: 200, body: result };
+        }),
     );
   }
 
   app.get<{ Params: { tenantId: string; batchId: string } }>(
     '/closed-beta/tenants/:tenantId/wipe-batches/:batchId',
-    async (request, reply) => wipeReply(reply, async () => ({
-      status: 200,
-      body: await configured(service, allowTestRepository).status(
-        bearer(request.headers.authorization),
-        request.params.tenantId,
-        request.params.batchId,
-      ),
-    })),
+    async (request, reply) =>
+      wipeReply(reply, async () => ({
+        status: 200,
+        body: await configured(service, allowTestRepository).status(
+          bearer(request.headers.authorization),
+          request.params.tenantId,
+          request.params.batchId,
+        ),
+      })),
   );
 }
 

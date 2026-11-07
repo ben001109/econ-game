@@ -85,15 +85,12 @@ function floorFlowProfile() {
     'TWO_PERIODS',
     'PRE_OPEN',
   ).snapshot;
-  return deriveFloorFlowServiceProfile(
-    snapshot,
-    {
-      seatedGuests: 0,
-      waitingGroups: 0,
-      activeGuests: 6,
-      demandGroups: 10,
-    },
-  );
+  return deriveFloorFlowServiceProfile(snapshot, {
+    seatedGuests: 0,
+    waitingGroups: 0,
+    activeGuests: 6,
+    demandGroups: 10,
+  });
 }
 
 function zeroSeatFloorFlowProfile() {
@@ -108,15 +105,12 @@ function zeroSeatFloorFlowProfile() {
     'TWO_PERIODS',
     'PRE_OPEN',
   ).snapshot;
-  return deriveFloorFlowServiceProfile(
-    snapshot,
-    {
-      seatedGuests: 0,
-      waitingGroups: 0,
-      activeGuests: 0,
-      demandGroups: 10,
-    },
-  );
+  return deriveFloorFlowServiceProfile(snapshot, {
+    seatedGuests: 0,
+    waitingGroups: 0,
+    activeGuests: 0,
+    demandGroups: 10,
+  });
 }
 
 function createReplayInput(): ServiceDayInput {
@@ -358,7 +352,10 @@ test('E02 profile admits only whole parties that fit real seats and records its 
     ),
   );
 
-  assert.deepEqual(result.orders.map((order) => order.groupId), ['fits-exactly']);
+  assert.deepEqual(
+    result.orders.map((order) => order.groupId),
+    ['fits-exactly'],
+  );
   assert.deepEqual(result.waitingGroupIds, ['oversized']);
   assert.equal(result.floorFlowServiceProfile?.layoutHash, profile.layoutHash);
   assert.equal(result.floorFlowServiceProfile?.version, 'e02-e04-floor-flow-v1');
@@ -369,7 +366,10 @@ test('E02 profile preserves periodWeight=1 and rejects a caller attempting to ch
   const base = createReplayInput();
   const applied = applyFloorFlowServiceProfile(base, profile);
 
-  assert.deepEqual(applied.ticks.map((tick) => tick.periodWeight), base.ticks.map((tick) => tick.periodWeight));
+  assert.deepEqual(
+    applied.ticks.map((tick) => tick.periodWeight),
+    base.ticks.map((tick) => tick.periodWeight),
+  );
   assert.throws(
     () =>
       applyFloorFlowServiceProfile(
@@ -429,7 +429,12 @@ test('E02 corridor/load only delays front service, preserving food, inventory, p
     queueVisibility: 1,
     periodWeight: 1,
   }));
-  const baseline = simulateServiceDay({ ...base, arrivals: [base.arrivals[0]!], ticks, fairness: undefined });
+  const baseline = simulateServiceDay({
+    ...base,
+    arrivals: [base.arrivals[0]!],
+    ticks,
+    fairness: undefined,
+  });
   const mappedInput = applyFloorFlowServiceProfile(
     { ...base, arrivals: [base.arrivals[0]!], ticks, fairness: undefined },
     profile,

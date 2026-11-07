@@ -348,7 +348,10 @@ function calculateWeatherAdjustedDemandGroups(input: FirstDayDemandInput): Reado
   return { normal, weatherAdjusted };
 }
 
-function candidatePeriodCohortCounts(input: FirstDayDemandInput, total: number): Map<string, number> {
+function candidatePeriodCohortCounts(
+  input: FirstDayDemandInput,
+  total: number,
+): Map<string, number> {
   const cells: WeightedKey<string>[] = [];
   for (const period of PERIODS_BY_PLAN[input.periodPlan]) {
     const share = periodShare(input.periodPlan, period);
@@ -453,11 +456,8 @@ function selectPriceConvertedCandidates(
       exactRetained,
     };
   });
-  const rawRetainedCount = roundHalfUp(
-    rows.reduce((total, row) => total + row.exactRetained, 0),
-  );
-  let remainderSlots =
-    rawRetainedCount - rows.reduce((total, row) => total + row.retainedCount, 0);
+  const rawRetainedCount = roundHalfUp(rows.reduce((total, row) => total + row.exactRetained, 0));
+  let remainderSlots = rawRetainedCount - rows.reduce((total, row) => total + row.retainedCount, 0);
   rows.sort(
     (left, right) =>
       right.remainder - left.remainder ||

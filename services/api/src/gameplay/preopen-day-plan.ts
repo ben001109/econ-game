@@ -243,8 +243,7 @@ function assertVersionArtifacts(artifacts: PreopenDayServerArtifacts): void {
   }
   if (
     artifacts.e01.substitutionCatalog.some(
-      (substitution) =>
-        substitution.catalogRevision !== artifacts.versions.substitutionCatalog,
+      (substitution) => substitution.catalogRevision !== artifacts.versions.substitutionCatalog,
     )
   ) {
     throw new Error('substitution catalog entries must match the claimed catalog revision');

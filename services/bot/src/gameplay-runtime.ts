@@ -86,10 +86,7 @@ export type BotGameplaySlashRuntime = Pick<
 
 export type CreateBotGameplaySlashRuntime = () => BotGameplaySlashRuntime;
 
-type MutationAction = Exclude<
-  BotGameplayAction,
-  'STATUS' | 'REPLAY_STATUS' | 'LATEST_REPLAY'
->;
+type MutationAction = Exclude<BotGameplayAction, 'STATUS' | 'REPLAY_STATUS' | 'LATEST_REPLAY'>;
 
 type MutationExecutor = (
   client: GameplayApiClient,
@@ -320,9 +317,7 @@ export class BotGameplayRuntime {
     } catch (error) {
       return failure(
         action,
-        httpStatus(error) === undefined
-          ? 'BOT_GAMEPLAY_REFRESH_REQUIRED'
-          : safeCode(error),
+        httpStatus(error) === undefined ? 'BOT_GAMEPLAY_REFRESH_REQUIRED' : safeCode(error),
         'STATUS_REQUIRED',
         httpStatus(error),
       );
@@ -351,7 +346,10 @@ export class BotGameplayRuntime {
   private async readProjection(
     action: BotGameplayAction,
     interaction: BotGameplayInteraction,
-    execute: (client: GameplayApiClient, projection: GameplayProjection) => Promise<BotGameplayDisplay>,
+    execute: (
+      client: GameplayApiClient,
+      projection: GameplayProjection,
+    ) => Promise<BotGameplayDisplay>,
   ): Promise<BotGameplayDisplay> {
     let client: GameplayApiClient;
     try {
@@ -573,7 +571,11 @@ function interactionInput(interaction: BotGameplaySlashInteraction): GameplaySla
   if (subcommand === 'advance') {
     assertOptionNames(interaction.options.data, 'advance', ['owner-assignment']);
     const ownerAssignment = interaction.options.getString('owner-assignment', true);
-    if (ownerAssignment !== 'KITCHEN' && ownerAssignment !== 'FRONT' && ownerAssignment !== 'NONE') {
+    if (
+      ownerAssignment !== 'KITCHEN' &&
+      ownerAssignment !== 'FRONT' &&
+      ownerAssignment !== 'NONE'
+    ) {
       throw new BotGameplayRuntimeError('BOT_GAMEPLAY_SLASH_OPTION_INVALID');
     }
     return Object.freeze({ kind: 'advance', interaction: botInteraction, ownerAssignment });
@@ -644,17 +646,26 @@ function assertOptionNames(
     throw new BotGameplayRuntimeError('BOT_GAMEPLAY_SLASH_OPTION_INVALID');
   }
   const names = options.map((option) => asRecord(option)?.name);
-  if (names.some((name) => typeof name !== 'string') || !sameStringSet(names, expectedOptionNames)) {
+  if (
+    names.some((name) => typeof name !== 'string') ||
+    !sameStringSet(names, expectedOptionNames)
+  ) {
     throw new BotGameplayRuntimeError('BOT_GAMEPLAY_SLASH_OPTION_INVALID');
   }
 }
 
 function sameStringSet(values: readonly unknown[], expected: readonly string[]): boolean {
-  return values.length === expected.length && new Set(values).size === values.length && expected.every((value) => values.includes(value));
+  return (
+    values.length === expected.length &&
+    new Set(values).size === values.length &&
+    expected.every((value) => values.includes(value))
+  );
 }
 
 function asRecord(value: unknown): Readonly<Record<string, unknown>> | undefined {
-  return typeof value === 'object' && value !== null ? (value as Readonly<Record<string, unknown>>) : undefined;
+  return typeof value === 'object' && value !== null
+    ? (value as Readonly<Record<string, unknown>>)
+    : undefined;
 }
 
 function renderSlashDisplay(display: BotGameplayDisplay): string {
@@ -669,7 +680,8 @@ function renderSlashDisplay(display: BotGameplayDisplay): string {
     const outcome = display.outcome ? ` outcome=${display.outcome}` : '';
     return `Replay: job=${safeDisplayIdentifier(display.jobId)} status=${safeDisplayToken(display.status)} terminal=${display.terminal}.${outcome}`;
   }
-  const resolution = display.resolution === 'STATUS_REQUIRED' ? ' Run /game status before retrying.' : '';
+  const resolution =
+    display.resolution === 'STATUS_REQUIRED' ? ' Run /game status before retrying.' : '';
   return `Game action failed (${safeDisplayToken(display.code)}).${resolution}`;
 }
 
@@ -681,7 +693,10 @@ function safeDisplayIdentifier(value: string): string {
   return isSlashIdentifier(value) ? value : 'UNAVAILABLE';
 }
 
-async function safeEditReply(interaction: BotGameplaySlashInteraction, content: string): Promise<void> {
+async function safeEditReply(
+  interaction: BotGameplaySlashInteraction,
+  content: string,
+): Promise<void> {
   try {
     await interaction.editReply(content);
   } catch {

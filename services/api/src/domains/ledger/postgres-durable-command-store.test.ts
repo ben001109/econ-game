@@ -2,10 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { CommandError, type TrustedCommandContext } from '../../commands/command-contract.js';
-import type {
-  CommandHandlerResult,
-  CommandStoreInput,
-} from '../../commands/command-dispatcher.js';
+import type { CommandHandlerResult, CommandStoreInput } from '../../commands/command-dispatcher.js';
 import {
   PostgresDurableCommandExecutionStore,
   type D03Database,
@@ -64,9 +61,7 @@ class RecordingTransactionalDatabase implements D03Database {
 class RejectingTransactionalDatabase implements D03Database {
   constructor(private readonly error: unknown) {}
 
-  async $transaction<T>(
-    _operation: (transaction: D03Queryable) => Promise<T>,
-  ): Promise<T> {
+  async $transaction<T>(_operation: (transaction: D03Queryable) => Promise<T>): Promise<T> {
     throw this.error;
   }
 }
@@ -76,30 +71,33 @@ test('generic durable store commits non-monetary state, outbox, version, and rec
   const store = new PostgresDurableCommandExecutionStore(database);
   const commandId = '11111111-1111-4111-8111-111111111111';
   const eventId = '11111111-1111-4111-8111-111111111112';
-  const outcome = await store.execute(storeInput(commandId), async (currentVersion, persistence) => {
-    assert.equal(persistence.durable, true);
-    await persistence.mutate(
-      'UPDATE "FakeDurableState" SET "value" = $2 WHERE "id" = $1 RETURNING "id"',
-      'state-a',
-      'changed',
-    );
-    return Object.freeze({
-      aggregateVersion: currentVersion + 1,
-      result: Object.freeze({ stateId: 'state-a' }),
-      effects: Object.freeze({
-        outbox: Object.freeze([
-          Object.freeze({
-            kind: 'outbox.event/v1' as const,
-            eventId,
-            eventSequence: 0,
-            eventType: 'save.state.changed',
-            eventVersion: 1,
-            payload: Object.freeze({ stateId: 'state-a' }),
-          }),
-        ]),
-      }),
-    });
-  });
+  const outcome = await store.execute(
+    storeInput(commandId),
+    async (currentVersion, persistence) => {
+      assert.equal(persistence.durable, true);
+      await persistence.mutate(
+        'UPDATE "FakeDurableState" SET "value" = $2 WHERE "id" = $1 RETURNING "id"',
+        'state-a',
+        'changed',
+      );
+      return Object.freeze({
+        aggregateVersion: currentVersion + 1,
+        result: Object.freeze({ stateId: 'state-a' }),
+        effects: Object.freeze({
+          outbox: Object.freeze([
+            Object.freeze({
+              kind: 'outbox.event/v1' as const,
+              eventId,
+              eventSequence: 0,
+              eventType: 'save.state.changed',
+              eventVersion: 1,
+              payload: Object.freeze({ stateId: 'state-a' }),
+            }),
+          ]),
+        }),
+      });
+    },
+  );
 
   assert.equal(outcome.execution.aggregateVersion, 2);
   const committed = database.commits[0] ?? [];
@@ -121,32 +119,35 @@ test('generic durable store accepts a 202 only with one matching non-ledger job 
   const store = new PostgresDurableCommandExecutionStore(database);
   const commandId = '22222222-2222-4222-8222-222222222222';
   const jobId = '33333333-3333-4333-8333-333333333333';
-  const outcome = await store.execute(storeInput(commandId), async (currentVersion, persistence) => {
-    await persistence.mutate(
-      'UPDATE "FakeDurableState" SET "value" = $2 WHERE "id" = $1 RETURNING "id"',
-      'state-a',
-      'queued',
-    );
-    return {
-      status: 202,
-      aggregateVersion: currentVersion + 1,
-      jobId,
-      result: { queued: true },
-      effects: {
-        outbox: [
-          {
-            kind: 'outbox.job-request/v1',
-            eventId: '44444444-4444-4444-8444-444444444444',
-            eventSequence: 0,
-            eventType: 'simulation.versioned-replay.requested',
-            eventVersion: 1,
-            jobId,
-            payload: { jobId },
-          },
-        ],
-      },
-    };
-  });
+  const outcome = await store.execute(
+    storeInput(commandId),
+    async (currentVersion, persistence) => {
+      await persistence.mutate(
+        'UPDATE "FakeDurableState" SET "value" = $2 WHERE "id" = $1 RETURNING "id"',
+        'state-a',
+        'queued',
+      );
+      return {
+        status: 202,
+        aggregateVersion: currentVersion + 1,
+        jobId,
+        result: { queued: true },
+        effects: {
+          outbox: [
+            {
+              kind: 'outbox.job-request/v1',
+              eventId: '44444444-4444-4444-8444-444444444444',
+              eventSequence: 0,
+              eventType: 'simulation.versioned-replay.requested',
+              eventVersion: 1,
+              jobId,
+              payload: { jobId },
+            },
+          ],
+        },
+      };
+    },
+  );
 
   assert.equal(outcome.execution.status, 202);
   assert.equal(outcome.execution.jobId, jobId);
@@ -168,8 +169,7 @@ test('durable handler mutation without outbox fails and leaves no committed tran
         return { aggregateVersion: currentVersion + 1, result: { changed: true } };
       },
     ),
-    (error) =>
-      error instanceof CommandError && error.code === 'COMMAND_OUTBOX_EFFECT_REQUIRED',
+    (error) => error instanceof CommandError && error.code === 'COMMAND_OUTBOX_EFFECT_REQUIRED',
   );
   assert.equal(database.commits.length, 0);
 });

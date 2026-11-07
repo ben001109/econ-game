@@ -25,9 +25,7 @@ test('replay recovery registers a static GET before the job-id polling route', (
 });
 
 test('durable recovery source is read-only, scope-linked and ambiguity-safe', () => {
-  const query = source.match(
-    /`\/\* gameplay-read:latest-replay-job \*\/[\s\S]*?LIMIT 2`/,
-  )?.[0];
+  const query = source.match(/`\/\* gameplay-read:latest-replay-job \*\/[\s\S]*?LIMIT 2`/)?.[0];
   assert.ok(query);
   assert.match(query, /JOIN "OutboxEvent" source/);
   assert.match(query, /job\."jobKind" = 'VERSIONED_REPLAY'/);
@@ -38,7 +36,10 @@ test('durable recovery source is read-only, scope-linked and ambiguity-safe', ()
   assert.match(source, /simulation\.versioned-replay\.requested/);
   assert.match(source, /p0-day-replay-locator\/v1/);
   assert.match(source, /sameDayReplayLocator\(jobLocator, sourceLocator\)/);
-  assert.match(source, /row\.status === 'PENDING'[\s\S]*row\.errorClass === 'TRANSIENT'[\s\S]*'RETRYING'/);
+  assert.match(
+    source,
+    /row\.status === 'PENDING'[\s\S]*row\.errorClass === 'TRANSIENT'[\s\S]*'RETRYING'/,
+  );
   assert.match(source, /row\.status === 'FAILED' && row\.errorClass === 'PERMANENT'/);
   assert.match(source, /row\.status === 'DEAD_LETTER' && row\.errorClass === 'TRANSIENT'/);
 });
@@ -49,5 +50,8 @@ test('route contract covers scope denial, Bot audit and safe pending-terminal re
   assert.match(integration, /CLOSED_BETA_NOT_ELIGIBLE/);
   assert.match(integration, /save-other\/replay-jobs\/latest/);
   assert.match(integration, /DAY_REPLAY_JOB_SELECTION_REQUIRED/);
-  assert.match(integration, /privateField of \['inputPayload', 'sourcePayload', 'errorDetails', 'replayPayload'\]/);
+  assert.match(
+    integration,
+    /privateField of \['inputPayload', 'sourcePayload', 'errorDetails', 'replayPayload'\]/,
+  );
 });

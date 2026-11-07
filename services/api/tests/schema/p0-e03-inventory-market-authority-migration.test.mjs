@@ -74,13 +74,22 @@ test('deferred authority checks require both pools, one seed, fixed lock order, 
     'MarketSeedAuthority_authority_complete',
     'InventoryStock_pool_occupancy',
   ]) {
-    assert.match(migration, new RegExp(`CREATE CONSTRAINT TRIGGER "${trigger}"[\\s\\S]*?DEFERRABLE INITIALLY DEFERRED`));
+    assert.match(
+      migration,
+      new RegExp(`CREATE CONSTRAINT TRIGGER "${trigger}"[\\s\\S]*?DEFERRABLE INITIALLY DEFERRED`),
+    );
   }
 });
 
 test('stock and pool transitions preserve identity, exact versions, cost, and derived pool assignment', () => {
-  assert.match(migration, /InventoryPoolState identity is immutable and revision must advance exactly by one/);
-  assert.match(migration, /InventoryStock identity is immutable and version must advance exactly by one/);
+  assert.match(
+    migration,
+    /InventoryPoolState identity is immutable and revision must advance exactly by one/,
+  );
+  assert.match(
+    migration,
+    /InventoryStock identity is immutable and version must advance exactly by one/,
+  );
   assert.match(migration, /"onHand" > 0 OR "costPoolMinor" = 0/);
   assert.match(migration, /InventoryItem pool cannot change after stock exists/);
   assert.doesNotMatch(migration, /ADD COLUMN "pool" "InventoryPool"/);
@@ -92,9 +101,15 @@ test('market seed is isolated and command materialization is an exact Day-1 XOR'
   assert.match(apiSchema, /enum MarketTickMaterializationSource \{\s+JOB\s+COMMAND\s+\}/);
   assert.match(workerSchema, /enum MarketTickMaterializationSource \{\s+JOB\s+COMMAND\s+\}/);
   assert.match(migration, /MarketTick_materialization_check/);
-  assert.match(migration, /"materializationSource" = 'JOB'[\s\S]*?"materializedByJobId" = "replayExecutionId"/);
+  assert.match(
+    migration,
+    /"materializationSource" = 'JOB'[\s\S]*?"materializedByJobId" = "replayExecutionId"/,
+  );
   assert.match(migration, /"materializationSource" = 'COMMAND'[\s\S]*?"businessDay" = 1/);
-  assert.match(migration, /MarketTick_command_event_scope_fkey[\s\S]*?DEFERRABLE INITIALLY DEFERRED/);
+  assert.match(
+    migration,
+    /MarketTick_command_event_scope_fkey[\s\S]*?DEFERRABLE INITIALLY DEFERRED/,
+  );
   assert.match(migration, /day\."status" = 'PREOPEN'/);
   assert.match(migration, /day\."simulationRuleVersion" = NEW\."simulationRuleVersion"/);
   assert.match(
@@ -119,19 +134,31 @@ test('worker job materialization explicitly preserves JOB provenance', () => {
 test('RLS grants expose pool reads only to members and keep seed and market service-only', () => {
   for (const table of ['InventoryPoolState', 'MarketSeedAuthority']) {
     assert.match(migration, new RegExp(`ALTER TABLE "${table}" FORCE ROW LEVEL SECURITY`));
-    assert.match(migration, new RegExp(`REVOKE ALL ON TABLE "${table}" FROM PUBLIC, anon, authenticated, service_role`));
+    assert.match(
+      migration,
+      new RegExp(`REVOKE ALL ON TABLE "${table}" FROM PUBLIC, anon, authenticated, service_role`),
+    );
   }
   assert.match(migration, /CREATE POLICY "InventoryPoolState_select_member"/);
   assert.match(migration, /GRANT SELECT ON TABLE "InventoryPoolState" TO authenticated/);
   assert.doesNotMatch(migration, /CREATE POLICY "MarketSeedAuthority/);
   assert.doesNotMatch(migration, /GRANT [^;]+ON TABLE "MarketSeedAuthority" TO authenticated/);
   assert.match(migration, /GRANT SELECT, INSERT ON TABLE "MarketSeedAuthority" TO service_role/);
-  assert.match(migration, /REVOKE UPDATE, DELETE ON TABLE "InventoryTransaction" FROM service_role/);
+  assert.match(
+    migration,
+    /REVOKE UPDATE, DELETE ON TABLE "InventoryTransaction" FROM service_role/,
+  );
 });
 
 test('durable command store maps domain constraint prefixes without relabeling ledger errors', () => {
-  assert.match(durableStore, /constraint\.startsWith\('Inventory'\)[\s\S]*?INVENTORY_INVARIANT_VIOLATION/);
-  assert.match(durableStore, /constraint\.startsWith\('MarketTick'\)[\s\S]*?MARKET_TICK_INVARIANT_VIOLATION/);
+  assert.match(
+    durableStore,
+    /constraint\.startsWith\('Inventory'\)[\s\S]*?INVENTORY_INVARIANT_VIOLATION/,
+  );
+  assert.match(
+    durableStore,
+    /constraint\.startsWith\('MarketTick'\)[\s\S]*?MARKET_TICK_INVARIANT_VIOLATION/,
+  );
   assert.match(durableStore, /LEDGER_INVARIANT_VIOLATION/);
 });
 

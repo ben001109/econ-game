@@ -372,9 +372,7 @@ export class PostgresDurableCommandExecutionStore implements CommandExecutionSto
 }
 
 /** Compatibility export for existing ledger-focused compositions and tests. */
-export {
-  PostgresDurableCommandExecutionStore as PostgresLedgerCommandExecutionStore,
-};
+export { PostgresDurableCommandExecutionStore as PostgresLedgerCommandExecutionStore };
 
 export type OutboxConsumerEvent = Readonly<{
   eventId: string;

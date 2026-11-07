@@ -11,10 +11,7 @@ import {
   FIRST_DAY_SPACE_CATALOG_VERSION,
   type FloorFlowServiceProfile,
 } from '../domains/demand-flow/demand-flow.js';
-import type {
-  NpcContractSnapshot,
-  OpeningSnapshot,
-} from '../domains/opening-scenario/snapshot.js';
+import type { NpcContractSnapshot, OpeningSnapshot } from '../domains/opening-scenario/snapshot.js';
 import type {
   CatalogSubstitution,
   RecipeVersion,
@@ -225,7 +222,9 @@ function canonicalize(value: unknown): unknown {
 }
 
 function canonicalHash(value: object): string {
-  return createHash('sha256').update(JSON.stringify(canonicalize(value)), 'utf8').digest('hex');
+  return createHash('sha256')
+    .update(JSON.stringify(canonicalize(value)), 'utf8')
+    .digest('hex');
 }
 
 function canonicalString(value: unknown, name: string): string {
@@ -236,7 +235,8 @@ function canonicalString(value: unknown, name: string): string {
 }
 
 function finite(value: unknown, name: string): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${name} must be finite`);
+  if (typeof value !== 'number' || !Number.isFinite(value))
+    throw new Error(`${name} must be finite`);
   return value;
 }
 
@@ -257,7 +257,8 @@ export function parseAdvanceServicePeriodIntent(value: unknown): AdvanceServiceP
     ['businessDay', 'expectedPeriodKey', 'ownerAssignment'],
     'ADVANCE_SERVICE_PERIOD intent',
   );
-  if (input.businessDay !== 1) throw new Error('ADVANCE_SERVICE_PERIOD accepts only business day 1');
+  if (input.businessDay !== 1)
+    throw new Error('ADVANCE_SERVICE_PERIOD accepts only business day 1');
   if (!servicePeriods.has(input.expectedPeriodKey as ServicePeriod)) {
     throw new Error('expectedPeriodKey is not a supported service period');
   }
@@ -304,7 +305,10 @@ function assertCanonicalResult(result: AdvanceServicePeriodResultSnapshot): void
     ],
     'previous ADVANCE_SERVICE_PERIOD result',
   );
-  if (result.version !== ADVANCE_SERVICE_PERIOD_RESULT_VERSION || result.status !== 'PERIOD_COMPLETE') {
+  if (
+    result.version !== ADVANCE_SERVICE_PERIOD_RESULT_VERSION ||
+    result.status !== 'PERIOD_COMPLETE'
+  ) {
     throw new Error('previous service-period result version or status is unsupported');
   }
   if (!sha256Pattern.test(result.resultHash)) {
@@ -348,10 +352,7 @@ function assertCanonicalResult(result: AdvanceServicePeriodResultSnapshot): void
     !Number.isSafeInteger(result.eventSequenceStart) ||
     !Number.isSafeInteger(result.nextEventSequence) ||
     result.nextEventSequence !== result.eventSequenceStart + result.events.length ||
-    result.events.some(
-      (event, index) =>
-        event.sequence !== result.eventSequenceStart + index,
-    )
+    result.events.some((event, index) => event.sequence !== result.eventSequenceStart + index)
   ) {
     throw new Error('previous service-period event sequence is discontinuous');
   }
@@ -475,15 +476,13 @@ function playerRole(
   assignment: OwnerAssignment,
 ): WorkerSnapshot['role'] | undefined {
   if (assignment === 'NONE') return undefined;
-  return (
-    assignment === 'KITCHEN'
-      ? initiatorRole === 'OWNER'
-        ? 'OWNER_KITCHEN'
-        : 'MANAGER_KITCHEN'
-      : initiatorRole === 'OWNER'
-        ? 'OWNER_FRONT'
-        : 'MANAGER_FRONT'
-  );
+  return assignment === 'KITCHEN'
+    ? initiatorRole === 'OWNER'
+      ? 'OWNER_KITCHEN'
+      : 'MANAGER_KITCHEN'
+    : initiatorRole === 'OWNER'
+      ? 'OWNER_FRONT'
+      : 'MANAGER_FRONT';
 }
 
 function clonePlainData(value: unknown, name: string): unknown {
@@ -540,7 +539,9 @@ function assertCanonicalInventoryBoundary(state: InventoryState, name: string): 
   ) {
     throw new Error(`${name} must not contain an open order reservation`);
   }
-  const stockIds = state.stocks.map((stock) => canonicalString(stock.ingredientId, 'stock ingredient ID'));
+  const stockIds = state.stocks.map((stock) =>
+    canonicalString(stock.ingredientId, 'stock ingredient ID'),
+  );
   if (
     new Set(stockIds).size !== stockIds.length ||
     stockIds.some((id, index) => index > 0 && compareCodeUnitStrings(stockIds[index - 1]!, id) > 0)
@@ -555,7 +556,10 @@ function assertCanonicalInventoryBoundary(state: InventoryState, name: string): 
     const transactionId = canonicalString(transaction.transactionId, 'inventory transaction ID');
     const referenceId = canonicalString(transaction.referenceId, 'inventory reference ID');
     const prior = transactionGroups.get(transactionId);
-    if (prior !== undefined && (prior.type !== transaction.type || prior.referenceId !== referenceId)) {
+    if (
+      prior !== undefined &&
+      (prior.type !== transaction.type || prior.referenceId !== referenceId)
+    ) {
       throw new Error(`${name} reuses an inventory transaction ID across mutations`);
     }
     transactionGroups.set(transactionId, { type: transaction.type, referenceId });
@@ -580,7 +584,9 @@ function canonicalE03Authority(
     .sort((left, right) => compareCodeUnitStrings(left.id, right.id));
   const substitutions = substitutionsValue
     .map(cloneSubstitution)
-    .sort((left, right) => left.priority - right.priority || compareCodeUnitStrings(left.id, right.id));
+    .sort(
+      (left, right) => left.priority - right.priority || compareCodeUnitStrings(left.id, right.id),
+    );
   const serviceIds = serviceRecipesSorted.map((recipe) => recipe.id);
   const recipeIds = recipeVersions.map((recipe) => recipe.id);
   if (
@@ -674,7 +680,10 @@ function deriveClosingTickCeiling(
   admissionEnabled: boolean,
   frontDelay: number,
 ): number {
-  const maxPatience = arrivals.reduce((maximum, group) => Math.max(maximum, group.hiddenPatienceTicks), 0);
+  const maxPatience = arrivals.reduce(
+    (maximum, group) => Math.max(maximum, group.hiddenPatienceTicks),
+    0,
+  );
   if (!admissionEnabled) return maxPatience + 1;
   const orderUpperBound = arrivals.length;
   const kitchenTicks = Math.ceil((orderUpperBound * K_WORK) / kitchenCapacity);
@@ -694,7 +703,8 @@ export function createAdvanceServicePeriodInput(
   if (authority.businessDay !== 1 || intent.businessDay !== authority.businessDay) {
     throw new Error('ADVANCE_SERVICE_PERIOD business day is stale');
   }
-  if (!(authority.servicePeriodPlan in periodsByPlan)) throw new Error('unknown service period plan');
+  if (!(authority.servicePeriodPlan in periodsByPlan))
+    throw new Error('unknown service period plan');
   validateDemandAuthority(authority);
   validateEquipment(authority.equipment);
   validateFloorFlowProfile(authority.floorFlowServiceProfile);
@@ -724,7 +734,9 @@ export function createAdvanceServicePeriodInput(
     previousResultHash = authority.previousResult.resultHash;
     initialReputation = authority.previousResult.reputation;
     eventSequenceStart = authority.previousResult.nextEventSequence;
-    if (canonicalHash(authorityInventory) !== canonicalHash(authority.previousResult.inventoryState)) {
+    if (
+      canonicalHash(authorityInventory) !== canonicalHash(authority.previousResult.inventoryState)
+    ) {
       throw new Error('later service periods must resume only from the prior E03 inventory result');
     }
     inventoryState = cloneInventoryState(authority.previousResult.inventoryState);
@@ -748,18 +760,18 @@ export function createAdvanceServicePeriodInput(
   const workers = deepFreeze(player === undefined ? [...npcs] : [...npcs, player]);
   const authorizedPlayerIds = player === undefined ? [] : [player.id];
   const equipment = deepFreeze({ ...authority.equipment });
-  const kitchenCapacity = calculateWorkCapacity(
-    workers,
-    'KITCHEN',
-    equipment,
-    authorizedPlayerIds,
-  );
+  const kitchenCapacity = calculateWorkCapacity(workers, 'KITCHEN', equipment, authorizedPlayerIds);
   const frontCapacity = calculateWorkCapacity(workers, 'FRONT', equipment, authorizedPlayerIds);
   const admissionEnabled = kitchenCapacity > 0 && frontCapacity > 0;
   const arrivals = deepFreeze(
     authority.demandSchedule.groups
       .filter((group) => group.period === periodKey)
-      .map((group) => deepFreeze({ ...group, recipePreferenceOrder: deepFreeze([...group.recipePreferenceOrder]) })),
+      .map((group) =>
+        deepFreeze({
+          ...group,
+          recipePreferenceOrder: deepFreeze([...group.recipePreferenceOrder]),
+        }),
+      ),
   );
   const recipes = e03.serviceRecipes;
   const window = periodWindow(authority.servicePeriodPlan, periodKey);
@@ -851,7 +863,8 @@ function assertCanonicalInput(snapshot: AdvanceServicePeriodInputSnapshot): void
     snapshot.enabledSubstitutions,
   );
   if (
-    canonicalHash({ recipes: snapshot.recipes }) !== canonicalHash({ recipes: e03.serviceRecipes }) ||
+    canonicalHash({ recipes: snapshot.recipes }) !==
+      canonicalHash({ recipes: e03.serviceRecipes }) ||
     canonicalHash({ recipeVersions: snapshot.recipeVersions }) !==
       canonicalHash({ recipeVersions: e03.recipeVersions }) ||
     canonicalHash({ substitutions: snapshot.enabledSubstitutions }) !==
@@ -897,7 +910,7 @@ function assertCanonicalInput(snapshot: AdvanceServicePeriodInputSnapshot): void
     snapshot.workers.some(
       (worker) =>
         worker.kind === 'NPC' &&
-        (worker.role !== 'KITCHEN_STAFF' && worker.role !== 'CASHIER' ||
+        ((worker.role !== 'KITCHEN_STAFF' && worker.role !== 'CASHIER') ||
           worker.ability !== 'MEDIUM' ||
           (worker.morale !== 'NORMAL' && worker.morale !== 'LOW') ||
           !worker.present),
@@ -989,7 +1002,10 @@ function createInventoryAdapter(
   const authority: ServiceInventoryAuthority = {
     reserveOrder(input) {
       if (closed) throw new Error('E03 inventory period is already closed');
-      if (pending.has(input.orderId) || outcomes.some((outcome) => outcome.orderId === input.orderId)) {
+      if (
+        pending.has(input.orderId) ||
+        outcomes.some((outcome) => outcome.orderId === input.orderId)
+      ) {
         throw new Error('E03 inventory order identity is not unique');
       }
       for (const recipeId of input.recipePreferenceOrder) {
@@ -1137,8 +1153,7 @@ function serviceInput(
 
 function isComplete(result: ReturnType<typeof simulateServiceDay>): boolean {
   return (
-    result.waitingGroupIds.length === 0 &&
-    result.orders.every((order) => order.state === 'SERVED')
+    result.waitingGroupIds.length === 0 && result.orders.every((order) => order.state === 'SERVED')
   );
 }
 
@@ -1149,11 +1164,7 @@ export function replayAdvanceServicePeriod(
 
   const inventoryAdapter = createInventoryAdapter(inputSnapshot);
   const result = simulateServiceDay(
-    serviceInput(
-      inputSnapshot,
-      inputSnapshot.closingTickCeiling,
-      inventoryAdapter.authority,
-    ),
+    serviceInput(inputSnapshot, inputSnapshot.closingTickCeiling, inventoryAdapter.authority),
   );
   if (!isComplete(result)) {
     throw new Error('service period did not drain within its input-derived safe ceiling');
@@ -1203,8 +1214,9 @@ export function replayAdvanceServicePeriod(
     waitingGroupIds: deepFreeze([...result.waitingGroupIds]),
     inventoryState: finalInventoryState,
     inventoryOutcomes: deepFreeze(
-      inventoryOutcomes.map((outcome) => deepFreeze(clonePlainData(outcome, 'E03 order outcome'))) as
-        readonly ServiceInventoryOrderOutcome[],
+      inventoryOutcomes.map((outcome) =>
+        deepFreeze(clonePlainData(outcome, 'E03 order outcome')),
+      ) as readonly ServiceInventoryOrderOutcome[],
     ),
     reputation: deepFreeze({ ...result.reputation }),
     flowRiskHigh: result.flowRiskHigh,

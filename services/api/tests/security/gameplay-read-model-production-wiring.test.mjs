@@ -22,12 +22,18 @@ test('complete production identity composition wires durable bootstrap and read 
   );
   assert.match(production, /bootstrapInitializer,/);
   assert.match(production, /bootstrapWebIdentityResolver: createBootstrapWebIdentityResolver/);
-  assert.match(appComposition, /new PrismaGameplayReadModelRepository\(options\.durableCommandDatabase\)/);
+  assert.match(
+    appComposition,
+    /new PrismaGameplayReadModelRepository\(options\.durableCommandDatabase\)/,
+  );
   assert.match(appComposition, /registerGameplayReadModelRoutes\(app,/);
 });
 
 test('production integration contract covers no-save discovery followed by bootstrap POST', () => {
-  assert.match(integration, /complete production composition jointly exposes no-save discovery and durable bootstrap POST/);
+  assert.match(
+    integration,
+    /complete production composition jointly exposes no-save discovery and durable bootstrap POST/,
+  );
   assert.match(integration, /url: '\/gameplay\/active-save'/);
   assert.match(integration, /url: '\/bootstrap\/actions\/INITIALIZE_COMPETITIVE_SAVE'/);
   assert.match(integration, /state: 'INITIALIZE_REQUIRED'/);

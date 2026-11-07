@@ -9,10 +9,7 @@ import {
   type TrustedCommandContext,
 } from '../commands/command-contract.js';
 import { CommandDispatcher } from '../commands/command-dispatcher.js';
-import type {
-  D03Database,
-  D03Queryable,
-} from '../domains/ledger/postgres-ledger-store.js';
+import type { D03Database, D03Queryable } from '../domains/ledger/postgres-ledger-store.js';
 import { PostgresDurableCommandExecutionStore } from '../domains/ledger/postgres-ledger-store.js';
 import { createOpeningSnapshot } from '../domains/opening-scenario/snapshot.js';
 import { MVP_OPENING_VERSIONS } from '../domains/opening-scenario/registry.js';
@@ -238,20 +235,22 @@ class ConfigureDatabase implements D03Database {
           if (!this.authorityAvailable) return [] as R;
           const existingDay = next.businessDays[0];
           const existingSnapshotCount = next.snapshots.length;
-          return [{
-            saveId: 'save-1',
-            openingScenario: 'DEFAULT_SMALL_SHOP',
-            operatingMode: 'STRATEGY',
-            servicePeriodPlan: 'TWO_PERIODS',
-            demandSeed: DEMAND_SEED,
-            simulationRuleVersion: this.authoritySnapshot.simulationRuleVersion,
-            settlementCurrency: 'TWD',
-            openingSnapshot: this.authoritySnapshot,
-            openingSnapshotHash: this.authoritySnapshot.openingSnapshotHash,
-            existingBusinessDayId: existingDay?.id ?? null,
-            existingBusinessDayStatus: existingDay?.status ?? null,
-            existingPreopenSnapshotCount: existingSnapshotCount,
-          }] as R;
+          return [
+            {
+              saveId: 'save-1',
+              openingScenario: 'DEFAULT_SMALL_SHOP',
+              operatingMode: 'STRATEGY',
+              servicePeriodPlan: 'TWO_PERIODS',
+              demandSeed: DEMAND_SEED,
+              simulationRuleVersion: this.authoritySnapshot.simulationRuleVersion,
+              settlementCurrency: 'TWD',
+              openingSnapshot: this.authoritySnapshot,
+              openingSnapshotHash: this.authoritySnapshot.openingSnapshotHash,
+              existingBusinessDayId: existingDay?.id ?? null,
+              existingBusinessDayStatus: existingDay?.status ?? null,
+              existingPreopenSnapshotCount: existingSnapshotCount,
+            },
+          ] as R;
         }
         if (query.includes('/* configure-preopen-day:authority */')) {
           if (!this.authorityAvailable) return [] as R;
@@ -562,7 +561,7 @@ test('strict input rejection rolls back receipt and performs no gameplay/outbox 
     dispatch(
       database,
       configureCommand({
-      payload: { ...validPayload(), demandSeed: 'client-forged-authority' },
+        payload: { ...validPayload(), demandSeed: 'client-forged-authority' },
       }),
     ),
     (error) =>
@@ -604,7 +603,10 @@ test('snapshot insertion follows BusinessDay insertion and failure rolls both wr
 test('ledger insertion failure rolls back receipt, plan, ledger, outbox, and save version', async () => {
   const database = new ConfigureDatabase();
   database.failLedgerLineInsert = true;
-  await assert.rejects(dispatch(database, configureCommand()), /injected ledger line insert failure/);
+  await assert.rejects(
+    dispatch(database, configureCommand()),
+    /injected ledger line insert failure/,
+  );
   assert.equal(database.receiptCount, 0);
   assert.equal(database.businessDays.length, 0);
   assert.equal(database.snapshots.length, 0);
@@ -704,9 +706,18 @@ test('forged opening accounting authority is rejected before gameplay or ledger 
 });
 
 test('RBAC and durable scope both fail closed before authority lookup or writes', async () => {
-  assert.equal(gameplaySaveScopedCommandAuthorizationPolicy.isAllowed(CONFIGURE_PREOPEN_DAY, 'OWNER'), true);
-  assert.equal(gameplaySaveScopedCommandAuthorizationPolicy.isAllowed(CONFIGURE_PREOPEN_DAY, 'MANAGER'), true);
-  assert.equal(gameplaySaveScopedCommandAuthorizationPolicy.isAllowed(CONFIGURE_PREOPEN_DAY, 'CASHIER'), false);
+  assert.equal(
+    gameplaySaveScopedCommandAuthorizationPolicy.isAllowed(CONFIGURE_PREOPEN_DAY, 'OWNER'),
+    true,
+  );
+  assert.equal(
+    gameplaySaveScopedCommandAuthorizationPolicy.isAllowed(CONFIGURE_PREOPEN_DAY, 'MANAGER'),
+    true,
+  );
+  assert.equal(
+    gameplaySaveScopedCommandAuthorizationPolicy.isAllowed(CONFIGURE_PREOPEN_DAY, 'CASHIER'),
+    false,
+  );
   const compositionSource = readFileSync(new URL('../app-composition.ts', import.meta.url), 'utf8');
   assert.match(compositionSource, /createConfigurePreopenDayCommandHandler\(\)/);
 

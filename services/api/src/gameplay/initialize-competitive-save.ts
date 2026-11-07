@@ -114,51 +114,65 @@ export interface InitializeCompetitiveSaveUnitOfWork {
     authorityId: string,
   ): Promise<QualifyingBootstrapAuthority | undefined>;
   lockLatestEpoch(authorityId: string): Promise<BootstrapEpochRecord | undefined>;
-  createRestaurant(input: Readonly<{
-    id: string;
-    name: string;
-    timezone: string;
-  }>): Promise<void>;
-  createOwnerMembership(input: Readonly<{
-    id: string;
-    playerId: string;
-    restaurantId: string;
-  }>): Promise<void>;
-  createCompetitiveSave(input: Readonly<{
-    id: string;
-    playerId: string;
-    restaurantId: string;
-    plan: ServerDerivedBootstrapPlan;
-  }>): Promise<void>;
-  createMarketSeedAuthority(input: Readonly<{
-    restaurantId: string;
-    saveId: string;
-    seed: string;
-    seedVersion: string;
-    createdByCommandId: string;
-  }>): Promise<void>;
-  createInventoryPoolState(input: Readonly<{
-    restaurantId: string;
-    saveId: string;
-    pool: InventoryPool;
-    revision: number;
-    capacityPoints: number;
-    storageBundleVersion: string;
-    storageBundleKind: string;
-    updatedByCommandId: string;
-  }>): Promise<void>;
-  createOwnerAudit(input: Readonly<{
-    id: string;
-    playerId: string;
-    restaurantId: string;
-    membershipId: string;
-    commandId: string;
-  }>): Promise<void>;
+  createRestaurant(
+    input: Readonly<{
+      id: string;
+      name: string;
+      timezone: string;
+    }>,
+  ): Promise<void>;
+  createOwnerMembership(
+    input: Readonly<{
+      id: string;
+      playerId: string;
+      restaurantId: string;
+    }>,
+  ): Promise<void>;
+  createCompetitiveSave(
+    input: Readonly<{
+      id: string;
+      playerId: string;
+      restaurantId: string;
+      plan: ServerDerivedBootstrapPlan;
+    }>,
+  ): Promise<void>;
+  createMarketSeedAuthority(
+    input: Readonly<{
+      restaurantId: string;
+      saveId: string;
+      seed: string;
+      seedVersion: string;
+      createdByCommandId: string;
+    }>,
+  ): Promise<void>;
+  createInventoryPoolState(
+    input: Readonly<{
+      restaurantId: string;
+      saveId: string;
+      pool: InventoryPool;
+      revision: number;
+      capacityPoints: number;
+      storageBundleVersion: string;
+      storageBundleKind: string;
+      updatedByCommandId: string;
+    }>,
+  ): Promise<void>;
+  createOwnerAudit(
+    input: Readonly<{
+      id: string;
+      playerId: string;
+      restaurantId: string;
+      membershipId: string;
+      commandId: string;
+    }>,
+  ): Promise<void>;
   createEpoch(input: BootstrapEpochRecord): Promise<void>;
 }
 
 export interface InitializeCompetitiveSaveRepository {
-  provision(input: InitializeCompetitiveSaveTransactionInput): Promise<InitializeCompetitiveSaveResult>;
+  provision(
+    input: InitializeCompetitiveSaveTransactionInput,
+  ): Promise<InitializeCompetitiveSaveResult>;
 }
 
 export type InitializeCompetitiveSaveTransactionInput = Readonly<{
@@ -293,7 +307,9 @@ export class InitializeCompetitiveSaveService {
   }
 }
 
-export function parseInitializeCompetitiveSaveIntent(input: unknown): InitializeCompetitiveSaveIntent {
+export function parseInitializeCompetitiveSaveIntent(
+  input: unknown,
+): InitializeCompetitiveSaveIntent {
   if (!isRecord(input)) throw invalid();
   const expected = ['operatingMode', 'scenario', 'servicePeriodPlan', 'settlementCurrency'];
   const keys = Object.keys(input).sort();
@@ -324,7 +340,10 @@ function validateTrustedInput(input: InitializeCompetitiveSaveTransactionInput):
     input.plan.saveId,
     input.plan.ownerAuditLogId,
   ];
-  if (identifiers.some((value) => !value.trim()) || !isBootstrapCommandId(input.context.commandId)) {
+  if (
+    identifiers.some((value) => !value.trim()) ||
+    !isBootstrapCommandId(input.context.commandId)
+  ) {
     throw invalid();
   }
   if (!/^[0-9a-f]{64}$/.test(input.context.requestFingerprint)) throw invalid();
@@ -375,9 +394,7 @@ function validateTrustedInput(input: InitializeCompetitiveSaveTransactionInput):
 export function isBootstrapCommandId(value: unknown): value is string {
   return (
     typeof value === 'string' &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value,
-    )
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
   );
 }
 

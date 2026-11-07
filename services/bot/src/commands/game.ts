@@ -35,8 +35,12 @@ export const data = new SlashCommandBuilder()
           ),
       ),
   )
-  .addSubcommand((subcommand) => subcommand.setName('settle').setDescription('Settle business day one'))
-  .addSubcommand((subcommand) => subcommand.setName('replay').setDescription('Request or show day replay'))
+  .addSubcommand((subcommand) =>
+    subcommand.setName('settle').setDescription('Settle business day one'),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand.setName('replay').setDescription('Request or show day replay'),
+  )
   .addSubcommand((subcommand) =>
     subcommand
       .setName('replay-status')

@@ -5,9 +5,7 @@ import {
   type CanonicalEvidenceValue,
 } from '../../../../../packages/econ-game-release-evidence/index.js';
 
-import {
-  deriveFloorFlowServiceProfile,
-} from '../demand-flow/demand-flow.js';
+import { deriveFloorFlowServiceProfile } from '../demand-flow/demand-flow.js';
 import {
   MVP_FIRST_DAY_CATALOG_VERSIONS,
   resolveMvpFirstDayCatalog,
@@ -37,8 +35,7 @@ export const MVP_FIRST_DAY_SETTLEMENT_POLICY_VERSION =
   'mvp-first-day-settlement-policy/v1' as const;
 export const MVP_FIRST_DAY_SETTLEMENT_SIMULATION_RULE = 'mvp-e01-v1' as const;
 
-export type MvpFirstDaySettlementPolicyVersion =
-  typeof MVP_FIRST_DAY_SETTLEMENT_POLICY_VERSION;
+export type MvpFirstDaySettlementPolicyVersion = typeof MVP_FIRST_DAY_SETTLEMENT_POLICY_VERSION;
 export type MvpFirstDayServicePeriodPlan = 'TWO_PERIODS' | 'THREE_PERIODS';
 export type MvpFirstDayServicePeriod = 'LUNCH' | 'OFF_PEAK' | 'DINNER';
 export type MvpFirstDayOwnerAssignment = 'KITCHEN' | 'FRONT' | 'NONE';
@@ -371,10 +368,7 @@ function parseServedOrder(value: unknown, currency: string): ServerServedOrderFi
   });
 }
 
-function parsePeriodExecution(
-  value: unknown,
-  currency: string,
-): ServerPeriodExecutionAuthority {
+function parsePeriodExecution(value: unknown, currency: string): ServerPeriodExecutionAuthority {
   record(value, 'period execution');
   exact(
     value,
@@ -559,11 +553,7 @@ function parseEquipmentDepreciation(
   currency: string,
 ): ServerEquipmentDepreciationAuthority {
   record(value, 'equipment depreciation authority');
-  exact(
-    value,
-    ['source', 'openingSnapshotHash', 'entries'],
-    'equipment depreciation authority',
-  );
+  exact(value, ['source', 'openingSnapshotHash', 'entries'], 'equipment depreciation authority');
   if (value.source !== 'PERSISTED_OPENING_EQUIPMENT_SNAPSHOT') {
     throw new Error('equipment depreciation source is not server-authoritative');
   }
@@ -654,10 +644,7 @@ function parseDerivedMvpFirstDaySettlementAuthority(
     .sort((left, right) => left.contractKey.localeCompare(right.contractKey));
   const lease = parseLease(value.lease, currency);
   const e03DayEnd = parseE03DayEnd(value.e03DayEnd, currency);
-  const equipmentDepreciation = parseEquipmentDepreciation(
-    value.equipmentDepreciation,
-    currency,
-  );
+  const equipmentDepreciation = parseEquipmentDepreciation(value.equipmentDepreciation, currency);
   if (
     lease.openingSnapshotHash !== openingSnapshotHash ||
     equipmentDepreciation.openingSnapshotHash !== openingSnapshotHash
@@ -682,13 +669,15 @@ function parseDerivedMvpFirstDaySettlementAuthority(
   if (
     periodExecutions.length !== expectedPeriods.length ||
     periodExecutions.some(
-      (period, index) => period.ordinal !== index + 1 || period.periodKey !== expectedPeriods[index],
+      (period, index) =>
+        period.ordinal !== index + 1 || period.periodKey !== expectedPeriods[index],
     )
   ) {
     throw new Error('period executions must be the complete canonical Day1 plan');
   }
   for (const period of periodExecutions) {
-    const expectedWindow = windowsByPlan[plan][period.periodKey as keyof (typeof windowsByPlan)[typeof plan]];
+    const expectedWindow =
+      windowsByPlan[plan][period.periodKey as keyof (typeof windowsByPlan)[typeof plan]];
     if (
       expectedWindow === undefined ||
       period.periodWindow.start !== expectedWindow.start ||
@@ -760,10 +749,7 @@ function assertLockedRecordBoundary(value: unknown): MvpFirstDaySettlementLocked
     ['policyVersion', 'businessDay', 'openAuthority', 'executions', 'e03'],
     'MVP first-day settlement locked records',
   );
-  if (
-    value.policyVersion !== MVP_FIRST_DAY_SETTLEMENT_POLICY_VERSION ||
-    value.businessDay !== 1
-  ) {
+  if (value.policyVersion !== MVP_FIRST_DAY_SETTLEMENT_POLICY_VERSION || value.businessDay !== 1) {
     throw new Error('locked settlement record policy version or business day is unsupported');
   }
   record(value.openAuthority, 'locked open authority');
@@ -844,7 +830,9 @@ function validateExecutionRecords(
     metadataVersion: openingSnapshot.currencyMetadataVersion,
   });
   const activeRecipeIds = envelope.menu.items.map((item) => item.recipeVersionId);
-  const recipeVersions = catalog.recipeCatalog.filter((recipe) => activeRecipeIds.includes(recipe.id));
+  const recipeVersions = catalog.recipeCatalog.filter((recipe) =>
+    activeRecipeIds.includes(recipe.id),
+  );
   if (recipeVersions.length !== activeRecipeIds.length) {
     throw new Error('locked menu recipes do not resolve to the canonical first-day catalog');
   }
@@ -940,7 +928,9 @@ function validateExecutionRecords(
       !canonicalEqual(expectedInput, execution.inputSnapshot) ||
       !canonicalEqual(replayed, execution.resultSnapshot)
     ) {
-      throw new Error('locked service-period execution chain or authority provenance is forged or noncanonical');
+      throw new Error(
+        'locked service-period execution chain or authority provenance is forged or noncanonical',
+      );
     }
     previous = execution.resultSnapshot;
   }
@@ -980,7 +970,9 @@ function assertPersistedE03Records(
     throw new Error('locked E03 persisted stock projection is incomplete');
   }
   for (const stock of final.stocks) {
-    const row = e03.inventoryStocks.find((candidate) => candidate.ingredientId === stock.ingredientId);
+    const row = e03.inventoryStocks.find(
+      (candidate) => candidate.ingredientId === stock.ingredientId,
+    );
     const reserved = final.reservedUndelivered
       .filter((entry) => entry.ingredientId === stock.ingredientId)
       .reduce((total, entry) => total + entry.quantityPoints, 0);
@@ -1031,7 +1023,11 @@ function assertPersistedE03Records(
     );
     if (audit !== undefined) {
       record(audit, 'locked E03 audit row');
-      exact(audit, ['commandId', 'commandSequence', 'ingredientId', 'metadata'], 'locked E03 audit row');
+      exact(
+        audit,
+        ['commandId', 'commandSequence', 'ingredientId', 'metadata'],
+        'locked E03 audit row',
+      );
       record(audit.metadata, 'locked E03 audit metadata');
       exact(
         audit.metadata,
@@ -1101,7 +1097,8 @@ function deriveSettlementAuthorityFromLockedRecords(
       execution.resultSnapshot.inventoryOutcomes.map((outcome) => [outcome.orderId, outcome]),
     );
     const servedOrders = execution.resultSnapshot.orders.map((order) => {
-      if (order.state !== 'SERVED') throw new Error('settlement execution contains an unserved order');
+      if (order.state !== 'SERVED')
+        throw new Error('settlement execution contains an unserved order');
       const outcome = outcomeByOrder.get(order.id);
       const salePrice = menuPriceByRecipe.get(order.recipeId);
       if (
@@ -1143,7 +1140,10 @@ function deriveSettlementAuthorityFromLockedRecords(
     const bookValue = BigInt(equipment.bookValue.minorUnits);
     const residualValue = BigInt(equipment.residualValue.minorUnits);
     const scheduled = BigInt(equipment.depreciationPerCompletedBusinessDay.minorUnits);
-    const amount = bookValue > residualValue ? [scheduled, bookValue - residualValue].sort((a, b) => (a < b ? -1 : 1))[0]! : 0n;
+    const amount =
+      bookValue > residualValue
+        ? [scheduled, bookValue - residualValue].sort((a, b) => (a < b ? -1 : 1))[0]!
+        : 0n;
     return {
       assetKey: equipment.assetKey,
       termsVersion: equipment.termsVersion,
@@ -1229,8 +1229,14 @@ function fairnessWorkers(
     fulfilledPeriodKeys: [...allPeriods],
     scheduledPeriodUnits: allPeriods.length,
     fulfilledPeriodUnits: allPeriods.length,
-    scheduledTickUnits: allPeriods.reduce((total, period) => total + (tickUnits.get(period) ?? 0), 0),
-    fulfilledTickUnits: allPeriods.reduce((total, period) => total + (tickUnits.get(period) ?? 0), 0),
+    scheduledTickUnits: allPeriods.reduce(
+      (total, period) => total + (tickUnits.get(period) ?? 0),
+      0,
+    ),
+    fulfilledTickUnits: allPeriods.reduce(
+      (total, period) => total + (tickUnits.get(period) ?? 0),
+      0,
+    ),
   }));
   const humanPeriods = new Map<string, MvpFirstDayServicePeriod[]>();
   for (const period of authority.periodExecutions) {
@@ -1362,8 +1368,14 @@ function composeDerivedMvpFirstDaySettlementEvidence(
     fairness: deepFreeze({
       unit: 'CANONICAL_SERVICE_PERIOD_AND_TICK',
       workers,
-      scheduledPeriodUnits: workers.reduce((total, worker) => total + worker.scheduledPeriodUnits, 0),
-      fulfilledPeriodUnits: workers.reduce((total, worker) => total + worker.fulfilledPeriodUnits, 0),
+      scheduledPeriodUnits: workers.reduce(
+        (total, worker) => total + worker.scheduledPeriodUnits,
+        0,
+      ),
+      fulfilledPeriodUnits: workers.reduce(
+        (total, worker) => total + worker.fulfilledPeriodUnits,
+        0,
+      ),
       scheduledTickUnits: workers.reduce((total, worker) => total + worker.scheduledTickUnits, 0),
       fulfilledTickUnits: workers.reduce((total, worker) => total + worker.fulfilledTickUnits, 0),
     }),
@@ -1381,8 +1393,12 @@ function assertCanonicalSettlementEvidencePayload(
   value: Record<string, unknown>,
   plan: MvpFirstDayServicePeriodPlan,
 ): void {
-  const simulationRuleVersion = string(value.simulationRuleVersion, 'evidence simulationRuleVersion');
-  if (simulationRuleVersion.length === 0) throw new Error('evidence simulationRuleVersion is required');
+  const simulationRuleVersion = string(
+    value.simulationRuleVersion,
+    'evidence simulationRuleVersion',
+  );
+  if (simulationRuleVersion.length === 0)
+    throw new Error('evidence simulationRuleVersion is required');
 
   record(value.authorityReferences, 'evidence authorityReferences');
   exact(
@@ -1401,10 +1417,7 @@ function assertCanonicalSettlementEvidencePayload(
     value.authorityReferences.openingSnapshotHash,
     'evidence openingSnapshotHash',
   );
-  hash(
-    value.authorityReferences.preopenAccountingSnapshotHash,
-    'evidence preopen accounting hash',
-  );
+  hash(value.authorityReferences.preopenAccountingSnapshotHash, 'evidence preopen accounting hash');
   hash(value.authorityReferences.finalInventoryHash, 'evidence finalInventoryHash');
   string(value.authorityReferences.leaseTermsVersion, 'evidence leaseTermsVersion');
   if (!Array.isArray(value.authorityReferences.equipmentTermsVersions)) {
@@ -1463,11 +1476,7 @@ function assertCanonicalSettlementEvidencePayload(
         evidenceCurrency,
       );
       evidenceCurrency ??= revenue.currency;
-      const cogs = evidenceMoneyUnits(
-        order.cogs,
-        'evidence served order COGS',
-        evidenceCurrency,
-      );
+      const cogs = evidenceMoneyUnits(order.cogs, 'evidence served order COGS', evidenceCurrency);
       evidenceRevenue += revenue.units;
       evidenceCogs += cogs.units;
     }
@@ -1613,7 +1622,8 @@ function assertCanonicalSettlementEvidencePayload(
     }
   }
 
-  if (!Array.isArray(value.payrollEntries)) throw new Error('evidence payrollEntries must be an array');
+  if (!Array.isArray(value.payrollEntries))
+    throw new Error('evidence payrollEntries must be an array');
   let payrollEntryTotal = 0n;
   let previousContractKey: string | undefined;
   const payrollNpcKeys = new Set<string>();
@@ -1637,7 +1647,8 @@ function assertCanonicalSettlementEvidencePayload(
       evidenceCurrency,
     ).units;
   }
-  if (payrollEntryTotal !== pnlPayroll) throw new Error('evidence payroll entries do not reconcile');
+  if (payrollEntryTotal !== pnlPayroll)
+    throw new Error('evidence payroll entries do not reconcile');
 
   record(value.fairness, 'evidence fairness');
   exact(
@@ -1658,7 +1669,12 @@ function assertCanonicalSettlementEvidencePayload(
   ) {
     throw new Error('evidence fairness unit or workers are invalid');
   }
-  const fairnessTotals = { scheduledPeriods: 0, fulfilledPeriods: 0, scheduledTicks: 0, fulfilledTicks: 0 };
+  const fairnessTotals = {
+    scheduledPeriods: 0,
+    fulfilledPeriods: 0,
+    scheduledTicks: 0,
+    fulfilledTicks: 0,
+  };
   let previousWorkerId: string | undefined;
   for (const worker of value.fairness.workers) {
     record(worker, 'evidence fairness worker');
@@ -1691,7 +1707,8 @@ function assertCanonicalSettlementEvidencePayload(
     if (
       scheduledKeys.length !== fulfilledKeys.length ||
       scheduledKeys.some(
-        (period, index) => period !== fulfilledKeys[index] || !canonicalPeriods.includes(period as never),
+        (period, index) =>
+          period !== fulfilledKeys[index] || !canonicalPeriods.includes(period as never),
       )
     ) {
       throw new Error('evidence fairness scheduled and fulfilled periods must match canonically');

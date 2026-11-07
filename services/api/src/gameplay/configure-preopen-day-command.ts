@@ -1,13 +1,7 @@
 import { createHash } from 'node:crypto';
 
-import {
-  CommandError,
-  type CanonicalCommandValue,
-} from '../commands/command-contract.js';
-import type {
-  CommandHandler,
-  LedgerTransactionalEffect,
-} from '../commands/command-dispatcher.js';
+import { CommandError, type CanonicalCommandValue } from '../commands/command-contract.js';
+import type { CommandHandler, LedgerTransactionalEffect } from '../commands/command-dispatcher.js';
 import { provideCanonicalFirstDayPreopenArtifacts } from './preopen-day-authority-provider.js';
 import { parseConfigurePreopenDayIntent } from './preopen-day-contract.js';
 import {
@@ -25,10 +19,7 @@ export function createConfigurePreopenDayCommandHandler(): CommandHandler {
   return Object.freeze({
     commandType: CONFIGURE_PREOPEN_DAY,
     async execute({ context, command, currentVersion, persistence }) {
-      if (
-        command.commandType !== CONFIGURE_PREOPEN_DAY ||
-        command.aggregateId !== context.saveId
-      ) {
+      if (command.commandType !== CONFIGURE_PREOPEN_DAY || command.aggregateId !== context.saveId) {
         throw new CommandError(422, 'PREOPEN_COMMAND_SCOPE_INVALID');
       }
       let intent;
@@ -166,8 +157,7 @@ export function createPreopenProcurementLedgerEffect(
   );
   const openingCash = openingCashEntries[0];
   if (
-    privateEnvelope.accountingEvidence.accountingVersion !==
-      privateEnvelope.versions.accounting ||
+    privateEnvelope.accountingEvidence.accountingVersion !== privateEnvelope.versions.accounting ||
     privateEnvelope.accountingEvidence.entries.length !== 1 ||
     openingCashEntries.length !== 1 ||
     openingCash === undefined ||
@@ -246,7 +236,9 @@ function privateIdentity(
   ingredientId: string,
 ): string {
   const digest = createHash('sha256')
-    .update(`${kind}\u0000${commandId}\u0000${preopenSnapshotId}\u0000${saveId}\u0000${ingredientId}`)
+    .update(
+      `${kind}\u0000${commandId}\u0000${preopenSnapshotId}\u0000${saveId}\u0000${ingredientId}`,
+    )
     .digest('hex');
   return `${kind}:${digest}`;
 }

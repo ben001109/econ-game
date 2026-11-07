@@ -8,21 +8,25 @@ export function registerWipeExecutionLeaseRoutes(
   service: WipeExecutionLeaseService | undefined,
   allowTestService = false,
 ) {
-  for (const [action, phase] of [['clear', 'CLEARED'], ['verify', 'VERIFIED']] as const) {
+  for (const [action, phase] of [
+    ['clear', 'CLEARED'],
+    ['verify', 'VERIFIED'],
+  ] as const) {
     app.post<{ Params: { tenantId: string; batchId: string }; Body: unknown }>(
       `/closed-beta/tenants/:tenantId/wipe-batches/:batchId/${action}-leases`,
-      async (request, reply) => leaseReply(reply, async () => {
-        if (!service || (!allowTestService && !service.isDurable())) {
-          throw new CommandError(503, 'WIPE_EXECUTION_PERSISTENCE_REQUIRED');
-        }
-        return service.request(
-          bearer(request.headers.authorization),
-          request.params.tenantId,
-          request.params.batchId,
-          phase,
-          request.body,
-        );
-      }),
+      async (request, reply) =>
+        leaseReply(reply, async () => {
+          if (!service || (!allowTestService && !service.isDurable())) {
+            throw new CommandError(503, 'WIPE_EXECUTION_PERSISTENCE_REQUIRED');
+          }
+          return service.request(
+            bearer(request.headers.authorization),
+            request.params.tenantId,
+            request.params.batchId,
+            phase,
+            request.body,
+          );
+        }),
     );
   }
 }

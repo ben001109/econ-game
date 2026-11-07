@@ -117,7 +117,10 @@ export class PostgresDayReplayEvidenceSource implements DayReplayEvidenceSource 
         input.saveId,
         input.businessDay,
       );
-      return Object.freeze({ snapshot: Object.freeze({ ...snapshot }), events: Object.freeze([...events]) });
+      return Object.freeze({
+        snapshot: Object.freeze({ ...snapshot }),
+        events: Object.freeze([...events]),
+      });
     });
   }
 }

@@ -130,14 +130,10 @@ function durableDatabase(state: DatabaseState): ProductionApiDatabase {
         query.includes('membership."revokedAt" IS NULL') &&
         query.includes('FOR SHARE OF save, membership')
       ) {
-        return wipeScopeState !== 'no-access' ? [{ id: 'save-1' }] as T : [] as T;
+        return wipeScopeState !== 'no-access' ? ([{ id: 'save-1' }] as T) : ([] as T);
       }
-      if (
-        query.includes(
-          'SELECT scope."saveId" AS "id" FROM "WipeBatchSaveScope" scope',
-        )
-      ) {
-        return wipeScopeState === 'frozen' ? [{ id: values[1] as string }] as T : [] as T;
+      if (query.includes('SELECT scope."saveId" AS "id" FROM "WipeBatchSaveScope" scope')) {
+        return wipeScopeState === 'frozen' ? ([{ id: values[1] as string }] as T) : ([] as T);
       }
       if (query.includes('d05_is_entrance_eligible')) {
         return [{ eligible: state.closedBetaEligible }] as T;
@@ -146,22 +142,24 @@ function durableDatabase(state: DatabaseState): ProductionApiDatabase {
         return [] as T;
       }
       if (query.includes('/* gameplay-read:scoped-save */')) {
-        return (state.gameplayActiveSave
-          ? [
-              {
-                id: 'save-1',
-                restaurantId: 'tenant-one',
-                membershipId: 'membership-1',
-                role: 'OWNER',
-                version: 1,
-                openingScenario: 'DEFAULT_SMALL_SHOP',
-                operatingMode: 'STRATEGY',
-                servicePeriodPlan: 'TWO_PERIODS',
-                difficultyGroup: 'STANDARD',
-                simulationRuleVersion: 'mvp-e01-v1',
-              },
-            ]
-          : []) as T;
+        return (
+          state.gameplayActiveSave
+            ? [
+                {
+                  id: 'save-1',
+                  restaurantId: 'tenant-one',
+                  membershipId: 'membership-1',
+                  role: 'OWNER',
+                  version: 1,
+                  openingScenario: 'DEFAULT_SMALL_SHOP',
+                  operatingMode: 'STRATEGY',
+                  servicePeriodPlan: 'TWO_PERIODS',
+                  difficultyGroup: 'STANDARD',
+                  simulationRuleVersion: 'mvp-e01-v1',
+                },
+              ]
+            : []
+        ) as T;
       }
       throw new Error('unexpected durable query');
     },
@@ -317,7 +315,7 @@ test('complete production composition jointly exposes no-save discovery and dura
   assert.equal((initialized.json() as { aggregateVersion: number }).aggregateVersion, 1);
   assert.equal(calls.length, 1);
   assert.deepEqual(
-    (calls[0] as { actorPlayerId: string; aggregateScope: string; expectedVersion: number }),
+    calls[0] as { actorPlayerId: string; aggregateScope: string; expectedVersion: number },
     {
       actorPlayerId: 'player-1',
       aggregateScope: 'bootstrap-player:player-1',
@@ -571,7 +569,12 @@ test('production composition command path applies wipe-scope states correctly', 
   const accessQuery = 'SELECT save."id" FROM "CompetitiveSave" save';
   const frozenScopeQuery = 'SELECT scope."saveId" AS "id" FROM "WipeBatchSaveScope" scope';
 
-  const allowedCommand = await app.inject({ method: 'POST', url: commandUrl(), headers: { authorization }, payload: {} });
+  const allowedCommand = await app.inject({
+    method: 'POST',
+    url: commandUrl(),
+    headers: { authorization },
+    payload: {},
+  });
   assert.equal(allowedCommand.statusCode, 422);
   assert.equal(errorCode(allowedCommand), 'COMMAND_ENVELOPE_INVALID');
   assert.equal(

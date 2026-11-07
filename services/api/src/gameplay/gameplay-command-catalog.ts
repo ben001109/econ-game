@@ -135,12 +135,11 @@ export const gameplayCommandCatalog: readonly GameplayCommandCatalogEntry[] = Ob
     ['competitiveSave', 'openingSnapshot', 'activeMembershipAudit'],
     { required: false, acceptedStatus: 200, projection: 'NONE' },
   ),
-  entry(
-    'CONFIGURE_PREOPEN_DAY',
-    ['OWNER', 'MANAGER'],
-    ['competitiveSave', 'preopenDaySnapshot'],
-    { required: false, acceptedStatus: 200, projection: 'NONE' },
-  ),
+  entry('CONFIGURE_PREOPEN_DAY', ['OWNER', 'MANAGER'], ['competitiveSave', 'preopenDaySnapshot'], {
+    required: false,
+    acceptedStatus: 200,
+    projection: 'NONE',
+  }),
   entry(
     'OPEN_BUSINESS_DAY',
     ['OWNER', 'MANAGER'],

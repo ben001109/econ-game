@@ -3,7 +3,11 @@ import type { FastifyInstance } from 'fastify';
 
 import { JwtVerificationError, type JwtVerifier } from '../auth/jwt-verifier.js';
 import type { PlayerRecord } from '../auth/trusted-command-context.js';
-import { CommandError, isCommandError, type CanonicalCommandValue } from '../commands/command-contract.js';
+import {
+  CommandError,
+  isCommandError,
+  type CanonicalCommandValue,
+} from '../commands/command-contract.js';
 import {
   INITIALIZE_COMPETITIVE_SAVE,
   InitializeCompetitiveSaveError,
@@ -23,19 +27,23 @@ export type BootstrapWebIdentityResolver = (
 
 export type DurableBootstrapInitializer = Readonly<{
   durability: 'durable';
-  initialize(input: Readonly<{
-    actorPlayerId: string;
-    aggregateScope: string;
-    commandId: string;
-    idempotencyKey: string;
-    expectedVersion: number;
-    requestFingerprint: string;
-    intent: InitializeCompetitiveSaveIntent;
-  }>): Promise<Readonly<{
-    commandId: string;
-    aggregateVersion: number;
-    result: JsonValue;
-  }>>;
+  initialize(
+    input: Readonly<{
+      actorPlayerId: string;
+      aggregateScope: string;
+      commandId: string;
+      idempotencyKey: string;
+      expectedVersion: number;
+      requestFingerprint: string;
+      intent: InitializeCompetitiveSaveIntent;
+    }>,
+  ): Promise<
+    Readonly<{
+      commandId: string;
+      aggregateVersion: number;
+      result: JsonValue;
+    }>
+  >;
 }>;
 
 export type TestBootstrapInitializer = Omit<DurableBootstrapInitializer, 'durability'> &
@@ -98,12 +106,14 @@ export function registerInitializeCompetitiveSaveRoutes(
   });
 }
 
-export function createBootstrapWebIdentityResolver(options: Readonly<{
-  jwtVerifier: JwtVerifier;
-  repository: Readonly<{
-    findPlayerByClerkSubject(subject: string): Promise<PlayerRecord | undefined>;
-  }>;
-}>): BootstrapWebIdentityResolver {
+export function createBootstrapWebIdentityResolver(
+  options: Readonly<{
+    jwtVerifier: JwtVerifier;
+    repository: Readonly<{
+      findPlayerByClerkSubject(subject: string): Promise<PlayerRecord | undefined>;
+    }>;
+  }>,
+): BootstrapWebIdentityResolver {
   return async (bearerToken) => {
     try {
       const verified = await options.jwtVerifier.verify(bearerToken);

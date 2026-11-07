@@ -114,9 +114,7 @@ class FakeRepository implements InitializeCompetitiveSaveRepository {
     | 'epoch'
     | undefined;
 
-  constructor(
-    state: Partial<FakeState> = {},
-  ) {
+  constructor(state: Partial<FakeState> = {}) {
     this.current = {
       authority: state.authority ?? {
         id: 'authority-1',
@@ -169,7 +167,9 @@ class FakeUnitOfWork implements InitializeCompetitiveSaveUnitOfWork {
 
   async lockQualifyingAuthority(actorPlayerId: string, authorityId: string) {
     const authority = this.state.authority;
-    return this.state.eligible && authority.id === authorityId && authority.playerId === actorPlayerId
+    return this.state.eligible &&
+      authority.id === authorityId &&
+      authority.playerId === actorPlayerId
       ? authority
       : undefined;
   }
@@ -243,10 +243,7 @@ function copyState(state: FakeState): FakeState {
   };
 }
 
-function epoch(
-  status: BootstrapEpochRecord['status'],
-  epochNumber = 1,
-): BootstrapEpochRecord {
+function epoch(status: BootstrapEpochRecord['status'], epochNumber = 1): BootstrapEpochRecord {
   return Object.freeze({
     id: `epoch-${epochNumber}`,
     authorityId: 'authority-1',
@@ -347,7 +344,9 @@ test('first provisioning commits one isolated restaurant OWNER save audit and ep
 test('source restaurant reuse and authority mismatches share a non-leaking forbidden outcome', async () => {
   const sourceReuse = new FakeRepository();
   await assert.rejects(
-    sourceReuse.provision(request({ plan: { ...plan(), provisionedRestaurantId: 'eligibility-source' } })),
+    sourceReuse.provision(
+      request({ plan: { ...plan(), provisionedRestaurantId: 'eligibility-source' } }),
+    ),
     isError(403, 'INITIALIZE_COMPETITIVE_SAVE_FORBIDDEN'),
   );
   const wrongActor = new FakeRepository();
@@ -421,14 +420,36 @@ test('malformed market and inventory-pool authority rejects before every effect'
   const validPlan = plan();
   const postgresNul = String.fromCharCode(0);
   const invalidPlans: readonly ServerDerivedBootstrapPlan[] = [
-    { ...validPlan, marketSeedAuthority: undefined as unknown as ServerDerivedBootstrapPlan['marketSeedAuthority'] },
+    {
+      ...validPlan,
+      marketSeedAuthority:
+        undefined as unknown as ServerDerivedBootstrapPlan['marketSeedAuthority'],
+    },
     { ...validPlan, marketSeedAuthority: { ...validPlan.marketSeedAuthority, seed: '' } },
-    { ...validPlan, marketSeedAuthority: { ...validPlan.marketSeedAuthority, seed: 'x'.repeat(301) } },
-    { ...validPlan, marketSeedAuthority: { ...validPlan.marketSeedAuthority, seedVersion: postgresNul } },
+    {
+      ...validPlan,
+      marketSeedAuthority: { ...validPlan.marketSeedAuthority, seed: 'x'.repeat(301) },
+    },
+    {
+      ...validPlan,
+      marketSeedAuthority: { ...validPlan.marketSeedAuthority, seedVersion: postgresNul },
+    },
     { ...validPlan, inventoryPoolAuthority: { ...validPlan.inventoryPoolAuthority, revision: 0 } },
-    { ...validPlan, inventoryPoolAuthority: { ...validPlan.inventoryPoolAuthority, revision: 2_147_483_648 } },
-    { ...validPlan, inventoryPoolAuthority: { ...validPlan.inventoryPoolAuthority, storageBundleVersion: '' } },
-    { ...validPlan, inventoryPoolAuthority: { ...validPlan.inventoryPoolAuthority, storageBundleKind: 'x'.repeat(129) } },
+    {
+      ...validPlan,
+      inventoryPoolAuthority: { ...validPlan.inventoryPoolAuthority, revision: 2_147_483_648 },
+    },
+    {
+      ...validPlan,
+      inventoryPoolAuthority: { ...validPlan.inventoryPoolAuthority, storageBundleVersion: '' },
+    },
+    {
+      ...validPlan,
+      inventoryPoolAuthority: {
+        ...validPlan.inventoryPoolAuthority,
+        storageBundleKind: 'x'.repeat(129),
+      },
+    },
     {
       ...validPlan,
       inventoryPoolAuthority: {
@@ -513,7 +534,11 @@ test('unsupported, tampered, or plan-hash-mismatched opening snapshots reject be
   const invalidPlans: readonly ServerDerivedBootstrapPlan[] = [
     { ...validPlan, openingSnapshot: null as unknown as OpeningSnapshot },
     { ...validPlan, openingSnapshot: tampered, openingSnapshotHash: tampered.openingSnapshotHash },
-    { ...validPlan, openingSnapshot: unsupported, openingSnapshotHash: unsupported.openingSnapshotHash },
+    {
+      ...validPlan,
+      openingSnapshot: unsupported,
+      openingSnapshotHash: unsupported.openingSnapshotHash,
+    },
     { ...validPlan, openingSnapshotHash: OTHER_DIGEST },
     { ...validPlan, openingScenario: 'EMPTY_PREMISES' },
     { ...validPlan, operatingMode: 'LIGHTWEIGHT_REALTIME' },

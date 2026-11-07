@@ -214,10 +214,7 @@ export class InMemoryCommandExecutionStore implements CommandExecutionStore {
 
       const result = await operation(currentVersion, unavailableDurableCommandPersistence);
       assertValidCommandHandlerResult(result, currentVersion);
-      if (
-        commandLedgerEffect(result) !== undefined ||
-        commandOutboxEffects(result).length > 0
-      ) {
+      if (commandLedgerEffect(result) !== undefined || commandOutboxEffects(result).length > 0) {
         throw new CommandError(503, 'COMMAND_PERSISTENCE_REQUIRED');
       }
       this.versions.set(input.aggregateScope, result.aggregateVersion);
@@ -322,16 +319,10 @@ export function assertValidCommandHandlerResult(
     if (ledger !== undefined) {
       throw new Error('accepted command handler must not include a ledger effect');
     }
-    if (
-      outbox.length !== 1 ||
-      outbox[0]?.kind !== 'outbox.job-request/v1'
-    ) {
+    if (outbox.length !== 1 || outbox[0]?.kind !== 'outbox.job-request/v1') {
       throw new Error('accepted command handler must emit exactly one job-request outbox effect');
     }
-    if (
-      outbox[0].jobId !== result.jobId ||
-      outbox[0].payload.jobId !== result.jobId
-    ) {
+    if (outbox[0].jobId !== result.jobId || outbox[0].payload.jobId !== result.jobId) {
       throw new Error('accepted command jobId must match its job-request outbox effect');
     }
   } else if ('jobId' in result) {
@@ -348,9 +339,7 @@ export function commandLedgerEffect(
   return result.effects?.ledger ?? result.transactionalEffect;
 }
 
-export function commandOutboxEffects(
-  result: CommandHandlerResult,
-): readonly DurableOutboxEffect[] {
+export function commandOutboxEffects(result: CommandHandlerResult): readonly DurableOutboxEffect[] {
   return result.effects?.outbox ?? [];
 }
 

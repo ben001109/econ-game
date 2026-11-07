@@ -38,7 +38,10 @@ test('save-scoped gameplay authorization is derived exactly from the catalog and
     gameplaySaveScopedCommandAuthorizationPolicy.isAllowed('INITIALIZE_COMPETITIVE_SAVE', 'OWNER'),
     false,
   );
-  assert.equal(gameplaySaveScopedCommandAuthorizationPolicy.isAllowed('UNKNOWN_GAMEPLAY_COMMAND', 'OWNER'), false);
+  assert.equal(
+    gameplaySaveScopedCommandAuthorizationPolicy.isAllowed('UNKNOWN_GAMEPLAY_COMMAND', 'OWNER'),
+    false,
+  );
 });
 
 test('gameplay policy composes with ledger policy without replacing either surface', () => {

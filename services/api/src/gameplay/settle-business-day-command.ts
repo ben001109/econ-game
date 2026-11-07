@@ -109,7 +109,8 @@ export function createSettleBusinessDayCommandHandler(): CommandHandler {
       const safeSummary = Object.freeze({
         ordersServed: authority.executions.reduce(
           (total, execution) =>
-            total + execution.resultSnapshot.orders.filter((order) => order.state === 'SERVED').length,
+            total +
+            execution.resultSnapshot.orders.filter((order) => order.state === 'SERVED').length,
           0,
         ),
         servicePeriodsCompleted: authority.executions.length,
@@ -176,25 +177,29 @@ export function prepareFirstDaySettlement(
   commandId: string,
 ): PreparedFirstDaySettlement {
   const policy = resolveMvpFirstDaySettlementPolicy(MVP_FIRST_DAY_SETTLEMENT_POLICY_VERSION);
-  const settlementEvidence = policy.compose(Object.freeze({
-    policyVersion: policy.version,
-    businessDay: 1,
-    openAuthority: authority.openAuthority,
-    executions: authority.executions,
-    e03: Object.freeze({
-      openingInventory: authority.executions[0]!.inputSnapshot.inventoryState,
-      finalInventoryBeforeWaste: authority.executions.at(-1)!.resultSnapshot.inventoryState,
-      periodOutcomes: Object.freeze(
-        authority.executions.map((execution) => Object.freeze({
-          ordinal: execution.ordinal,
-          resultHash: execution.resultHash,
-          outcomes: execution.resultSnapshot.inventoryOutcomes,
-        })),
-      ),
-      inventoryStocks: authority.inventoryStocks,
-      inventoryAudits: authority.inventoryAudits,
+  const settlementEvidence = policy.compose(
+    Object.freeze({
+      policyVersion: policy.version,
+      businessDay: 1,
+      openAuthority: authority.openAuthority,
+      executions: authority.executions,
+      e03: Object.freeze({
+        openingInventory: authority.executions[0]!.inputSnapshot.inventoryState,
+        finalInventoryBeforeWaste: authority.executions.at(-1)!.resultSnapshot.inventoryState,
+        periodOutcomes: Object.freeze(
+          authority.executions.map((execution) =>
+            Object.freeze({
+              ordinal: execution.ordinal,
+              resultHash: execution.resultHash,
+              outcomes: execution.resultSnapshot.inventoryOutcomes,
+            }),
+          ),
+        ),
+        inventoryStocks: authority.inventoryStocks,
+        inventoryAudits: authority.inventoryAudits,
+      }),
     }),
-  }));
+  );
 
   const currency = settlementEvidence.cashFlow.openingCashAfterPreopenProcurement.currency;
   const finalExecution = authority.executions.at(-1)!;
@@ -232,9 +237,7 @@ export function prepareFirstDaySettlement(
     cashBefore: e05CashRecognitionBridge,
     completedOrderReceivables: Object.freeze(servedOrders.map((order) => order.grossRevenue)),
     ingredientUsageCosts: Object.freeze(servedOrders.map((order) => order.cogs)),
-    perishableWasteCosts: Object.freeze(
-      waste.wasted.map((entry) => entry.cost),
-    ),
+    perishableWasteCosts: Object.freeze(waste.wasted.map((entry) => entry.cost)),
     authorizedShiftWages: Object.freeze(
       settlementEvidence.payrollEntries.map((entry) => entry.amount),
     ),
@@ -265,7 +268,8 @@ export function prepareFirstDaySettlement(
     Object.fromEntries(
       authority.inventoryStocks.map((stock) => [
         `inventory:${stock.ingredientId}`,
-        stock.version + (waste.wasted.some((entry) => entry.ingredientId === stock.ingredientId) ? 1 : 0),
+        stock.version +
+          (waste.wasted.some((entry) => entry.ingredientId === stock.ingredientId) ? 1 : 0),
       ]),
     ),
   );
@@ -322,7 +326,11 @@ function buildDayEvidenceInput(
     }),
     servicePeriodPlan: authority.openAuthority.save.servicePeriodPlan,
     open: descriptor(
-      privateId('replay-open', authority.openAuthority.save.id, authority.openAuthority.preopenSnapshot.snapshotHash),
+      privateId(
+        'replay-open',
+        authority.openAuthority.save.id,
+        authority.openAuthority.preopenSnapshot.snapshotHash,
+      ),
       sequence++,
       rule,
       {
@@ -332,26 +340,32 @@ function buildDayEvidenceInput(
       },
     ),
     servicePeriods: Object.freeze(
-      authority.executions.map((execution) => Object.freeze({
-        period: execution.periodKey,
-        servicePeriodExecutionId: execution.id,
-        event: descriptor(
-          privateId('replay-service-period', execution.id, execution.resultHash),
-          sequence++,
-          rule,
-          {
-            schemaVersion: 'gameplay.replay.service-period-completed/v1',
-            ordinal: execution.ordinal,
-            periodKey: execution.periodKey,
-            inputHash: execution.inputHash,
-            resultHash: execution.resultHash,
-            ownerAssignment: execution.inputSnapshot.ownerAssignment,
-          },
-        ),
-      })),
+      authority.executions.map((execution) =>
+        Object.freeze({
+          period: execution.periodKey,
+          servicePeriodExecutionId: execution.id,
+          event: descriptor(
+            privateId('replay-service-period', execution.id, execution.resultHash),
+            sequence++,
+            rule,
+            {
+              schemaVersion: 'gameplay.replay.service-period-completed/v1',
+              ordinal: execution.ordinal,
+              periodKey: execution.periodKey,
+              inputHash: execution.inputHash,
+              resultHash: execution.resultHash,
+              ownerAssignment: execution.inputSnapshot.ownerAssignment,
+            },
+          ),
+        }),
+      ),
     ),
     inventory: descriptor(
-      privateId('replay-inventory-day-finalized', authority.openAuthority.save.id, settlement.authorityReferences.finalInventoryHash),
+      privateId(
+        'replay-inventory-day-finalized',
+        authority.openAuthority.save.id,
+        settlement.authorityReferences.finalInventoryHash,
+      ),
       sequence++,
       rule,
       {
@@ -366,7 +380,11 @@ function buildDayEvidenceInput(
     ),
     dayEnd: Object.freeze({
       event: descriptor(
-        privateId('replay-day-end-settled', authority.openAuthority.save.id, settlement.evidenceHash),
+        privateId(
+          'replay-day-end-settled',
+          authority.openAuthority.save.id,
+          settlement.evidenceHash,
+        ),
         sequence++,
         rule,
         {
@@ -375,11 +393,16 @@ function buildDayEvidenceInput(
           fixedFieldSnapshot: dayEnd.snapshot,
         },
       ),
-      fixedFieldSnapshot: dayEnd.snapshot as unknown as ComposeDayEvidenceInput['dayEnd']['fixedFieldSnapshot'],
+      fixedFieldSnapshot:
+        dayEnd.snapshot as unknown as ComposeDayEvidenceInput['dayEnd']['fixedFieldSnapshot'],
       finalResourceVersions,
     }),
     risk: descriptor(
-      privateId('replay-risk-day-finalized', authority.openAuthority.save.id, settlement.evidenceHash),
+      privateId(
+        'replay-risk-day-finalized',
+        authority.openAuthority.save.id,
+        settlement.evidenceHash,
+      ),
       sequence,
       rule,
       {
@@ -416,17 +439,21 @@ function createSettlementLedger(
   dayEnd: DayEndResult,
 ): LedgerTransactionalEffect {
   const lines: LedgerPostingLineEffect[] = [];
-  const pair = (
-    amount: Money,
-    debitAccount: string,
-    creditAccount: string,
-  ) => {
+  const pair = (amount: Money, debitAccount: string, creditAccount: string) => {
     const units = moneyUnits(amount);
     if (units === 0n) return;
     if (units < 0n) throw new Error('settlement ledger cannot post a negative line');
     lines.push(
-      Object.freeze({ accountCode: debitAccount, direction: 'DEBIT', amountMinor: amount.minorUnits }),
-      Object.freeze({ accountCode: creditAccount, direction: 'CREDIT', amountMinor: amount.minorUnits }),
+      Object.freeze({
+        accountCode: debitAccount,
+        direction: 'DEBIT',
+        amountMinor: amount.minorUnits,
+      }),
+      Object.freeze({
+        accountCode: creditAccount,
+        direction: 'CREDIT',
+        amountMinor: amount.minorUnits,
+      }),
     );
   };
   pair(settlement.profitAndLoss.grossRevenue, 'CASH:SETTLEMENT', 'REVENUE:SERVICE');
@@ -440,7 +467,8 @@ function createSettlementLedger(
     'CONTRA_ASSET:ACCUMULATED_DEPRECIATION',
   );
   pair(dayEnd.snapshot.riskPenalty, 'EXPENSE:RISK_PENALTY', 'CASH:SETTLEMENT');
-  if (lines.length < 2) throw new Error('settlement ledger requires at least one balanced posting pair');
+  if (lines.length < 2)
+    throw new Error('settlement ledger requires at least one balanced posting pair');
   const debit = lines
     .filter((line) => line.direction === 'DEBIT')
     .reduce((total, line) => total + BigInt(line.amountMinor), 0n);
@@ -478,7 +506,8 @@ function assertDayEndReconciles(
   if (cashBeforePenalty !== moneyUnits(settlement.cashFlow.cashBeforeE05RiskPenalty)) {
     throw new Error('E05 cash result double-charged or omitted a policy-authoritative cash flow');
   }
-  const expectedDailyNet = signedMoneyUnits(expected.operatingProfit) - moneyUnits(snapshot.riskPenalty);
+  const expectedDailyNet =
+    signedMoneyUnits(expected.operatingProfit) - moneyUnits(snapshot.riskPenalty);
   if (signedMoneyUnits(snapshot.dailyNet) !== expectedDailyNet) {
     throw new Error('E05 daily net differs from settlement P&L and risk penalty');
   }
@@ -522,7 +551,9 @@ function canonicalValue(value: unknown): CanonicalCommandValue {
     if (entries.some(([, nested]) => nested === undefined)) {
       throw new CommandError(503, 'SETTLEMENT_PUBLIC_PROJECTION_INVALID');
     }
-    return Object.freeze(Object.fromEntries(entries.map(([key, nested]) => [key, canonicalValue(nested)])));
+    return Object.freeze(
+      Object.fromEntries(entries.map(([key, nested]) => [key, canonicalValue(nested)])),
+    );
   }
   throw new CommandError(503, 'SETTLEMENT_PUBLIC_PROJECTION_INVALID');
 }

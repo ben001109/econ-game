@@ -55,13 +55,15 @@ export type PersistedInventoryPoolAuthority = Readonly<{
 }>;
 
 export type PreopenSpotPurchaseIdFactory = Readonly<{
-  create: (input: Readonly<{
-    commandId: string;
-    preopenSnapshotId: string;
-    saveId: string;
-    businessDay: 1;
-    ingredientId: string;
-  }>) => Readonly<{ transactionId: string; purchaseId: string }>;
+  create: (
+    input: Readonly<{
+      commandId: string;
+      preopenSnapshotId: string;
+      saveId: string;
+      businessDay: 1;
+      ingredientId: string;
+    }>,
+  ) => Readonly<{ transactionId: string; purchaseId: string }>;
 }>;
 
 export type CanonicalFirstDayPreopenAuthorityInput = Readonly<{
@@ -82,10 +84,7 @@ const scenarios = new Set<OpeningScenario>([
   'DEFAULT_SMALL_SHOP',
   'TROUBLED_SHOP',
 ]);
-const operatingModes = new Set<CompetitiveOperatingMode>([
-  'STRATEGY',
-  'LIGHTWEIGHT_REALTIME',
-]);
+const operatingModes = new Set<CompetitiveOperatingMode>(['STRATEGY', 'LIGHTWEIGHT_REALTIME']);
 const servicePeriodPlans = new Set<ServicePeriodPlan>(['TWO_PERIODS', 'THREE_PERIODS']);
 const initialStorageBundleByScenario = Object.freeze({
   EMPTY_PREMISES: Object.freeze({
@@ -136,9 +135,7 @@ function assertNonNegativeInteger(value: unknown, name: string): asserts value i
   }
 }
 
-function assertSaveAuthority(
-  save: PersistedCompetitiveSavePreopenAuthority,
-): OpeningSnapshot {
+function assertSaveAuthority(save: PersistedCompetitiveSavePreopenAuthority): OpeningSnapshot {
   assertExactKeys(
     save,
     [
@@ -219,14 +216,7 @@ function resolvePoolAuthority(
   for (const row of rows) {
     assertExactKeys(
       row,
-      [
-        'capacityPoints',
-        'pool',
-        'revision',
-        'saveId',
-        'storageBundleKind',
-        'storageBundleVersion',
-      ],
+      ['capacityPoints', 'pool', 'revision', 'saveId', 'storageBundleKind', 'storageBundleVersion'],
       'inventory pool authority',
     );
     if (row.saveId !== save.id) throw new Error('inventory pool authority belongs to another save');
@@ -262,7 +252,9 @@ function resolvePoolAuthority(
     capacity.DURABLE !== expected.capacity.DURABLE ||
     capacity.PERISHABLE !== expected.capacity.PERISHABLE
   ) {
-    throw new Error('first-day inventory authority must match the canonical initial storage bundle');
+    throw new Error(
+      'first-day inventory authority must match the canonical initial storage bundle',
+    );
   }
   const bundle = createStorageBundleSnapshot(save.scenario, {
     version: durable.storageBundleVersion,
@@ -287,13 +279,7 @@ export function provideCanonicalFirstDayPreopenArtifacts(
 ): PreopenDayServerArtifacts {
   assertExactKeys(
     input,
-    [
-      'command',
-      'inventoryPoolAuthorities',
-      'marketSeedAuthority',
-      'save',
-      'spotPurchaseIdFactory',
-    ],
+    ['command', 'inventoryPoolAuthorities', 'marketSeedAuthority', 'save', 'spotPurchaseIdFactory'],
     'pre-open authority input',
   );
   assertExactKeys(
@@ -342,13 +328,10 @@ export function provideCanonicalFirstDayPreopenArtifacts(
   }
 
   const poolAuthority = resolvePoolAuthority(input.save, input.inventoryPoolAuthorities);
-  const catalog = resolveMvpFirstDayCatalog(
-    MVP_FIRST_DAY_CATALOG_VERSIONS,
-    {
-      code: openingSnapshot.settlementCurrency.code,
-      metadataVersion: openingSnapshot.currencyMetadataVersion,
-    },
-  );
+  const catalog = resolveMvpFirstDayCatalog(MVP_FIRST_DAY_CATALOG_VERSIONS, {
+    code: openingSnapshot.settlementCurrency.code,
+    metadataVersion: openingSnapshot.currencyMetadataVersion,
+  });
   const inventory = createOpeningInventory(
     input.save.scenario,
     poolAuthority.bundle,

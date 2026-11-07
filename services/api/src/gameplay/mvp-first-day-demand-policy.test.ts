@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { configureFirstDayLayout, type LayoutSnapshot } from '../domains/demand-flow/demand-flow.js';
+import {
+  configureFirstDayLayout,
+  type LayoutSnapshot,
+} from '../domains/demand-flow/demand-flow.js';
 import type { PreopenDemandBuilder } from './preopen-day-plan.js';
 import {
   MVP_FIRST_DAY_DEMAND_SIMULATION_RULE_VERSION,
@@ -77,7 +80,10 @@ test('seeded mild weather is limited to and can select all three exact policy bu
     seen.set(weather.demandModifierPercent, seed);
     assert.ok([-5, 0, 5].includes(weather.demandModifierPercent));
   }
-  assert.deepEqual([...seen.keys()].sort((left, right) => left - right), [-5, 0, 5]);
+  assert.deepEqual(
+    [...seen.keys()].sort((left, right) => left - right),
+    [-5, 0, 5],
+  );
   for (const [modifier, seed] of seen) {
     assert.equal(selectMvpFirstDayWeather(seed).demandModifierPercent, modifier);
   }
@@ -117,7 +123,10 @@ test('passes exact active recipe IDs and price modifiers to the recipe-price dem
 });
 
 test('fails closed for an unknown rule, non-first day, invalid period plan, seed, and menu modifiers', () => {
-  assert.throws(() => resolveMvpFirstDayDemandBuilder('mvp-e01-v2'), /unknown first-day simulation rule/);
+  assert.throws(
+    () => resolveMvpFirstDayDemandBuilder('mvp-e01-v2'),
+    /unknown first-day simulation rule/,
+  );
   const builder = resolveMvpFirstDayDemandBuilder(MVP_FIRST_DAY_DEMAND_SIMULATION_RULE_VERSION);
   for (const input of [
     builderInput({ businessDay: 2 as 1 }),

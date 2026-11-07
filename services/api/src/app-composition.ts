@@ -91,10 +91,7 @@ export function createApiComposition(options: ApiCompositionOptions = {}) {
   });
   app.setErrorHandler((error, request, reply) => {
     const metadata = errorMetadata(error);
-    if (
-      error instanceof JsonResourceLimitError ||
-      metadata.code === 'FST_ERR_CTP_BODY_TOO_LARGE'
-    ) {
+    if (error instanceof JsonResourceLimitError || metadata.code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
       return reply.status(413).send({
         error: {
           version: REQUEST_LIMIT_ERROR_ENVELOPE_VERSION,
@@ -183,19 +180,14 @@ export function createApiComposition(options: ApiCompositionOptions = {}) {
     options.testOnlyDiscordIdentityLinkService !== undefined,
   );
   registerClosedBetaRoutes(app, closedBetaService, allowTestClosedBetaRepository);
-  registerWipeBatchRoutes(
-    app,
-    wipeBatchService,
-    options.testOnlyWipeBatchService !== undefined,
-  );
+  registerWipeBatchRoutes(app, wipeBatchService, options.testOnlyWipeBatchService !== undefined);
   registerWipeExecutionLeaseRoutes(
     app,
     options.testOnlyWipeExecutionLeaseService,
     options.testOnlyWipeExecutionLeaseService !== undefined,
   );
 
-  const bootstrapInitializer =
-    options.bootstrapInitializer ?? options.testOnlyBootstrapInitializer;
+  const bootstrapInitializer = options.bootstrapInitializer ?? options.testOnlyBootstrapInitializer;
   const bootstrapWebIdentityResolver =
     options.bootstrapWebIdentityResolver ?? options.testOnlyBootstrapWebIdentityResolver;
   if ((bootstrapInitializer === undefined) !== (bootstrapWebIdentityResolver === undefined)) {

@@ -16,7 +16,10 @@ test('D05-C derives active OWNER and all-active-save scope server-side', () => {
   assert.match(repository, /assertOwner\(transaction, batch\.requestedByPlayerId/);
   assert.match(repository, /assertOwner\(database, batch\.approvedByPlayerId/);
   assert.match(repository, /WIPE_DISTINCT_APPROVER_REQUIRED/);
-  assert.match(service, /hashCommandRequest\(command, \{[\s\S]+actorId:[\s\S]+tenantId:[\s\S]+saveId:/);
+  assert.match(
+    service,
+    /hashCommandRequest\(command, \{[\s\S]+actorId:[\s\S]+tenantId:[\s\S]+saveId:/,
+  );
 });
 
 test('dry-run/request authority is canonical and idempotency is durable', () => {
@@ -53,8 +56,14 @@ test('freeze and isolate use D05-B checkpoints and only retire scoped live saves
 });
 
 test('D05-C has no clear/delete, generic job, broad account, or Clerk side effect', () => {
-  assert.doesNotMatch(repository, /DELETE\s+FROM|TRUNCATE|WipeTombstone|IdentityLink|DiscordLinkChallenge/);
+  assert.doesNotMatch(
+    repository,
+    /DELETE\s+FROM|TRUNCATE|WipeTombstone|IdentityLink|DiscordLinkChallenge/,
+  );
   assert.doesNotMatch(repository, /SimulationJob|clerk\.com|deleteUser|updateUser|fetch\(/);
   assert.doesNotMatch(service, /fetch\(|clerk\.com|deleteUser|updateUser/);
-  assert.doesNotMatch(repository, /UPDATE "(?:Player|RestaurantMembership|Employee|InventoryStock|Order)"/);
+  assert.doesNotMatch(
+    repository,
+    /UPDATE "(?:Player|RestaurantMembership|Employee|InventoryStock|Order)"/,
+  );
 });

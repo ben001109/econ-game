@@ -48,7 +48,9 @@ export type AuthoritativeServicePeriodEvidence = Readonly<{
 
 export type AuthoritativeDayEndEvidence = Readonly<{
   event: AuthoritativeDayEventDescriptor;
-  fixedFieldSnapshot: Readonly<Record<(typeof DAY_END_FIXED_FIELDS)[number], CanonicalEvidenceValue>>;
+  fixedFieldSnapshot: Readonly<
+    Record<(typeof DAY_END_FIXED_FIELDS)[number], CanonicalEvidenceValue>
+  >;
   finalResourceVersions: FinalResourceVersions;
 }>;
 
@@ -89,7 +91,9 @@ export type DayEndEvidenceRecord = Readonly<{
   restaurantId: string;
   saveId: string;
   businessDay: number;
-  fixedFieldSnapshot: Readonly<Record<(typeof DAY_END_FIXED_FIELDS)[number], CanonicalEvidenceValue>>;
+  fixedFieldSnapshot: Readonly<
+    Record<(typeof DAY_END_FIXED_FIELDS)[number], CanonicalEvidenceValue>
+  >;
   finalResourceVersions: FinalResourceVersions;
   eventHash: string;
   snapshotHash: string;
@@ -107,13 +111,19 @@ type CandidateEvent = Readonly<{
   servicePeriodExecutionId?: string;
 }>;
 
-const canonicalPeriodsByPlan: Readonly<Record<DayEvidenceServicePeriodPlan, readonly DayEvidenceServicePeriod[]>> =
-  Object.freeze({
-    TWO_PERIODS: Object.freeze(['LUNCH', 'DINNER'] as const satisfies readonly DayEvidenceServicePeriod[]),
-    THREE_PERIODS: Object.freeze(
-      ['LUNCH', 'OFF_PEAK', 'DINNER'] as const satisfies readonly DayEvidenceServicePeriod[],
-    ),
-  });
+const canonicalPeriodsByPlan: Readonly<
+  Record<DayEvidenceServicePeriodPlan, readonly DayEvidenceServicePeriod[]>
+> = Object.freeze({
+  TWO_PERIODS: Object.freeze([
+    'LUNCH',
+    'DINNER',
+  ] as const satisfies readonly DayEvidenceServicePeriod[]),
+  THREE_PERIODS: Object.freeze([
+    'LUNCH',
+    'OFF_PEAK',
+    'DINNER',
+  ] as const satisfies readonly DayEvidenceServicePeriod[]),
+});
 
 function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -121,7 +131,11 @@ function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown
   return prototype === Object.prototype || prototype === null;
 }
 
-function assertExactKeys(value: unknown, expected: readonly string[], label: string): asserts value is Record<string, unknown> {
+function assertExactKeys(
+  value: unknown,
+  expected: readonly string[],
+  label: string,
+): asserts value is Record<string, unknown> {
   if (!isPlainRecord(value)) throw new Error(`${label} must be a plain object`);
   const actual = Object.keys(value).sort();
   const wanted = [...expected].sort();
@@ -162,10 +176,16 @@ function cloneCanonicalValue(value: unknown, label: string): CanonicalEvidenceVa
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`${label} is not canonical release evidence: ${message}`);
   }
-  if (value === null || typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string') {
+  if (
+    value === null ||
+    typeof value === 'boolean' ||
+    typeof value === 'number' ||
+    typeof value === 'string'
+  ) {
     return value;
   }
-  if (Array.isArray(value)) return Object.freeze(value.map((item) => cloneCanonicalValue(item, label)));
+  if (Array.isArray(value))
+    return Object.freeze(value.map((item) => cloneCanonicalValue(item, label)));
   return Object.freeze(
     Object.fromEntries(
       Object.entries(value as Readonly<Record<string, unknown>>).map(([key, nested]) => [
@@ -215,14 +235,18 @@ function parseServicePeriods(
   if (!Array.isArray(value)) throw new Error('servicePeriods must be an array');
   const expectedPeriods = canonicalPeriodsByPlan[plan];
   if (value.length !== expectedPeriods.length) {
-    throw new Error(`${plan} requires exactly ${expectedPeriods.length} service-period evidence records`);
+    throw new Error(
+      `${plan} requires exactly ${expectedPeriods.length} service-period evidence records`,
+    );
   }
   const parsed = value.map((periodEvidence, index) => {
     const label = `servicePeriods[${index}]`;
     assertExactKeys(periodEvidence, ['period', 'servicePeriodExecutionId', 'event'], label);
     const expectedPeriod = expectedPeriods[index]!;
     if (periodEvidence.period !== expectedPeriod) {
-      throw new Error(`${plan} service periods must use canonical order ${expectedPeriods.join(',')}`);
+      throw new Error(
+        `${plan} service periods must use canonical order ${expectedPeriods.join(',')}`,
+      );
     }
     assertIdentifier(periodEvidence.servicePeriodExecutionId, `${label}.servicePeriodExecutionId`);
     return Object.freeze({
@@ -232,18 +256,21 @@ function parseServicePeriods(
     });
   });
   const executionIds = new Set(parsed.map((item) => item.servicePeriodExecutionId));
-  if (executionIds.size !== parsed.length) throw new Error('service-period execution IDs must be unique');
+  if (executionIds.size !== parsed.length)
+    throw new Error('service-period execution IDs must be unique');
   return Object.freeze(parsed);
 }
 
 function parseFinalResourceVersions(value: unknown): FinalResourceVersions {
   if (!isPlainRecord(value)) throw new Error('dayEnd.finalResourceVersions must be a plain object');
   const cloned = cloneCanonicalValue(value, 'dayEnd.finalResourceVersions');
-  if (!isPlainRecord(cloned)) throw new Error('dayEnd.finalResourceVersions must be a plain object');
+  if (!isPlainRecord(cloned))
+    throw new Error('dayEnd.finalResourceVersions must be a plain object');
   const entries = Object.entries(cloned);
   if (entries.length === 0) throw new Error('dayEnd.finalResourceVersions must not be empty');
   for (const [resource, version] of entries) {
-    if (resource.trim().length === 0) throw new Error('dayEnd.finalResourceVersions has an empty resource key');
+    if (resource.trim().length === 0)
+      throw new Error('dayEnd.finalResourceVersions has an empty resource key');
     if (typeof version === 'number') {
       if (!Number.isSafeInteger(version) || version < 0) {
         throw new Error(`${resource} final resource version must be a non-negative safe integer`);
@@ -258,8 +285,12 @@ function parseFinalResourceVersions(value: unknown): FinalResourceVersions {
 function parseDayEnd(value: unknown, businessDay: number): AuthoritativeDayEndEvidence {
   assertExactKeys(value, ['event', 'fixedFieldSnapshot', 'finalResourceVersions'], 'dayEnd');
   assertExactKeys(value.fixedFieldSnapshot, DAY_END_FIXED_FIELDS, 'dayEnd.fixedFieldSnapshot');
-  const fixedFieldSnapshot = cloneCanonicalValue(value.fixedFieldSnapshot, 'dayEnd.fixedFieldSnapshot');
-  if (!isPlainRecord(fixedFieldSnapshot)) throw new Error('dayEnd.fixedFieldSnapshot must be a plain object');
+  const fixedFieldSnapshot = cloneCanonicalValue(
+    value.fixedFieldSnapshot,
+    'dayEnd.fixedFieldSnapshot',
+  );
+  if (!isPlainRecord(fixedFieldSnapshot))
+    throw new Error('dayEnd.fixedFieldSnapshot must be a plain object');
   assertBusinessDay(fixedFieldSnapshot.dayIndex);
   if (fixedFieldSnapshot.dayIndex !== businessDay) {
     throw new Error('dayEnd.fixedFieldSnapshot.dayIndex must equal scope.businessDay');
@@ -268,7 +299,10 @@ function parseDayEnd(value: unknown, businessDay: number): AuthoritativeDayEndEv
     event: parseDescriptor(value.event, 'dayEnd.event'),
     fixedFieldSnapshot: Object.freeze(
       Object.fromEntries(
-        DAY_END_FIXED_FIELDS.map((field) => [field, fixedFieldSnapshot[field] as CanonicalEvidenceValue]),
+        DAY_END_FIXED_FIELDS.map((field) => [
+          field,
+          fixedFieldSnapshot[field] as CanonicalEvidenceValue,
+        ]),
       ) as Record<(typeof DAY_END_FIXED_FIELDS)[number], CanonicalEvidenceValue>,
     ),
     finalResourceVersions: parseFinalResourceVersions(value.finalResourceVersions),
@@ -304,10 +338,13 @@ function parseInput(value: unknown): Readonly<{
 
 function assertContiguousChronologicalSourceSequences(events: readonly CandidateEvent[]): void {
   const seen = new Set<number>();
-  const sorted = [...events].sort((left, right) => left.descriptor.localSequence - right.descriptor.localSequence);
+  const sorted = [...events].sort(
+    (left, right) => left.descriptor.localSequence - right.descriptor.localSequence,
+  );
   for (const [index, event] of sorted.entries()) {
     const sourceSequence = event.descriptor.localSequence;
-    if (seen.has(sourceSequence)) throw new Error('day evidence contains duplicate local sequences');
+    if (seen.has(sourceSequence))
+      throw new Error('day evidence contains duplicate local sequences');
     seen.add(sourceSequence);
     if (sourceSequence !== index) {
       throw new Error('day evidence local sequences must be contiguous from 0');
@@ -317,7 +354,9 @@ function assertContiguousChronologicalSourceSequences(events: readonly Candidate
   // moving a finalisation record before OPEN or a service period.
   for (const [index, event] of events.entries()) {
     if (event.descriptor.localSequence !== index) {
-      throw new Error('day evidence source ordering must follow OPEN, canonical periods, inventory, day end, and risk');
+      throw new Error(
+        'day evidence source ordering must follow OPEN, canonical periods, inventory, day end, and risk',
+      );
     }
   }
 }

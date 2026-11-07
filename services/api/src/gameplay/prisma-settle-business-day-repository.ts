@@ -53,7 +53,9 @@ export type PersistFirstDaySettlementInput = Readonly<{
 export class PrismaSettleBusinessDayRepository {
   constructor(private readonly persistence: DurableCommandPersistence) {}
 
-  async loadFirstDaySettlementAuthority(scope: SettlementScope): Promise<FirstDaySettlementAuthority> {
+  async loadFirstDaySettlementAuthority(
+    scope: SettlementScope,
+  ): Promise<FirstDaySettlementAuthority> {
     const rows = await this.persistence.mutate<readonly Row[]>(
       `/* settle-business-day:scope */
        SELECT save."id" AS "saveId", save."openingScenario", save."operatingMode",
@@ -232,7 +234,10 @@ export class PrismaSettleBusinessDayRepository {
             servicePeriodPlan: plan,
             demandSeed: stringValue(row.demandSeed, 'demand seed'),
             simulationRuleVersion: rule,
-            openingSnapshot: jsonObject(row.openingSnapshot, 'opening snapshot') as FirstDayOpenAuthority['save']['openingSnapshot'],
+            openingSnapshot: jsonObject(
+              row.openingSnapshot,
+              'opening snapshot',
+            ) as FirstDayOpenAuthority['save']['openingSnapshot'],
             openingSnapshotHash: hash(row.openingSnapshotHash, 'opening snapshot hash'),
           }),
           businessDay: Object.freeze({
@@ -340,7 +345,8 @@ export class PrismaSettleBusinessDayRepository {
         updated.length !== 1 ||
         databaseInteger(row?.version, 'waste stock version') !== prior.version + 1 ||
         databaseInteger(row?.onHand, 'waste stock on hand') !== 0 ||
-        databaseInteger(row?.reservedUndelivered, 'waste stock reserved') !== prior.reservedUndeliveredPoints ||
+        databaseInteger(row?.reservedUndelivered, 'waste stock reserved') !==
+          prior.reservedUndeliveredPoints ||
         databaseBigintString(row?.costPoolMinor, 'waste stock cost') !== '0'
       ) {
         throw new CommandError(409, 'SETTLEMENT_INVENTORY_STALE');
@@ -405,13 +411,18 @@ export class PrismaSettleBusinessDayRepository {
         prior.id,
       );
       const row = rows[0];
-      const wasWasted = input.waste.wasted.some((entry) => entry.ingredientId === expected.ingredientId);
+      const wasWasted = input.waste.wasted.some(
+        (entry) => entry.ingredientId === expected.ingredientId,
+      );
       if (
         rows.length !== 1 ||
-        databaseInteger(row?.version, 'final stock version') !== prior.version + (wasWasted ? 1 : 0) ||
+        databaseInteger(row?.version, 'final stock version') !==
+          prior.version + (wasWasted ? 1 : 0) ||
         databaseInteger(row?.onHand, 'final stock on hand') !== expected.onHandPoints ||
-        databaseInteger(row?.reservedUndelivered, 'final stock reserved') !== prior.reservedUndeliveredPoints ||
-        databaseBigintString(row?.costPoolMinor, 'final stock cost') !== expected.costPool.minorUnits
+        databaseInteger(row?.reservedUndelivered, 'final stock reserved') !==
+          prior.reservedUndeliveredPoints ||
+        databaseBigintString(row?.costPoolMinor, 'final stock cost') !==
+          expected.costPool.minorUnits
       ) {
         throw new CommandError(503, 'SETTLEMENT_FINAL_INVENTORY_MISMATCH');
       }
@@ -522,24 +533,28 @@ export class PrismaSettleBusinessDayRepository {
     const transition = input.dayEndResult.events.find(
       (event): event is RiskTransitionEvent => event.type === 'RISK_STATE_TRANSITION',
     );
-    const precondition = transition?.precondition ?? Object.freeze({
-      state: 'NORMAL',
-      consecutiveDelinquentDays: 0,
-      consecutiveResolutionDays: 0,
-      shortfall: snapshot.shortfall.minorUnits,
-      delinquencyBaselineShortfall: null,
-      resolutionComparisonShortfall: snapshot.resolutionComparisonShortfall.minorUnits,
-      repaymentRatio: 1,
-      minimumReputation: Math.min(...Object.values(snapshot.reputation)),
-      rehabExitApproved: false,
-    });
-    const postcondition = transition?.postcondition ?? Object.freeze({
-      state: snapshot.riskState.state,
-      consecutiveDelinquentDays: snapshot.riskState.consecutiveDelinquentDays,
-      consecutiveResolutionDays: snapshot.riskState.consecutiveResolutionDays,
-      highRiskRevenueEnabled: snapshot.highRiskRevenueEnabled,
-      leaderboardEligible: snapshot.leaderboardEligible,
-    });
+    const precondition =
+      transition?.precondition ??
+      Object.freeze({
+        state: 'NORMAL',
+        consecutiveDelinquentDays: 0,
+        consecutiveResolutionDays: 0,
+        shortfall: snapshot.shortfall.minorUnits,
+        delinquencyBaselineShortfall: null,
+        resolutionComparisonShortfall: snapshot.resolutionComparisonShortfall.minorUnits,
+        repaymentRatio: 1,
+        minimumReputation: Math.min(...Object.values(snapshot.reputation)),
+        rehabExitApproved: false,
+      });
+    const postcondition =
+      transition?.postcondition ??
+      Object.freeze({
+        state: snapshot.riskState.state,
+        consecutiveDelinquentDays: snapshot.riskState.consecutiveDelinquentDays,
+        consecutiveResolutionDays: snapshot.riskState.consecutiveResolutionDays,
+        highRiskRevenueEnabled: snapshot.highRiskRevenueEnabled,
+        leaderboardEligible: snapshot.leaderboardEligible,
+      });
     const id = privateId('risk-state', input.saveId, '1');
     const inserted = await this.persistence.mutate<readonly Row[]>(
       `/* settle-business-day:insert-risk-state */
@@ -566,9 +581,10 @@ export class PrismaSettleBusinessDayRepository {
   }
 
   private async insertReputationHistory(input: PersistFirstDaySettlementInput): Promise<void> {
-    const values = Object.entries(input.dayEndResult.snapshot.reputation) as readonly (
-      readonly ['price' | 'speed' | 'quality' | 'fairness' | 'vibe', number]
-    )[];
+    const values = Object.entries(input.dayEndResult.snapshot.reputation) as readonly (readonly [
+      'price' | 'speed' | 'quality' | 'fairness' | 'vibe',
+      number,
+    ])[];
     for (const [dimension, score] of values) {
       const databaseDimension = dimension.toUpperCase();
       const id = privateId('reputation-history', input.saveId, '1', databaseDimension);
@@ -621,9 +637,15 @@ function parseExecution(row: Row): PersistedAdvanceExecution {
     periodKey: periodKey(row.periodKey),
     commandId: stringValue(row.commandId, 'execution command id'),
     simulationRuleVersion: stringValue(row.simulationRuleVersion, 'execution rule'),
-    inputSnapshot: jsonObject(row.inputSnapshot, 'execution input') as AdvanceServicePeriodInputSnapshot,
+    inputSnapshot: jsonObject(
+      row.inputSnapshot,
+      'execution input',
+    ) as AdvanceServicePeriodInputSnapshot,
     inputHash: hash(row.inputHash, 'execution input hash'),
-    resultSnapshot: jsonObject(row.resultSnapshot, 'execution result') as AdvanceServicePeriodResultSnapshot,
+    resultSnapshot: jsonObject(
+      row.resultSnapshot,
+      'execution result',
+    ) as AdvanceServicePeriodResultSnapshot,
     resultHash: hash(row.resultHash, 'execution result hash'),
   });
 }
@@ -657,7 +679,8 @@ function privateId(kind: string, ...parts: readonly string[]): string {
 }
 
 function stringValue(value: unknown, name: string): string {
-  if (typeof value !== 'string' || value.trim().length === 0) throw new Error(`${name} is required`);
+  if (typeof value !== 'string' || value.trim().length === 0)
+    throw new Error(`${name} is required`);
   return value;
 }
 

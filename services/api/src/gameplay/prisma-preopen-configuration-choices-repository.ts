@@ -37,22 +37,23 @@ type ScopeRow = Readonly<{
   role: unknown;
 }>;
 
-type AuthorityRow = ScopeRow & Readonly<{
-  expectedVersion: unknown;
-  openingScenario: unknown;
-  operatingMode: unknown;
-  servicePeriodPlan: unknown;
-  simulationRuleVersion: unknown;
-  settlementCurrency: unknown;
-  businessDayId: unknown;
-  preopenSnapshotCount: unknown;
-  poolSaveId: unknown;
-  pool: unknown;
-  poolRevision: unknown;
-  capacityPoints: unknown;
-  storageBundleVersion: unknown;
-  storageBundleKind: unknown;
-}>;
+type AuthorityRow = ScopeRow &
+  Readonly<{
+    expectedVersion: unknown;
+    openingScenario: unknown;
+    operatingMode: unknown;
+    servicePeriodPlan: unknown;
+    simulationRuleVersion: unknown;
+    settlementCurrency: unknown;
+    businessDayId: unknown;
+    preopenSnapshotCount: unknown;
+    poolSaveId: unknown;
+    pool: unknown;
+    poolRevision: unknown;
+    capacityPoints: unknown;
+    storageBundleVersion: unknown;
+    storageBundleKind: unknown;
+  }>;
 
 /**
  * Read-only durable adapter for the Web configuration form. Scope is resolved
@@ -171,11 +172,7 @@ function projectAuthority(
     const storage = createStorageBundleSnapshot(scenario, {
       version: STORAGE_BUNDLE_VERSION,
       kind:
-        scenario === 'EMPTY_PREMISES'
-          ? 'NONE'
-          : scenario === 'TROUBLED_SHOP'
-            ? 'AGED'
-            : 'BASIC',
+        scenario === 'EMPTY_PREMISES' ? 'NONE' : scenario === 'TROUBLED_SHOP' ? 'AGED' : 'BASIC',
     });
     if (rows.length !== 2) throw new Error('exactly two inventory pools are required');
     const seen = new Set<string>();
@@ -203,10 +200,7 @@ function projectAuthority(
         phase: 'CONFIGURE_REQUIRED' as const,
         scenario,
         operatingMode: exactOneOf(first.operatingMode, ['STRATEGY', 'LIGHTWEIGHT_REALTIME']),
-        servicePeriodPlan: exactOneOf(first.servicePeriodPlan, [
-          'TWO_PERIODS',
-          'THREE_PERIODS',
-        ]),
+        servicePeriodPlan: exactOneOf(first.servicePeriodPlan, ['TWO_PERIODS', 'THREE_PERIODS']),
         simulationRuleVersion: nonEmpty(first.simulationRuleVersion),
         settlementCurrency: exactOneOf(first.settlementCurrency, ['TWD', 'USD']),
       }),

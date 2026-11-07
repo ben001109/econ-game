@@ -95,7 +95,10 @@ test('every canonical bistro card has exactly the server-calculated -10 through 
       Array.from({ length: 21 }, (_, index) => index - 10),
     );
     for (const option of card.priceOptions) {
-      assert.deepEqual(option.salePrice, calculateSalePrice(card.basePrice, option.modifierPercent));
+      assert.deepEqual(
+        option.salePrice,
+        calculateSalePrice(card.basePrice, option.modifierPercent),
+      );
     }
   }
   assert.deepEqual(
@@ -137,7 +140,8 @@ test('rejects accessor-based client authority instead of evaluating a TOCTOU get
     () => providePreopenConfigurationChoices(poisoned as PreopenConfigurationChoicesAuthority),
     (error: unknown) =>
       error instanceof PreopenConfigurationChoicesError &&
-      error.code === PREOPEN_CONFIGURATION_CHOICES_ERROR_CODES.PREOPEN_CONFIGURATION_AUTHORITY_INVALID,
+      error.code ===
+        PREOPEN_CONFIGURATION_CHOICES_ERROR_CODES.PREOPEN_CONFIGURATION_AUTHORITY_INVALID,
   );
 
   const nested = authority();
@@ -158,12 +162,14 @@ test('fails closed outside CONFIGURE_REQUIRED and requires EMPTY equipment insta
       ),
     (error: unknown) =>
       error instanceof PreopenConfigurationChoicesError &&
-      error.code === PREOPEN_CONFIGURATION_CHOICES_ERROR_CODES.PREOPEN_CONFIGURATION_AUTHORITY_INVALID,
+      error.code ===
+        PREOPEN_CONFIGURATION_CHOICES_ERROR_CODES.PREOPEN_CONFIGURATION_AUTHORITY_INVALID,
   );
   assert.throws(
     () => providePreopenConfigurationChoices(authority({ scenario: 'EMPTY_PREMISES' })),
     (error: unknown) =>
       error instanceof PreopenConfigurationChoicesError &&
-      error.code === PREOPEN_CONFIGURATION_CHOICES_ERROR_CODES.PREOPEN_EQUIPMENT_INSTALLATION_REQUIRED,
+      error.code ===
+        PREOPEN_CONFIGURATION_CHOICES_ERROR_CODES.PREOPEN_EQUIPMENT_INSTALLATION_REQUIRED,
   );
 });

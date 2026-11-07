@@ -644,22 +644,19 @@ test('recomputes E02 indicators from canonical layout state and rejects forged p
   assert.equal(profile.frontServiceDelayTicks, 2);
   assert.throws(
     () =>
-      deriveFloorFlowServiceProfile(
-        snapshot,
-        {
-          seatCapacity: 999,
-          waitingCapacity: 999,
-          walkwayCells: 999,
-          averageSeatWalkwayDistanceSteps: 999,
-          maximumSeatWalkwayDistanceSteps: 999,
-          visibleWaitingAreas: 999,
-          waitingVisibilityRatio: 1,
-          seatedGuestPressure: 0,
-          waitingGroupPressure: 0,
-          walkwayLoad: 999,
-          queueDemandRatio: 999,
-        } as unknown as typeof state,
-      ),
+      deriveFloorFlowServiceProfile(snapshot, {
+        seatCapacity: 999,
+        waitingCapacity: 999,
+        walkwayCells: 999,
+        averageSeatWalkwayDistanceSteps: 999,
+        maximumSeatWalkwayDistanceSteps: 999,
+        visibleWaitingAreas: 999,
+        waitingVisibilityRatio: 1,
+        seatedGuestPressure: 0,
+        waitingGroupPressure: 0,
+        walkwayLoad: 999,
+        queueDemandRatio: 999,
+      } as unknown as typeof state),
     /must be a non-negative integer/,
   );
   assert.throws(

@@ -117,8 +117,7 @@ export class PrismaConfigurePreopenDayRepository {
     if (saveRows.length !== 1) throw new CommandError(403, 'PREOPEN_SCOPE_FORBIDDEN');
     const saveRow = saveRows[0]!;
     if (
-      (saveRow.existingBusinessDayId !== null &&
-        saveRow.existingBusinessDayId !== undefined) ||
+      (saveRow.existingBusinessDayId !== null && saveRow.existingBusinessDayId !== undefined) ||
       databaseInteger(saveRow.existingPreopenSnapshotCount, 'snapshot count') > 0
     ) {
       throw new CommandError(409, 'PREOPEN_DAY_ALREADY_CONFIGURED');
@@ -161,23 +160,19 @@ export class PrismaConfigurePreopenDayRepository {
         seed: nonEmptyString(firstAuthority.marketSeed, 'market seed'),
         seedVersion: nonEmptyString(firstAuthority.marketSeedVersion, 'market seed version'),
       });
-      const inventoryPoolAuthorities = authorityRows
-        .map((row) =>
-          Object.freeze({
-            saveId: nonEmptyString(row.poolSaveId, 'inventory pool save id'),
-            pool: poolName(row.pool),
-            revision: databaseInteger(row.revision, 'inventory pool revision'),
-            capacityPoints: databaseInteger(row.capacityPoints, 'inventory pool capacity'),
-            storageBundleVersion: nonEmptyString(
-              row.storageBundleVersion,
-              'storage bundle version',
-            ),
-            storageBundleKind: nonEmptyString(
-              row.storageBundleKind,
-              'storage bundle kind',
-            ) as PersistedInventoryPoolAuthority['storageBundleKind'],
-          }),
-        );
+      const inventoryPoolAuthorities = authorityRows.map((row) =>
+        Object.freeze({
+          saveId: nonEmptyString(row.poolSaveId, 'inventory pool save id'),
+          pool: poolName(row.pool),
+          revision: databaseInteger(row.revision, 'inventory pool revision'),
+          capacityPoints: databaseInteger(row.capacityPoints, 'inventory pool capacity'),
+          storageBundleVersion: nonEmptyString(row.storageBundleVersion, 'storage bundle version'),
+          storageBundleKind: nonEmptyString(
+            row.storageBundleKind,
+            'storage bundle kind',
+          ) as PersistedInventoryPoolAuthority['storageBundleKind'],
+        }),
+      );
       return Object.freeze({
         save: Object.freeze({
           id: saveId,
@@ -198,15 +193,9 @@ export class PrismaConfigurePreopenDayRepository {
             saveRow.simulationRuleVersion,
             'simulation rule version',
           ),
-          settlementCurrency: nonEmptyString(
-            saveRow.settlementCurrency,
-            'settlement currency',
-          ),
+          settlementCurrency: nonEmptyString(saveRow.settlementCurrency, 'settlement currency'),
           openingSnapshot,
-          openingSnapshotHash: nonEmptyString(
-            saveRow.openingSnapshotHash,
-            'opening snapshot hash',
-          ),
+          openingSnapshotHash: nonEmptyString(saveRow.openingSnapshotHash, 'opening snapshot hash'),
         }),
         marketSeedAuthority,
         inventoryPoolAuthorities: Object.freeze(inventoryPoolAuthorities),
@@ -274,11 +263,7 @@ function assertConsistentAuthorityRows(
   rows: readonly PoolAuthorityRow[],
   first: PoolAuthorityRow,
 ): void {
-  const scalarKeys = [
-    'marketSaveId',
-    'marketSeed',
-    'marketSeedVersion',
-  ] as const;
+  const scalarKeys = ['marketSaveId', 'marketSeed', 'marketSeedVersion'] as const;
   for (const row of rows) {
     if (scalarKeys.some((key) => row[key] !== first[key])) {
       throw new Error('inconsistent duplicated authority rows');

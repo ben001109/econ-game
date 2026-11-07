@@ -89,7 +89,11 @@ export interface WipeBatchRepository {
   freeze(input: WipeCommandInput): Promise<WipeCommandExecution>;
   isolate(input: WipeCommandInput): Promise<WipeCommandExecution>;
   resume(input: WipeCommandInput): Promise<WipeCommandExecution>;
-  status(actorPlayerId: string, restaurantId: string, batchId: string): Promise<WipeBatchStatusView>;
+  status(
+    actorPlayerId: string,
+    restaurantId: string,
+    batchId: string,
+  ): Promise<WipeBatchStatusView>;
   assertSaveMutationAllowed(
     actorPlayerId: string,
     restaurantId: string,
@@ -127,33 +131,91 @@ export class WipeBatchService {
   }
 
   async request(token: string, restaurantId: string, envelope: unknown, correlationId: string) {
-    return this.execute(token, restaurantId, undefined, envelope, 'WIPE_REQUEST', [
-      'reason',
-      'dryRunManifestHash',
-    ], correlationId, (input) => this.options.repository.request(input));
-  }
-
-  async approve(token: string, restaurantId: string, batchId: string, envelope: unknown, correlationId: string) {
-    return this.execute(token, restaurantId, batchId, envelope, 'WIPE_APPROVE', [], correlationId, (input) =>
-      this.options.repository.approve(input),
+    return this.execute(
+      token,
+      restaurantId,
+      undefined,
+      envelope,
+      'WIPE_REQUEST',
+      ['reason', 'dryRunManifestHash'],
+      correlationId,
+      (input) => this.options.repository.request(input),
     );
   }
 
-  async freeze(token: string, restaurantId: string, batchId: string, envelope: unknown, correlationId: string) {
-    return this.execute(token, restaurantId, batchId, envelope, 'WIPE_FREEZE', [], correlationId, (input) =>
-      this.options.repository.freeze(input),
+  async approve(
+    token: string,
+    restaurantId: string,
+    batchId: string,
+    envelope: unknown,
+    correlationId: string,
+  ) {
+    return this.execute(
+      token,
+      restaurantId,
+      batchId,
+      envelope,
+      'WIPE_APPROVE',
+      [],
+      correlationId,
+      (input) => this.options.repository.approve(input),
     );
   }
 
-  async isolate(token: string, restaurantId: string, batchId: string, envelope: unknown, correlationId: string) {
-    return this.execute(token, restaurantId, batchId, envelope, 'WIPE_ISOLATE', [], correlationId, (input) =>
-      this.options.repository.isolate(input),
+  async freeze(
+    token: string,
+    restaurantId: string,
+    batchId: string,
+    envelope: unknown,
+    correlationId: string,
+  ) {
+    return this.execute(
+      token,
+      restaurantId,
+      batchId,
+      envelope,
+      'WIPE_FREEZE',
+      [],
+      correlationId,
+      (input) => this.options.repository.freeze(input),
     );
   }
 
-  async resume(token: string, restaurantId: string, batchId: string, envelope: unknown, correlationId: string) {
-    return this.execute(token, restaurantId, batchId, envelope, 'WIPE_RESUME', [], correlationId, (input) =>
-      this.options.repository.resume(input),
+  async isolate(
+    token: string,
+    restaurantId: string,
+    batchId: string,
+    envelope: unknown,
+    correlationId: string,
+  ) {
+    return this.execute(
+      token,
+      restaurantId,
+      batchId,
+      envelope,
+      'WIPE_ISOLATE',
+      [],
+      correlationId,
+      (input) => this.options.repository.isolate(input),
+    );
+  }
+
+  async resume(
+    token: string,
+    restaurantId: string,
+    batchId: string,
+    envelope: unknown,
+    correlationId: string,
+  ) {
+    return this.execute(
+      token,
+      restaurantId,
+      batchId,
+      envelope,
+      'WIPE_RESUME',
+      [],
+      correlationId,
+      (input) => this.options.repository.resume(input),
     );
   }
 
@@ -174,11 +236,7 @@ export class WipeBatchService {
     validateIdentifier(actorPlayerId);
     validateIdentifier(restaurantId);
     validateIdentifier(saveId);
-    return this.options.repository.assertSaveMutationAllowed(
-      actorPlayerId,
-      restaurantId,
-      saveId,
-    );
+    return this.options.repository.assertSaveMutationAllowed(actorPlayerId, restaurantId, saveId);
   }
 
   private async execute(
@@ -245,7 +303,9 @@ export function buildWipePreview(
   boundedString(environment, 100);
   const saves = Object.freeze(
     [...candidates]
-      .map((entry) => Object.freeze({ ...entry, openingSnapshotHash: digest(entry.openingSnapshotHash) }))
+      .map((entry) =>
+        Object.freeze({ ...entry, openingSnapshotHash: digest(entry.openingSnapshotHash) }),
+      )
       .sort((left, right) => left.id.localeCompare(right.id)),
   );
   const policyHash = sha256(canonicalJson(POLICY));
@@ -298,7 +358,12 @@ export function canonicalJson(value: unknown): string {
 
 export const sha256 = (value: string) => createHash('sha256').update(value, 'utf8').digest('hex');
 
-function wipeCommand(input: unknown, type: string, aggregateId: string, payloadKeys: readonly string[]) {
+function wipeCommand(
+  input: unknown,
+  type: string,
+  aggregateId: string,
+  payloadKeys: readonly string[],
+) {
   validateIdentifier(aggregateId);
   const command = parseCommandEnvelope(input);
   if (command.commandType !== type) throw new CommandError(422, 'COMMAND_TARGET_MISMATCH');

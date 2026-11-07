@@ -24,10 +24,7 @@ const storageByScenario = Object.freeze({
  * trusted immutable command context with domain-separated hashes; client intent
  * can only select registered scenario/mode/currency/period-plan values.
  */
-export const createMvpServerBootstrapPlan: ServerBootstrapPlanFactory = (
-  context,
-  intent,
-) => {
+export const createMvpServerBootstrapPlan: ServerBootstrapPlanFactory = (context, intent) => {
   assertMvpBootstrapIntent(intent);
   const storage = storageByScenario[intent.scenario as keyof typeof storageByScenario];
   let openingSnapshot;

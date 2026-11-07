@@ -42,9 +42,9 @@ const tickWindowsByPlan = Object.freeze({
     OFF_PEAK: Object.freeze({ start: 8, end: 11 }),
     DINNER: Object.freeze({ start: 12, end: 19 }),
   }),
-} satisfies Readonly<Record<ServicePeriodPlan, Readonly<Partial<Record<ServicePeriod, TickWindow>>>>>)
-;
-
+} satisfies Readonly<
+  Record<ServicePeriodPlan, Readonly<Partial<Record<ServicePeriod, TickWindow>>>>
+>);
 const basePatienceTicks = Object.freeze({ min: 8, max: 12 });
 const openingScenarios = new Set<OpeningScenario>([
   'DEFAULT_SMALL_SHOP',
@@ -60,7 +60,10 @@ function assertCanonicalDemandSeed(value: unknown): asserts value is string {
   }
 }
 
-function assertPlainDataRecord(value: unknown, name: string): asserts value is Record<string, unknown> {
+function assertPlainDataRecord(
+  value: unknown,
+  name: string,
+): asserts value is Record<string, unknown> {
   if (
     value === null ||
     typeof value !== 'object' ||
@@ -105,7 +108,10 @@ function assertMenuAuthority(
 
   assertPlainDataRecord(priceModifierPercentByRecipe, 'first-day price modifiers');
   const modifierIds = Object.keys(priceModifierPercentByRecipe);
-  if (modifierIds.length !== recipeIds.size || modifierIds.some((recipeId) => !recipeIds.has(recipeId))) {
+  if (
+    modifierIds.length !== recipeIds.size ||
+    modifierIds.some((recipeId) => !recipeIds.has(recipeId))
+  ) {
     throw new Error('first-day price modifiers must map exactly the active recipe IDs');
   }
   for (const recipeId of recipeIds) {
@@ -140,7 +146,8 @@ function assertBuilderAuthority(input: DemandBuilderInput): void {
   }
   if (!openingScenarios.has(input.scenario)) throw new Error('unknown first-day opening scenario');
   if (!operatingModes.has(input.operatingMode)) throw new Error('unknown first-day operating mode');
-  if (!periodPlans.has(input.servicePeriodPlan)) throw new Error('unknown first-day service period plan');
+  if (!periodPlans.has(input.servicePeriodPlan))
+    throw new Error('unknown first-day service period plan');
   assertCanonicalDemandSeed(input.demandSeed);
   if (input.layout === null || typeof input.layout !== 'object') {
     throw new Error('first-day layout authority is required');
@@ -155,9 +162,10 @@ function assertBuilderAuthority(input: DemandBuilderInput): void {
  */
 export function selectMvpFirstDayWeather(demandSeed: string): MvpFirstDayWeather {
   assertCanonicalDemandSeed(demandSeed);
-  const bucketIndex = createHash('sha256')
-    .update(`${MVP_FIRST_DAY_DEMAND_POLICY_VERSION}:weather:${demandSeed}`, 'utf8')
-    .digest()[0]! % weatherBuckets.length;
+  const bucketIndex =
+    createHash('sha256')
+      .update(`${MVP_FIRST_DAY_DEMAND_POLICY_VERSION}:weather:${demandSeed}`, 'utf8')
+      .digest()[0]! % weatherBuckets.length;
   return weatherBuckets[bucketIndex]!;
 }
 

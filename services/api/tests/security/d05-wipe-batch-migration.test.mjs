@@ -4,8 +4,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
-const migrationDirectory =
-  `${repositoryRoot}/services/api/prisma/migrations/20260817000100_d05_wipe_batch_persistence`;
+const migrationDirectory = `${repositoryRoot}/services/api/prisma/migrations/20260817000100_d05_wipe_batch_persistence`;
 const migration = readFileSync(`${migrationDirectory}/migration.sql`, 'utf8');
 const rollback = readFileSync(`${migrationDirectory}/rollback.sql`, 'utf8');
 const schema = readFileSync(`${repositoryRoot}/services/api/prisma/schema.prisma`, 'utf8');
@@ -25,7 +24,10 @@ test('D05-B is an additive authority and evidence migration with a paired guarde
   assert.doesNotMatch(migration, /\bDELETE\s+FROM\b|\bTRUNCATE\b|\bUPDATE\s+"/i);
   assert.doesNotMatch(migration, /prisma\s+db\s+push/i);
   assert.doesNotMatch(migration, /Clerk|clerk\.com|IdentityLink"\s+SET/i);
-  assert.doesNotMatch(rollback, /DROP TABLE IF EXISTS "(?:Player|CompetitiveSave|WipeBatch|AuditLog)"/);
+  assert.doesNotMatch(
+    rollback,
+    /DROP TABLE IF EXISTS "(?:Player|CompetitiveSave|WipeBatch|AuditLog)"/,
+  );
 });
 
 test('WipeBatch authority is version/hash-bound and isolates for 30 DB-UTC calendar days', () => {
@@ -67,8 +69,14 @@ test('checkpoint evidence is append-only, contiguous, forward-only, and manually
     /"outcome" = 'SUCCEEDED'[\s\S]+"manifestHash" IS NOT NULL[\s\S]+"countSnapshot" IS NOT NULL[\s\S]+"countHash" IS NOT NULL/,
   );
   assert.match(migration, /checkpoint phase requires the immediately preceding batch phase/);
-  assert.match(migration, /freeze checkpoint requires finalized scope and matching dry-run manifest/);
-  assert.match(migration, /verified checkpoint requires dry-run and terminal verification evidence/);
+  assert.match(
+    migration,
+    /freeze checkpoint requires finalized scope and matching dry-run manifest/,
+  );
+  assert.match(
+    migration,
+    /verified checkpoint requires dry-run and terminal verification evidence/,
+  );
 });
 
 test('save scope finalizes only after authority approval and before freeze', () => {

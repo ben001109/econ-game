@@ -55,8 +55,10 @@ function subject(overrides: Partial<FakeState> = {}) {
       if (query.includes('/* gameplay-read:business-day */')) return state.dayRows as T;
       if (query.includes('/* gameplay-read:service-period-count */')) return state.countRows as T;
       if (query.includes('/* gameplay-read:day-end */')) return state.dayEndRows as T;
-      if (query.includes('/* gameplay-read:preopen-snapshot-pin */')) return state.preopenSnapshotRows as T;
-      if (query.includes('/* gameplay-read:latest-replay-job */')) return state.latestReplayRows as T;
+      if (query.includes('/* gameplay-read:preopen-snapshot-pin */'))
+        return state.preopenSnapshotRows as T;
+      if (query.includes('/* gameplay-read:latest-replay-job */'))
+        return state.latestReplayRows as T;
       if (query.includes('/* gameplay-read:replay-job */')) return state.replayRows as T;
       throw new Error('unexpected query');
     },
@@ -131,9 +133,7 @@ test('durable discovery rejects ambiguous active saves instead of choosing autho
 test('durable scope query excludes revoked membership and retired saves and returns no projection', async () => {
   const { repository, state } = subject({ saveRows: [] });
   assert.equal(await repository.loadCurrentProjection('player-1', 'save-1'), undefined);
-  const query = state.queries.find((entry) =>
-    entry.includes('/* gameplay-read:scoped-save */'),
-  );
+  const query = state.queries.find((entry) => entry.includes('/* gameplay-read:scoped-save */'));
   assert.ok(query);
   assert.match(query, /membership\."playerId" = \$1/);
   assert.match(query, /membership\."revokedAt" IS NULL/);
@@ -200,7 +200,9 @@ test('durable projection omits the pre-open pin outside OPEN_REQUIRED and fails 
   const scoped = await opened.repository.loadCurrentProjection('player-1', 'save-1');
   assert.equal(Object.hasOwn(scoped?.projection ?? {}, 'preopenSnapshot'), false);
   assert.equal(
-    opened.state.queries.some((query) => query.includes('/* gameplay-read:preopen-snapshot-pin */')),
+    opened.state.queries.some((query) =>
+      query.includes('/* gameplay-read:preopen-snapshot-pin */'),
+    ),
     false,
   );
 });
@@ -247,10 +249,7 @@ test('durable replay projection follows exact D03 retry and terminal status comb
   assert.equal((await project('PENDING', 'TRANSIENT'))?.projection.status, 'RETRYING');
   assert.equal((await project('RUNNING', 'TRANSIENT'))?.projection.status, 'RUNNING');
   assert.equal((await project('FAILED', 'PERMANENT'))?.projection.status, 'PERMANENT_FAILURE');
-  assert.equal(
-    (await project('DEAD_LETTER', 'TRANSIENT'))?.projection.status,
-    'RETRY_EXHAUSTED',
-  );
+  assert.equal((await project('DEAD_LETTER', 'TRANSIENT'))?.projection.status, 'RETRY_EXHAUSTED');
 
   for (const [status, errorClass] of [
     ['PENDING', 'PERMANENT'],

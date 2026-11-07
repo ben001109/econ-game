@@ -330,65 +330,53 @@ test('factory fails closed when catalogs, market, or accounting contradict claim
   const base = artifacts();
   assert.throws(
     () =>
-      createPreopenDayPlan(
-        configureIntent(),
-        {
-          ...base,
-          e01: {
-            ...base.e01,
-            ingredientCatalog: base.e01.ingredientCatalog.map((ingredient, index) =>
-              index === 0 ? { ...ingredient, revision: 'i2' } : ingredient,
-            ),
-          },
+      createPreopenDayPlan(configureIntent(), {
+        ...base,
+        e01: {
+          ...base.e01,
+          ingredientCatalog: base.e01.ingredientCatalog.map((ingredient, index) =>
+            index === 0 ? { ...ingredient, revision: 'i2' } : ingredient,
+          ),
         },
-      ),
+      }),
     /ingredient catalog entries must match/,
   );
   assert.throws(
     () =>
-      createPreopenDayPlan(
-        configureIntent(),
-        {
-          ...base,
-          e01: {
-            ...base.e01,
-            recipeCatalog: base.e01.recipeCatalog.map((recipe, index) =>
-              index === 0 ? { ...recipe, catalogRevision: 'r2' } : recipe,
-            ),
-          },
+      createPreopenDayPlan(configureIntent(), {
+        ...base,
+        e01: {
+          ...base.e01,
+          recipeCatalog: base.e01.recipeCatalog.map((recipe, index) =>
+            index === 0 ? { ...recipe, catalogRevision: 'r2' } : recipe,
+          ),
         },
-      ),
+      }),
     /recipe catalog entries must match/,
   );
   assert.throws(
     () =>
-      createPreopenDayPlan(
-        configureIntent(),
-        {
-          ...base,
-          e01: {
-            ...base.e01,
-            marketSnapshot: { ...base.e01.marketSnapshot, simulationRuleVersion: 'rules-2' },
-          },
+      createPreopenDayPlan(configureIntent(), {
+        ...base,
+        e01: {
+          ...base.e01,
+          marketSnapshot: { ...base.e01.marketSnapshot, simulationRuleVersion: 'rules-2' },
         },
-      ),
+      }),
     /market snapshot must match/,
   );
   assert.throws(
     () =>
-      createPreopenDayPlan(
-        configureIntent(),
-        {
-          ...base,
-          accountingEvidence: {
-            ...base.accountingEvidence,
-            entries: base.accountingEvidence.entries.map((entry) => ({
-              ...entry,
-              amountMinorUnits: '999',
-            })),
-          },
+      createPreopenDayPlan(configureIntent(), {
+        ...base,
+        accountingEvidence: {
+          ...base.accountingEvidence,
+          entries: base.accountingEvidence.entries.map((entry) => ({
+            ...entry,
+            amountMinorUnits: '999',
+          })),
         },
-      ),
+      }),
     /accounting evidence must reconcile/,
   );
 });

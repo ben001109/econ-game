@@ -74,7 +74,10 @@ class FakeIdentityRepository implements IdentityScopeRepository {
 }
 
 class FakeGameplayReadRepository implements GameplayReadModelRepository {
-  current: ScopedGameplayProjection | undefined = Object.freeze({ scope, projection: safeProjection });
+  current: ScopedGameplayProjection | undefined = Object.freeze({
+    scope,
+    projection: safeProjection,
+  });
   discovery: ActiveSaveDiscovery = Object.freeze({ bootstrapVersion: 1, active: this.current });
   replay: SafeReplayJobProjection | undefined = Object.freeze({
     scope,
@@ -340,7 +343,11 @@ test('D05 ineligible or revoked entrance denies active, current, and replay proj
 test('Bot active/replay reads audit exact server scope and fail closed without audit sink', async () => {
   const audits: ResolvedBotActorAudit[] = [];
   const app = createApp(new FakeGameplayReadRepository(), audits);
-  const active = await app.inject({ method: 'GET', url: '/gameplay/active-save', headers: botHeaders });
+  const active = await app.inject({
+    method: 'GET',
+    url: '/gameplay/active-save',
+    headers: botHeaders,
+  });
   const replay = await app.inject({
     method: 'GET',
     url: `/saves/save-1/replay-jobs/${replayJobId}`,
@@ -475,7 +482,10 @@ test('latest replay recovery is read-only, strict, leak-safe, and preserves the 
 
   repository.latestReplay = undefined;
   assert.equal((await request()).statusCode, 404);
-  assert.equal((await request('/saves/save-other/replay-jobs/latest?businessDay=1')).statusCode, 404);
+  assert.equal(
+    (await request('/saves/save-other/replay-jobs/latest?businessDay=1')).statusCode,
+    404,
+  );
   for (const url of [
     '/saves/save-1/replay-jobs/latest',
     '/saves/save-1/replay-jobs/latest?businessDay=2',

@@ -97,13 +97,15 @@ type ResolvedRequestIdentity = Readonly<{
 export type TrustedPlayerIdentity = Readonly<{
   playerId: string;
   principal: Readonly<{ type: 'web' }> | Readonly<{ type: 'discord_bot'; interactionId: string }>;
-  recordScopeResolution(input: Readonly<{
-    operation: string;
-    membershipId: string;
-    tenantId: string;
-    saveId: string;
-    role: MembershipRole;
-  }>): Promise<void>;
+  recordScopeResolution(
+    input: Readonly<{
+      operation: string;
+      membershipId: string;
+      tenantId: string;
+      saveId: string;
+      role: MembershipRole;
+    }>,
+  ): Promise<void>;
 }>;
 
 export type TrustedPlayerIdentityResolver = (
