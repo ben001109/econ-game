@@ -60,7 +60,9 @@ class FakeRepository implements PreopenConfigurationChoicesRepository {
   }
 }
 
-type RouteHandler = (request: any, reply: any) => Promise<unknown>;
+type RouteRequest = Readonly<{ params: Readonly<{ saveId: string }> }>;
+type RouteReply = Readonly<{ status(code: number): Readonly<{ send(value: unknown): unknown }> }>;
+type RouteHandler = (request: RouteRequest, reply: RouteReply) => Promise<unknown>;
 
 function register(
   repository: FakeRepository | undefined,

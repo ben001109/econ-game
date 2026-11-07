@@ -40,7 +40,11 @@ import {
 const DEMAND_SEED = 'server-demand-seed-settlement';
 const MARKET_SEED = 'independent-market-seed-settlement';
 
-function mutableClone<T>(value: T): any {
+// These tests tamper with arbitrary paths of JSON clones, so the clone is deliberately untyped.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Tamperable = any;
+
+function mutableClone<T>(value: T): Tamperable {
   return JSON.parse(JSON.stringify(value));
 }
 
@@ -57,9 +61,9 @@ function canonicalizeForAdvanceHash(value: unknown): unknown {
 }
 
 function replaceWithCanonicallyRehashedExecution(
-  records: any,
+  records: Tamperable,
   index: number,
-  mutate: (input: any) => void,
+  mutate: (input: Tamperable) => void,
 ): void {
   const input = mutableClone(records.executions[index].inputSnapshot);
   mutate(input);
@@ -454,7 +458,7 @@ test('rejects independently supplied financial/risk/evidence authority and forge
 test('rejects canonically rehashed cross-period continuation forks', () => {
   const mutations: readonly Readonly<{
     name: string;
-    mutate: (input: any, records: any) => void;
+    mutate: (input: Tamperable, records: Tamperable) => void;
   }>[] = [
     {
       name: 'inventoryState',
@@ -506,7 +510,7 @@ test('rejects canonically rehashed cross-period continuation forks', () => {
 });
 
 test('rejects canonical alternate inputs that mismatch locked demand/menu/catalog/NPC/floor/opening sources', () => {
-  const mutations: readonly Readonly<{ name: string; mutate: (input: any) => void }>[] = [
+  const mutations: readonly Readonly<{ name: string; mutate: (input: Tamperable) => void }>[] = [
     {
       name: 'demand seed',
       mutate: (input) => {
