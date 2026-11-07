@@ -610,7 +610,7 @@ test('production composition command path applies wipe-scope states correctly', 
   await app.close();
 });
 
-test('production policy authorizes a known save-scoped gameplay command before its absent handler fails closed', async () => {
+test('production policy authorizes a known save-scoped gameplay command through to the durable store', async () => {
   const signingKey = signer('production-gameplay-policy-key');
   const state: DatabaseState = {
     saveTenant: 'tenant-one',
@@ -639,12 +639,15 @@ test('production policy authorizes a known save-scoped gameplay command before i
     payload: gameplayEnvelope('CONFIGURE_PREOPEN_DAY'),
   });
 
-  assert.equal(response.statusCode, 422);
-  assert.equal(errorCode(response), 'UNKNOWN_COMMAND');
-  assert.equal(
-    state.queryCalls.some((call) => call.query.includes('INSERT INTO "IdempotencyRecord"')),
-    false,
-  );
+  const queries = state.queryCalls.map((call) => call.query);
+  assert.ok(queries.some((query) => query.includes('JOIN "RestaurantMembership" membership')));
+  assert.ok(queries.some((query) => query.includes('"WipeBatchSaveScope"')));
+  assert.ok(queries.some((query) => query.includes('d05_is_entrance_eligible')));
+  // The handler is registered, so dispatch reaches the idempotency claim; this fake database
+  // refuses durable writes, which surfaces as the generic internal error.
+  assert.ok(queries.some((query) => query.includes('INSERT INTO "IdempotencyRecord"')));
+  assert.equal(response.statusCode, 500);
+  assert.equal(errorCode(response), 'INTERNAL_SERVER_ERROR');
   await app.close();
 });
 
