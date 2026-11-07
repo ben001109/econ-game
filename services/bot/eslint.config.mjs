@@ -27,4 +27,11 @@ export default [
     ],
   },
   ...compat.config(legacyConfig),
+  {
+    // Tests import the dist/test-only build that `npm test` compiles first, so lint cannot resolve it.
+    files: ['test/**/*.mjs'],
+    rules: {
+      'import/no-unresolved': ['error', { ignore: ['^\\.\\./dist/test-only/'] }],
+    },
+  },
 ];
