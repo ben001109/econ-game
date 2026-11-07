@@ -26,14 +26,19 @@ Runtime 只有 Node 22（`.nvmrc`）。前端、Bun、Python、Pterodactyl、God
 
 **目標：** 一位受邀玩家只用 Discord，就能從建立存檔、開店、營業、日結走到 replay 驗證，完成 Day 1。
 
-### 開工前要先決定
+### 已決定
 
-1. **存檔建立入口。** 現在的 bootstrap（`INITIALIZE_COMPETITIVE_SAVE`）只限 Web，Bot 依設計不能執行。要改成 Bot 可以建立存檔，或保留一個極簡的 Web 頁面。
-2. **身份。** Clerk 是唯一身份，Discord 綁定需要在瀏覽器登入 Clerk。M1 要嘛保留 Clerk 加極簡綁定頁，要嘛允許只有 Discord 的 Player。
-3. **跨端一致性 gate。** 原本要求「Web 與 Discord 雙端 hash 一致」。拿掉 Web 後改成「Discord 操作結果與 server 端 replay（`REQUEST_DAY_REPLAY`）hash 一致」。
+- **身份：** 移除 Clerk，改用自有登入。Discord 是主要登入，email／密碼是選用的第二憑證，不在 M1 範圍。見 [ADR 0001](adr/0001-in-house-auth-discord-primary.md)。
+- **存檔建立：** Bot 可以建立存檔。第一次使用 `/game` 時會建立 Player 與存檔。
+
+### 還沒決定
+
+- **跨端一致性 gate（PLAT-03）：** 原本要求「Web 與 Discord 雙端 hash 一致」。拿掉 Web 後改成「Discord 操作結果與 server 端 replay（`REQUEST_DAY_REPLAY`）hash 一致」。
 
 ### 工作項目
 
+- 先修好 8 月留下的紅燈：API 1 個失敗測試、API／worker 的 TypeScript 錯誤、API／bot 的 lint error、三個服務的 format。
+- 自有登入（ADR 0001 後續工作）：`clerkUserId` 改名為 `authSubject`（forward migration）、verifier 改驗自有 issuer、`CLERK_*` 設定改為 `AUTH_*`、bootstrap 允許 Bot、移除 Discord↔Clerk 綁定 challenge。
 - `/game` 子命令背後的遊戲命令全部接上 durable handler（handoff 文件列為「六個遊戲命令尚未全部接入 durable handler」）。
 - PostgreSQL runtime 實跑：migration、RLS、延遲約束（`services/api` 的 `test:d0x:postgres` 系列）。
 - 日結 evidence producer：產生 `ReplayEvent`／`DayEndSnapshot`，讓 replay 驗證有上游資料。
