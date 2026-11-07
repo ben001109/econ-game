@@ -6,29 +6,21 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseNpmAuditJson, summarizeOsvBatch } from './check-supply-chain.mjs';
+import { parseNpmAuditJson } from './check-supply-chain.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUTPUT = join(ROOT, 'docs/security/supply-chain-evidence.json');
 const OCI_STAGE_A_ATTEMPT = 'docs/security/b8-c-oci-stage-a-attempt.json';
 const WRITE = process.argv.includes('--write');
+const SERVICES = ['api', 'bot', 'worker'];
 const NPM_LOCKS = [
-  'services/api/package-lock.json',
-  'services/bot/package-lock.json',
-  'services/frontend/package-lock.json',
-  'services/worker/package-lock.json',
+  ...SERVICES.map((service) => `services/${service}/package-lock.json`),
   'packages/econ-game-sdk/package-lock.json',
 ];
-const BUN_SERVICES = ['api', 'bot', 'frontend', 'worker'];
-const BUN_LOCKS = BUN_SERVICES.map((service) => `services/${service}/bun.lock`);
-const DOCKERFILES = [
-  ...BUN_SERVICES.flatMap((service) => [
-    `services/${service}/Dockerfile`,
-    `services/${service}/Dockerfile.bun`,
-  ]),
-  ...BUN_SERVICES.map((service) => `python/services/${service}/Dockerfile`),
-];
-const COMPOSE_FILES = ['docker-compose.yml', 'docker-compose.python.yml'];
+const DOCKERFILES = SERVICES.map((service) => `services/${service}/Dockerfile`);
+const COMPOSE_FILES = ['docker-compose.yml'];
+const EXPECTED_IMAGE_OCCURRENCES = 12;
+const EXPECTED_UNIQUE_IMAGES = 7;
 
 function read(path) {
   return readFileSync(join(ROOT, path), 'utf8');
@@ -42,14 +34,16 @@ function ociStageAAttempt() {
   return JSON.parse(read(OCI_STAGE_A_ATTEMPT));
 }
 
-function ociEvidenceMissing(stageA) {
+function ociEvidenceMissing(stageA, images) {
+  const verified = stageA?.manifestReview?.verifiedReferences ?? [];
   if (
     stageA?.status === 'MANIFESTS_VERIFIED' &&
-    stageA?.manifestReview?.completedReferences === 13
+    stageA?.manifestReview?.completedReferences === stageA?.manifestReview?.expectedReferences &&
+    images.every((image) => verified.includes(image))
   ) {
     return [];
   }
-  return [{ scope: 'OCI external runtime validation', blocking: true, detail: 'B8-C Stage A has not recorded a complete immutable-manifest verification for all 13 references; no image was pulled, built, started, or deployed.' }];
+  return [{ scope: 'OCI external runtime validation', blocking: true, detail: 'B8-C Stage A has not recorded a complete immutable-manifest verification covering every current reference; no image was pulled, built, started, or deployed.' }];
 }
 
 function command(command, args, cwd = ROOT) {
@@ -98,56 +92,6 @@ function npmAudit(path, queriedAt) {
   };
 }
 
-function uvQueries() {
-  const queries = [];
-  let name = null;
-  let version = null;
-  const flush = () => {
-    if (name && version) queries.push({ package: { ecosystem: 'PyPI', name }, version });
-  };
-  for (const line of read('uv.lock').split(/\r?\n/)) {
-    if (line === '[[package]]') {
-      flush();
-      name = null;
-      version = null;
-    } else if (line.startsWith('name = "')) {
-      name = line.match(/^name = "([^"]+)"$/)?.[1] ?? null;
-    } else if (line.startsWith('version = "')) {
-      version = line.match(/^version = "([^"]+)"$/)?.[1] ?? null;
-    }
-  }
-  flush();
-  return queries;
-}
-
-async function osvAudit(queriedAt) {
-  const queries = uvQueries();
-  const response = await fetch('https://api.osv.dev/v1/querybatch', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ queries }),
-    signal: AbortSignal.timeout(60_000),
-  });
-  if (!response.ok) throw new Error(`OSV query failed with HTTP ${response.status}`);
-  const result = await response.json();
-  const summary = summarizeOsvBatch(result, queries);
-  const affectedPackages = {};
-  for (const [index, item] of result.results.entries()) {
-    const count = item.vulns?.length ?? 0;
-    if (count > 0) affectedPackages[`${queries[index].package.name}@${queries[index].version}`] = count;
-  }
-  return {
-    queriedAt,
-    source: 'https://api.osv.dev/v1/querybatch',
-    command: 'POST querybatch for every name/version in uv.lock',
-    status: summary.matches === 0 ? 'CLEAN' : 'VULNERABILITIES_FOUND',
-    queries: queries.length,
-    matches: summary.matches,
-    fingerprint: summary.fingerprint,
-    affectedPackages,
-  };
-}
-
 function imageReferences() {
   const images = [];
   for (const path of DOCKERFILES) {
@@ -161,20 +105,6 @@ function imageReferences() {
       const match = line.match(/^\s*image:\s*['"]?([^\s'"#]+)/);
       if (match) images.push(match[1]);
     }
-  }
-  for (const path of [
-    'pterodactyl/eggs/econ_api_bun.json',
-    'pterodactyl/eggs/econ_api_python.json',
-    'pterodactyl/eggs/econ_bot_bun.json',
-    'pterodactyl/eggs/econ_bot_python.json',
-    'pterodactyl/eggs/econ_frontend_bun.json',
-    'pterodactyl/eggs/econ_frontend_python.json',
-    'pterodactyl/eggs/econ_worker_bun.json',
-    'pterodactyl/eggs/econ_worker_python.json',
-  ]) {
-    const egg = JSON.parse(read(path));
-    images.push(...Object.values(egg.docker_images ?? {}).map(String));
-    if (egg.scripts?.installation?.container) images.push(String(egg.scripts.installation.container));
   }
   return images;
 }
@@ -197,13 +127,10 @@ async function node22Lifecycle(verifiedAt) {
 async function main() {
   const generatedAt = new Date().toISOString();
   const npmAudits = NPM_LOCKS.map((path) => npmAudit(path, generatedAt));
-  const osv = await osvAudit(generatedAt);
   const runtime = await node22Lifecycle(generatedAt);
-  const bunVersion = command('bun', ['--version']).stdout.trim();
-  if (bunVersion !== '1.3.14') throw new Error(`Expected Bun 1.3.14; found ${bunVersion}`);
   const images = imageReferences();
-  if (images.length !== 47 || new Set(images).size !== 13 || images.some((image) => !/@sha256:[a-f0-9]{64}$/.test(image))) {
-    throw new Error(`OCI enumeration is not immutable 47/13 evidence: ${images.length}/${new Set(images).size}`);
+  if (images.length !== EXPECTED_IMAGE_OCCURRENCES || new Set(images).size !== EXPECTED_UNIQUE_IMAGES || images.some((image) => !/@sha256:[a-f0-9]{64}$/.test(image))) {
+    throw new Error(`OCI enumeration is not immutable ${EXPECTED_IMAGE_OCCURRENCES}/${EXPECTED_UNIQUE_IMAGES} evidence: ${images.length}/${new Set(images).size}`);
   }
   const stageA = ociStageAAttempt();
   const evidence = {
@@ -211,15 +138,13 @@ async function main() {
     generatedAt,
     generator: 'scripts/generate-supply-chain-evidence.mjs --write',
     repository: { head: command('git', ['rev-parse', 'HEAD']).stdout.trim(), branch: command('git', ['branch', '--show-current']).stdout.trim(), worktree: 'dirty-authorized', secretsRead: false },
-    locks: [...NPM_LOCKS.map((path) => ({ path, ecosystem: 'npm', sha256: sha256(path) })), { path: 'uv.lock', ecosystem: 'PyPI', sha256: sha256('uv.lock') }, ...BUN_LOCKS.map((path) => ({ path, ecosystem: 'Bun', sha256: sha256(path) }))],
+    locks: NPM_LOCKS.map((path) => ({ path, ecosystem: 'npm', sha256: sha256(path) })),
     npmAudits,
-    pythonAudit: { lockCheck: { command: 'uv lock --check --offline', status: 'PASS', resolvedPackages: uvQueries().length }, osv },
-    bun: { version: bunVersion, lockfiles: BUN_LOCKS.map((path) => ({ path, sha256: sha256(path), format: 'Bun text lockfileVersion 1' })), installCommand: 'bun install --frozen-lockfile --ignore-scripts', status: 'VERIFIED_STATIC' },
-    containers: { source: 'docs/security/b7-c-oci-digest-remediation.md (authoritative registry manifests at 2026-08-16T16:03:07Z)', imageOccurrences: images.length, uniqueImages: new Set(images).size, digestPinnedOccurrences: images.length, images: [...new Set(images)].sort(), runtimeDockerfiles: 12, explicitNonRootRuntime: 12, status: 'DIGESTS_VERIFIED_STATIC', stageA },
+    containers: { source: 'docs/security/b7-c-oci-digest-remediation.md (authoritative registry manifests at 2026-08-16T16:03:07Z)', imageOccurrences: images.length, uniqueImages: new Set(images).size, digestPinnedOccurrences: images.length, images: [...new Set(images)].sort(), runtimeDockerfiles: DOCKERFILES.length, explicitNonRootRuntime: DOCKERFILES.length, status: 'DIGESTS_VERIFIED_STATIC', stageA },
     runtime: { node22: runtime },
     knownRisks: [],
     evidenceMissing: [
-      ...ociEvidenceMissing(stageA),
+      ...ociEvidenceMissing(stageA, [...new Set(images)]),
       { scope: 'OCI signatures, attestations, and layer CVEs', blocking: true, detail: 'cosign and oras are not installed, no trusted identity policy is configured, and no signature/attestation verification or image-layer CVE scanner result is available.' },
     ],
     remediation: { lockfilesChangedByB7D: false, dependenciesInstalled: false, servicesOrContainersStarted: false, externalImagePullOrDeploy: false },

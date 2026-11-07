@@ -100,8 +100,13 @@
     }
   ],
   "validRedEvidence": {
-    "npmAudits": [],
-    "pythonAudit": { "osv": { "status": "VULNERABILITIES_FOUND", "matches": 2 } },
+    "npmAudits": [
+      {
+        "path": "services/api/package-lock.json",
+        "status": "VULNERABILITIES_FOUND",
+        "counts": { "info": 0, "low": 0, "moderate": 0, "high": 1, "critical": 0, "total": 1 }
+      }
+    ],
     "evidenceMissing": [
       { "scope": "registry evidence", "blocking": true, "detail": "Network evidence is missing." }
     ],

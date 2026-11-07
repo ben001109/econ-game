@@ -11,7 +11,6 @@ import { parseNpmAuditJson } from './check-supply-chain.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EVIDENCE = 'docs/security/supply-chain-evidence.json';
 const NPM_TARGETS = ['services/api/package-lock.json', 'services/worker/package-lock.json'];
-const LOCK_TARGETS = [...NPM_TARGETS, 'services/api/bun.lock', 'services/worker/bun.lock'];
 const WRITE = process.argv.includes('--write');
 
 function read(path) {
@@ -70,12 +69,8 @@ function refresh(evidence, queriedAt) {
     throw new Error('evidence must contain locks and npmAudits arrays');
   }
   const result = structuredClone(evidence);
-  for (const path of LOCK_TARGETS) {
+  for (const path of NPM_TARGETS) {
     requireSingle(result.locks, path, 'locks').sha256 = sha256(path);
-  }
-  if (!Array.isArray(result?.bun?.lockfiles)) throw new Error('evidence must contain bun.lockfiles');
-  for (const path of LOCK_TARGETS.filter((path) => path.endsWith('/bun.lock'))) {
-    requireSingle(result.bun.lockfiles, path, 'bun.lockfiles').sha256 = sha256(path);
   }
   for (const path of NPM_TARGETS) {
     const index = result.npmAudits.findIndex((entry) => entry?.path === path);

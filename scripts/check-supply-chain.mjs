@@ -11,23 +11,13 @@ const EVIDENCE_PATH = join(ROOT, 'docs/security/supply-chain-evidence.json');
 const ONLINE = process.argv.includes('--online');
 const JSON_OUTPUT = process.argv.includes('--json');
 
+const SERVICES = ['api', 'bot', 'worker'];
 const NPM_LOCKS = [
-  'services/api/package-lock.json',
-  'services/bot/package-lock.json',
-  'services/frontend/package-lock.json',
-  'services/worker/package-lock.json',
+  ...SERVICES.map((service) => `services/${service}/package-lock.json`),
   'packages/econ-game-sdk/package-lock.json',
 ];
-const BUN_SERVICES = ['api', 'bot', 'frontend', 'worker'];
-const BUN_LOCKS = BUN_SERVICES.map((service) => `services/${service}/bun.lock`);
-const DOCKERFILES = [
-  ...BUN_SERVICES.flatMap((service) => [
-    `services/${service}/Dockerfile`,
-    `services/${service}/Dockerfile.bun`,
-  ]),
-  ...BUN_SERVICES.map((service) => `python/services/${service}/Dockerfile`),
-];
-const COMPOSE_FILES = ['docker-compose.yml', 'docker-compose.python.yml'];
+const DOCKERFILES = SERVICES.map((service) => `services/${service}/Dockerfile`);
+const COMPOSE_FILES = ['docker-compose.yml'];
 
 const findings = [];
 
@@ -110,52 +100,6 @@ export function evaluateNpmAuditRecord(audit) {
   return result;
 }
 
-export function evaluateOsvAuditRecord(osv) {
-  const path = 'uv.lock';
-  if (!osv || typeof osv !== 'object' || Array.isArray(osv)) {
-    return [policyFinding('PYTHON_AUDIT_MALFORMED', path, 'OSV audit evidence is missing.')];
-  }
-  if (!Number.isInteger(osv.matches) || osv.matches < 0) {
-    return [
-      policyFinding('PYTHON_AUDIT_MALFORMED', path, 'OSV matches must be a non-negative integer.'),
-    ];
-  }
-
-  const result = [];
-  const validStatus = osv.status === 'CLEAN' || osv.status === 'VULNERABILITIES_FOUND';
-  if (!validStatus) {
-    result.push(
-      policyFinding(
-        'PYTHON_AUDIT_MALFORMED',
-        path,
-        `Unsupported OSV status ${osv.status ?? 'missing'}.`,
-      ),
-    );
-  }
-  if (
-    (osv.status === 'CLEAN' && osv.matches !== 0) ||
-    (osv.status === 'VULNERABILITIES_FOUND' && osv.matches === 0)
-  ) {
-    result.push(
-      policyFinding(
-        'PYTHON_AUDIT_INCONSISTENT',
-        path,
-        `${osv.status} is inconsistent with ${osv.matches} match(es).`,
-      ),
-    );
-  }
-  if (osv.matches > 0) {
-    result.push(
-      policyFinding(
-        'PYTHON_VULNERABILITIES_OPEN',
-        path,
-        `Recorded OSV query has ${osv.matches} unresolved advisory matches.`,
-      ),
-    );
-  }
-  return result;
-}
-
 export function parseNpmAuditJson(stdout) {
   if (typeof stdout !== 'string' || stdout.trim() === '') {
     throw new Error('npm audit returned no JSON evidence');
@@ -191,40 +135,6 @@ export function parseNpmAuditJson(stdout) {
   };
 }
 
-export function summarizeOsvBatch(result, queries) {
-  if (!result || !Array.isArray(result.results)) {
-    throw new Error('OSV response results are missing');
-  }
-  if (!Array.isArray(queries) || result.results.length !== queries.length) {
-    throw new Error('OSV response does not cover every query');
-  }
-  const rows = [];
-  for (const [index, item] of result.results.entries()) {
-    if (
-      !item ||
-      typeof item !== 'object' ||
-      (item.vulns !== undefined && !Array.isArray(item.vulns))
-    ) {
-      throw new Error(`OSV result ${index} is malformed`);
-    }
-    for (const vulnerability of item.vulns ?? []) {
-      if (!vulnerability || typeof vulnerability.id !== 'string' || vulnerability.id === '') {
-        throw new Error(`OSV result ${index} contains a malformed advisory`);
-      }
-      rows.push(`${queries[index].package.name}@${queries[index].version}:${vulnerability.id}`);
-    }
-  }
-  rows.sort();
-  return {
-    matches: rows.length,
-    fingerprint: createHash('sha256').update(rows.join('\n')).digest('hex'),
-  };
-}
-
-export function isBunTextLockV1(source) {
-  return typeof source === 'string' && /^\s*"lockfileVersion"\s*:\s*1\s*,/m.test(source);
-}
-
 function read(path) {
   return readFileSync(join(ROOT, path), 'utf8');
 }
@@ -245,7 +155,7 @@ function requireFile(path) {
 
 function auditLocks(evidence) {
   const expected = new Map((evidence.locks ?? []).map((item) => [item.path, item]));
-  for (const path of [...NPM_LOCKS, 'uv.lock', ...BUN_LOCKS]) {
+  for (const path of NPM_LOCKS) {
     if (!requireFile(path)) continue;
     const item = expected.get(path);
     if (!item) {
@@ -266,84 +176,6 @@ function auditLocks(evidence) {
         'WEAK_NPM_LOCK_FORMAT',
         path,
         `Unsupported lockfileVersion ${lock.lockfileVersion}.`,
-      );
-    }
-  }
-  if (existsSync(join(ROOT, 'uv.lock'))) {
-    const uvLock = read('uv.lock');
-    if (!/^revision = \d+$/m.test(uvLock) || !/hash = "sha256:[a-f0-9]+"/.test(uvLock)) {
-      addFinding('WEAK_UV_LOCK_FORMAT', 'uv.lock', 'uv.lock lacks a revision or artifact hashes.');
-    }
-  }
-  for (const path of BUN_LOCKS) {
-    if (!existsSync(join(ROOT, path))) continue;
-    if (!isBunTextLockV1(read(path))) {
-      addFinding(
-        'WEAK_BUN_LOCK_FORMAT',
-        path,
-        'bun.lock must use Bun text-lock lockfileVersion 1.',
-      );
-    }
-  }
-}
-
-function auditBun(evidence) {
-  for (const service of BUN_SERVICES) {
-    const base = `services/${service}`;
-    const hasLock =
-      existsSync(join(ROOT, base, 'bun.lock')) || existsSync(join(ROOT, base, 'bun.lockb'));
-    if (!hasLock) {
-      addFinding(
-        'BUN_LOCK_MISSING',
-        base,
-        'Bun execution is not reproducible without bun.lock or bun.lockb.',
-        'critical',
-      );
-    }
-    const dockerfile = `${base}/Dockerfile.bun`;
-    if (
-      existsSync(join(ROOT, dockerfile)) &&
-      !/bun install\s+[^\n]*--frozen-lockfile/.test(read(dockerfile))
-    ) {
-      addFinding(
-        'BUN_INSTALL_NOT_FROZEN',
-        dockerfile,
-        'Bun image installation must use --frozen-lockfile.',
-      );
-    }
-  }
-
-  if (!Array.isArray(evidence?.bun?.lockfiles)) {
-    addFinding('BUN_EVIDENCE_MALFORMED', 'bun.lock', 'Evidence must bind all Bun lockfiles.', 'critical');
-  } else {
-    const recorded = new Map(evidence.bun.lockfiles.map((item) => [item?.path, item]));
-    for (const path of BUN_LOCKS) {
-      const item = recorded.get(path);
-      if (!item) {
-        addFinding('BUN_LOCK_NOT_IN_EVIDENCE', path, 'Bun lockfile is not bound to the evidence report.', 'critical');
-      } else if (!/^[a-f0-9]{64}$/.test(item.sha256 ?? '')) {
-        addFinding('BUN_EVIDENCE_MALFORMED', path, 'Bun lockfile evidence must include a SHA-256 digest.', 'critical');
-      } else if (existsSync(join(ROOT, path)) && sha256(path) !== item.sha256) {
-        addFinding('STALE_BUN_LOCK_EVIDENCE', path, 'Bun lockfile hash differs from the evidence report.');
-      }
-    }
-  }
-
-  const eggDir = join(ROOT, 'pterodactyl/eggs');
-  if (!existsSync(eggDir)) return;
-  for (const name of readdirSync(eggDir)
-    .filter((entry) => entry.endsWith('_bun.json'))
-    .sort()) {
-    const path = `pterodactyl/eggs/${name}`;
-    const egg = JSON.parse(read(path));
-    if (
-      /bun install/.test(egg.startup ?? '') &&
-      !/bun install[^;]*--frozen-lockfile/.test(egg.startup)
-    ) {
-      addFinding(
-        'BUN_EGG_INSTALL_NOT_FROZEN',
-        path,
-        'Pterodactyl Bun startup installs without a frozen lockfile.',
       );
     }
   }
@@ -408,20 +240,6 @@ function auditContainers(evidence) {
       const match = line.match(/^\s*image:\s*['"]?([^\s'"#]+)/);
       if (match) recordImage(path, match[1], `line ${index + 1}`, images);
     }
-  }
-
-  const eggDir = join(ROOT, 'pterodactyl/eggs');
-  if (!existsSync(eggDir)) return;
-  for (const name of readdirSync(eggDir)
-    .filter((entry) => entry.endsWith('.json'))
-    .sort()) {
-    const path = `pterodactyl/eggs/${name}`;
-    const egg = JSON.parse(read(path));
-    for (const [label, image] of Object.entries(egg.docker_images ?? {})) {
-      recordImage(path, String(image), `docker_images.${label}`, images);
-    }
-    const installer = egg.scripts?.installation?.container;
-    if (installer) recordImage(path, String(installer), 'scripts.installation.container', images);
   }
 
   const expected = evidence?.containers;
@@ -495,13 +313,18 @@ function validateOciStageAAttempt(containers) {
   const sideEffects = attempt.sideEffects;
   const expectedReferences = Array.isArray(containers?.images) ? containers.images : [];
   const verifiedReferences = attempt.manifestReview?.verifiedReferences;
-  const hasExactVerifiedReferences =
+  const recordedReferences = attempt.manifestReview?.expectedReferences;
+  // The recorded attempt may cover references that later left the repository; every current
+  // reference must still be one it verified.
+  const coversCurrentReferences =
+    Number.isInteger(recordedReferences) &&
+    recordedReferences > 0 &&
     Array.isArray(verifiedReferences) &&
-    verifiedReferences.length === 13 &&
-    new Set(verifiedReferences).size === 13 &&
-    expectedReferences.length === 13 &&
-    new Set(expectedReferences).size === 13 &&
-    verifiedReferences.every((reference) => expectedReferences.includes(reference));
+    verifiedReferences.length === recordedReferences &&
+    new Set(verifiedReferences).size === recordedReferences &&
+    expectedReferences.length > 0 &&
+    new Set(expectedReferences).size === expectedReferences.length &&
+    expectedReferences.every((reference) => verifiedReferences.includes(reference));
   const valid =
     attempt.schemaVersion === 2 &&
     attempt.stage === 'B8-C-A' &&
@@ -520,11 +343,10 @@ function validateOciStageAAttempt(containers) {
     attempt.registryResult?.registry === 'OCI registries' &&
     attempt.registryResult?.authentication === 'unauthenticated' &&
     attempt.registryResult?.status === 'ALL_REFERENCES_MATCHED' &&
-    attempt.manifestReview?.expectedReferences === 13 &&
-    attempt.manifestReview?.completedReferences === 13 &&
+    attempt.manifestReview?.completedReferences === recordedReferences &&
     attempt.manifestReview?.status === 'COMPLETE_MATCHED_IMMUTABLE_REFERENCES' &&
     attempt.manifestReview?.retryAttempted === true &&
-    hasExactVerifiedReferences &&
+    coversCurrentReferences &&
     attempt.tooling?.cosignInstalled === false &&
     attempt.tooling?.orasInstalled === false &&
     attempt.tooling?.trustedIdentityPolicyConfigured === false &&
@@ -538,7 +360,7 @@ function validateOciStageAAttempt(containers) {
     : policyFinding(
       'EVIDENCE_SCHEMA_INVALID',
       path,
-      'OCI Stage A evidence must prove all 13 exact immutable references, preserve absent tooling/policy, and record no side effects.',
+      'OCI Stage A evidence must verify every current immutable reference, preserve absent tooling/policy, and record no side effects.',
     );
 }
 
@@ -660,7 +482,6 @@ export function auditRecordedEvidence(
       }
     }
   }
-  result.push(...evaluateOsvAuditRecord(evidence?.pythonAudit?.osv));
   if (Array.isArray(evidence?.evidenceMissing)) {
     for (const gap of evidence.evidenceMissing) {
       if (
@@ -723,30 +544,6 @@ function npmAudit(path) {
   }
 }
 
-function uvQueries() {
-  const lines = read('uv.lock').split(/\r?\n/);
-  const queries = [];
-  let name = null;
-  let version = null;
-  const flush = () => {
-    if (name && version) queries.push({ package: { ecosystem: 'PyPI', name }, version });
-  };
-  for (const line of lines) {
-    if (line === '[[package]]') {
-      flush();
-      name = null;
-      version = null;
-      continue;
-    }
-    const nameMatch = line.match(/^name = "([^"]+)"$/);
-    const versionMatch = line.match(/^version = "([^"]+)"$/);
-    if (nameMatch) name = nameMatch[1];
-    if (versionMatch) version = versionMatch[1];
-  }
-  flush();
-  return queries;
-}
-
 async function auditOnline(evidence) {
   const recorded = new Map((evidence.npmAudits ?? []).map((item) => [item.path, item]));
   for (const path of NPM_LOCKS) {
@@ -765,36 +562,6 @@ async function auditOnline(evidence) {
       );
     }
   }
-
-  const queries = uvQueries();
-  try {
-    const response = await fetch('https://api.osv.dev/v1/querybatch', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ queries }),
-      signal: AbortSignal.timeout(60_000),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const result = summarizeOsvBatch(await response.json(), queries);
-    if (
-      result.matches !== evidence.pythonAudit?.osv?.matches ||
-      result.fingerprint !== evidence.pythonAudit?.osv?.fingerprint
-    ) {
-      addFinding(
-        'STALE_OSV_AUDIT',
-        'uv.lock',
-        `Current OSV matches ${result.matches}; evidence records ${evidence.pythonAudit?.osv?.matches}.`,
-        'critical',
-      );
-    }
-  } catch (error) {
-    addFinding(
-      'EVIDENCE_MISSING',
-      'uv.lock',
-      `OSV query failed closed: ${error.message}.`,
-      'critical',
-    );
-  }
 }
 
 async function main() {
@@ -804,7 +571,6 @@ async function main() {
   }
   const evidence = JSON.parse(read(relative(ROOT, EVIDENCE_PATH)));
   auditLocks(evidence);
-  auditBun(evidence);
   auditActions();
   auditContainers(evidence);
   auditBootstrap();
