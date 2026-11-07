@@ -1,10 +1,10 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-16T16:44:54.758Z",
+  "generatedAt": "2026-11-07T19:56:34.938Z",
   "generator": "scripts/generate-supply-chain-evidence.mjs --write",
   "repository": {
-    "head": "77906f34ffd74a0a9a0c690dfff36fde4a4f31eb",
-    "branch": "python-uv-port",
+    "head": "3cb9452eefe4151edccc662fff76c168392d6a6a",
+    "branch": "discord-first",
     "worktree": "dirty-authorized",
     "secretsRead": false
   },
@@ -12,82 +12,193 @@
     {
       "path": "services/api/package-lock.json",
       "ecosystem": "npm",
-      "sha256": "7f534b50b43e1c86eb58ac4dd411ea9d92a8b9aee476744d45c12420e1717d31"
+      "sha256": "74c1ac968715d40a0c573729d8890b943a8cfac7a056b1769c4a75b80efb9407"
     },
     {
       "path": "services/bot/package-lock.json",
       "ecosystem": "npm",
-      "sha256": "73d03157ff54cd80500a5406c90b5ce3c24393ed5c7653fa3f2c826030773fca"
+      "sha256": "46954d1bd703dde031cdee7d4077015f67640caa68eb8e614c772e22f97d4b51"
     },
     {
       "path": "services/worker/package-lock.json",
       "ecosystem": "npm",
-      "sha256": "f9e569ce3eb138bb9d7a13a25bbcd39f9eaf13171eb8e3a420a64fe113df5437"
+      "sha256": "4a1fb291b58e9d15b5db31bd686bfc97fc9a47e03619284d6eb02166cc9ae510"
     },
     {
       "path": "packages/econ-game-sdk/package-lock.json",
       "ecosystem": "npm",
-      "sha256": "01131edfb33df25c0baecd704a3b989139676d65d19a3328df62ff395fb0e936"
+      "sha256": "e1ce16f73d14629854bc8aef65344169f595f2ffd921b4106ce6ac68fb9a3f37"
     }
   ],
   "npmAudits": [
     {
       "path": "services/api/package-lock.json",
-      "queriedAt": "2026-08-17T22:38:11.697Z",
+      "queriedAt": "2026-11-07T19:56:34.938Z",
       "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
       "command": "npm audit --package-lock-only --ignore-scripts --json",
-      "exitCode": 0,
-      "status": "CLEAN",
-      "fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exitCode": 1,
+      "status": "VULNERABILITIES_FOUND",
+      "fingerprint": "a59683ff55708dd0d4dc60f6e7b21bb28993f594e7c7b232cd8791e282af0593",
       "counts": {
         "info": 0,
         "low": 0,
-        "moderate": 0,
+        "moderate": 6,
         "high": 0,
         "critical": 0,
-        "total": 0
+        "total": 6
       },
-      "entries": []
+      "entries": [
+        {
+          "package": "@typescript-eslint/eslint-plugin",
+          "severity": "moderate",
+          "direct": true,
+          "range": ">=6.16.0"
+        },
+        {
+          "package": "@typescript-eslint/parser",
+          "severity": "moderate",
+          "direct": true,
+          "range": ">=6.16.0"
+        },
+        {
+          "package": "@typescript-eslint/type-utils",
+          "severity": "moderate",
+          "direct": false,
+          "range": ">=6.16.0"
+        },
+        {
+          "package": "@typescript-eslint/typescript-estree",
+          "severity": "moderate",
+          "direct": false,
+          "range": ">=6.16.0"
+        },
+        {
+          "package": "@typescript-eslint/utils",
+          "severity": "moderate",
+          "direct": false,
+          "range": ">=6.16.0"
+        },
+        {
+          "package": "minimatch",
+          "severity": "moderate",
+          "direct": false,
+          "range": "7.0.0 - 11.0.0"
+        }
+      ]
     },
     {
       "path": "services/bot/package-lock.json",
-      "queriedAt": "2026-08-16T16:44:54.758Z",
+      "queriedAt": "2026-11-07T19:56:34.938Z",
       "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
       "command": "npm audit --package-lock-only --ignore-scripts --json",
-      "exitCode": 0,
-      "status": "CLEAN",
-      "fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exitCode": 1,
+      "status": "VULNERABILITIES_FOUND",
+      "fingerprint": "a59683ff55708dd0d4dc60f6e7b21bb28993f594e7c7b232cd8791e282af0593",
       "counts": {
         "info": 0,
         "low": 0,
-        "moderate": 0,
+        "moderate": 6,
         "high": 0,
         "critical": 0,
-        "total": 0
+        "total": 6
       },
-      "entries": []
+      "entries": [
+        {
+          "package": "@typescript-eslint/eslint-plugin",
+          "severity": "moderate",
+          "direct": true,
+          "range": ">=6.16.0"
+        },
+        {
+          "package": "@typescript-eslint/parser",
+          "severity": "moderate",
+          "direct": true,
+          "range": ">=6.16.0"
+        },
+        {
+          "package": "@typescript-eslint/type-utils",
+          "severity": "moderate",
+          "direct": false,
+          "range": ">=6.16.0"
+        },
+        {
+          "package": "@typescript-eslint/typescript-estree",
+          "severity": "moderate",
+          "direct": false,
+          "range": ">=6.16.0"
+        },
+        {
+          "package": "@typescript-eslint/utils",
+          "severity": "moderate",
+          "direct": false,
+          "range": ">=6.16.0"
+        },
+        {
+          "package": "minimatch",
+          "severity": "moderate",
+          "direct": false,
+          "range": "7.0.0 - 11.0.0"
+        }
+      ]
     },
     {
       "path": "services/worker/package-lock.json",
-      "queriedAt": "2026-08-17T22:38:11.697Z",
+      "queriedAt": "2026-11-07T19:56:34.938Z",
       "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
       "command": "npm audit --package-lock-only --ignore-scripts --json",
-      "exitCode": 0,
-      "status": "CLEAN",
-      "fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exitCode": 1,
+      "status": "VULNERABILITIES_FOUND",
+      "fingerprint": "a59683ff55708dd0d4dc60f6e7b21bb28993f594e7c7b232cd8791e282af0593",
       "counts": {
         "info": 0,
         "low": 0,
-        "moderate": 0,
+        "moderate": 6,
         "high": 0,
         "critical": 0,
-        "total": 0
+        "total": 6
       },
-      "entries": []
+      "entries": [
+        {
+          "package": "@typescript-eslint/eslint-plugin",
+          "severity": "moderate",
+          "direct": true,
+          "range": ">=6.16.0"
+        },
+        {
+          "package": "@typescript-eslint/parser",
+          "severity": "moderate",
+          "direct": true,
+          "range": ">=6.16.0"
+        },
+        {
+          "package": "@typescript-eslint/type-utils",
+          "severity": "moderate",
+          "direct": false,
+          "range": ">=6.16.0"
+        },
+        {
+          "package": "@typescript-eslint/typescript-estree",
+          "severity": "moderate",
+          "direct": false,
+          "range": ">=6.16.0"
+        },
+        {
+          "package": "@typescript-eslint/utils",
+          "severity": "moderate",
+          "direct": false,
+          "range": ">=6.16.0"
+        },
+        {
+          "package": "minimatch",
+          "severity": "moderate",
+          "direct": false,
+          "range": "7.0.0 - 11.0.0"
+        }
+      ]
     },
     {
       "path": "packages/econ-game-sdk/package-lock.json",
-      "queriedAt": "2026-08-16T16:44:54.758Z",
+      "queriedAt": "2026-11-07T19:56:34.938Z",
       "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
       "command": "npm audit --package-lock-only --ignore-scripts --json",
       "exitCode": 0,
@@ -176,7 +287,7 @@
   "runtime": {
     "node22": {
       "source": "https://raw.githubusercontent.com/nodejs/Release/main/schedule.json",
-      "verifiedAt": "2026-08-16T16:44:54.758Z",
+      "verifiedAt": "2026-11-07T19:56:34.938Z",
       "configured": "22",
       "executing": "v22.23.1",
       "end": "2027-04-30",
@@ -200,7 +311,11 @@
   "scopeChanges": [
     {
       "recordedAt": "2026-11-08",
-      "detail": "Frontend, Python/uv, Bun and Pterodactyl moved to milestone branches. Their lock, audit and image entries were removed and the container counts were recomputed from the remaining Dockerfiles and Compose file. No audit or registry query was re-run; stageA still records the original 13-reference verification, which covers every remaining reference."
+      "detail": "Frontend, Python/uv, Bun and Pterodactyl moved to milestone branches. Their lock, audit and image entries were removed and the container counts were recomputed from the remaining Dockerfiles and Compose file."
+    },
+    {
+      "recordedAt": "2026-11-08",
+      "detail": "Regenerated after npm audit fix (non-breaking only) in api, bot and worker. Production dependencies report no advisories; the remaining six moderate entries are the dev-only typescript-eslint/minimatch chain, whose fix needs a major typescript-eslint upgrade. stageA still records the original 13-reference verification, which covers every remaining reference."
     }
   ]
 }
