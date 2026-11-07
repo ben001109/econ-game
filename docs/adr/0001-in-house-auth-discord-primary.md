@@ -1,6 +1,6 @@
 # ADR 0001：移除 Clerk，改用自有登入（Discord 為主）
 
-- **狀態：** accepted
+- **狀態：** proposed（2026-11-08 決定延後實作；實作前 Clerk 維持現狀）
 - **日期：** 2026-11-08
 - **決策者：** 專案擁有者
 - **相關決策：** D-04、D-05、PLAT-01、PLAT-02（[決策總表](../architecture/decision-register.md)）

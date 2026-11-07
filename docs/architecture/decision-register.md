@@ -19,7 +19,7 @@
 | 範圍 | 已確認決策 |
 |---|---|
 | 正式產品線 | TypeScript／Fastify／Prisma／Discord Bot，Node 22 單一 runtime。2026-11-08 起 Discord 優先：Next.js 前端延到 M2，Python、Bun 不在主線（見「主線調整」）。 |
-| 身份 | 自有登入（[ADR 0001](../adr/0001-in-house-auth-discord-primary.md)）：server 管理的 Player 為唯一身份真相，Discord 為主要登入，email／密碼為選用的第二憑證。不使用 Clerk。 |
+| 身份 | 目前仍以 Clerk User 為唯一身份真相；Discord 透過短效一次性 IdentityLink 連到 Clerk User 與 Player。未來方向為自有登入、Discord 為主（[ADR 0001](../adr/0001-in-house-auth-discord-primary.md)，proposed，延後實作）。 |
 | 資料與授權 | Supabase PostgreSQL、RLS 與 Fastify RBAC 雙層保護；client 不直接寫高風險遊戲資料。 |
 | 跨平台一致性 | 所有介面共用 API state machine；採 version、idempotency key、SHA-256 request fingerprint。M1 只有 Discord 一個介面，雙端一致性 gate 待 PLAT-03 改寫。 |
 | 資料可追溯 | 金錢、契約、股權與市場事件 append-only；一般營運狀態可更新但保留 version/audit；修正用補償／沖銷 event。 |
@@ -64,7 +64,7 @@
 | D-01 | 核心 aggregate 與表格邊界 | 已確認 MVP 最小 family：身份／租戶、競技存檔、人員／契約、菜單／採購、庫存、營業流程、重播／日結、風險／歷史與 wipe batch。aggregate transaction、歷史保留、最小索引與 RLS/API-only 寫入邊界已固定；封測一致性採 `ReplayEvent` eventHash＋`DayEndSnapshot` snapshotHash 雙層 SHA-256，任一不一致即阻擋。精確 schema/DDL 留待實作設計。 | 已確認 |
 | D-02 | 每個 mutation 的狀態機與 API contract | 已確認：資源導向 endpoint＋統一 command envelope；強制 `idempotencyKey`／`expectedVersion`、server-derived actor/scope、canonical SHA-256 fingerprint、相同請求回傳原結果、key 重用與舊 version 拒絕。核心玩家 mutation 用短時同步 transaction；wipe／批次重算等長工作用非同步 job，回 `202` 與 `jobId`。統一 machine-readable error envelope：版本／key／狀態衝突為 `409`，格式合法但違反規則或前置條件為 `422`。idempotency record 先以唯一約束取得執行權，終態至少保留 30 天（job 自終態起算）；期限後不保證回原結果，但舊 version 必拒絕。精確 schema／OpenAPI 留待實作設計。 | 已確認 |
 | D-03 | Ledger、outbox、market tick、replay 設計 | 已確認：所有貨幣 movement 採 append-only 雙分錄 ledger、整數 minor unit、`transactionId` 分組與補償／沖銷；aggregate 狀態、ledger 與 immutable outbox event 同一 transaction 寫入。outbox 採 at-least-once，consumer 以 `eventId` 去重，不能直接改寫 core aggregate。job 以原子 lease claim、續租與可安全重跑 handler 執行；僅暫時錯誤最多 5 次 capped exponential retry，之後進 `DEAD_LETTER` 並告警／稽核人工處置。MVP market tick 以每個 save 的營業日邊界、唯一 tick identity 與可重跑 materialization 執行，無全域真實時間市場；tick／開店 snapshot 必存 seed、catalog revision 與 `simulationRuleVersion`，replay 缺原版本即阻擋。 | 已確認 |
-| D-04 | Clerk、Supabase、Discord security spike | **身份部分已被 [ADR 0001](../adr/0001-in-house-auth-discord-primary.md) 取代**：不再使用 Clerk，改為自有登入、Discord 為主。server 推導 scope、Bot 受限 service principal、RLS 只開放必要 read model 等規則保留。以下為原文：已確認：Clerk 為唯一 end-user identity；Fastify 必驗證 JWKS／issuer／audience／expiry／authorized-party，並以 token subject 對應 server-managed Player／membership／role／branch scope。Supabase 只採 Clerk third-party JWT；RLS 僅開放必要 read model，核心表拒絕 client write；service role 僅供 API／worker。IdentityLink 採 Discord-ID-bound、雜湊保存、最長 10 分鐘、一次性 challenge，browser 需 Clerk 登入加同 Discord OAuth 證實；每方僅一 active link，轉移必須 re-auth／客服 recovery 並完整 audit。Bot 是 scope 受限 service principal，API 以其 credential＋Discord interaction 查 link 後建立 actor context；其操作與 Web 同 endpoint／RBAC／idempotency，且不得持有 end-user JWT、資料庫 service-role 或全域 admin。 | 已確認 |
+| D-04 | Clerk、Supabase、Discord security spike | **身份部分預計由 [ADR 0001](../adr/0001-in-house-auth-discord-primary.md) 取代（proposed，延後實作）**；實作前維持以下原文：已確認：Clerk 為唯一 end-user identity；Fastify 必驗證 JWKS／issuer／audience／expiry／authorized-party，並以 token subject 對應 server-managed Player／membership／role／branch scope。Supabase 只採 Clerk third-party JWT；RLS 僅開放必要 read model，核心表拒絕 client write；service role 僅供 API／worker。IdentityLink 採 Discord-ID-bound、雜湊保存、最長 10 分鐘、一次性 challenge，browser 需 Clerk 登入加同 Discord OAuth 證實；每方僅一 active link，轉移必須 re-auth／客服 recovery 並完整 audit。Bot 是 scope 受限 service principal，API 以其 credential＋Discord interaction 查 link 後建立 actor context；其操作與 Web 同 endpoint／RBAC／idempotency，且不得持有 end-user JWT、資料庫 service-role 或全域 admin。 | 已確認 |
 | D-05 | 封測／wipe／邀請治理模型 | 已確認：MVP 採 cohort allowlist；`TestCohort` 定義目的、環境、名額、時窗、功能旗標與 eligibility policy version。Invite 為雜湊保存、單次、限時、可撤銷且只限一位已登入 Clerk User 兌換；lifecycle 為 `DRAFT → ACTIVE → CONSUMED | EXPIRED | REVOKED`，所有資格變動可稽核，且不授予經濟特權。Wipe 採 `COMPLETE_NON_HISTORICAL_SAVE_CLEAR`：`FROZEN → ISOLATED → CLEARED → VERIFIED`，隔離後至少 30 天才能清除；30 天後進行 save-scoped 清除/保留族群（未分類為 fail-closed）。帳號清除需滿足 save 全清且使用者無其他 active save、參與、或 tenant/restaurant membership，否則記 `ACCOUNT_RETAINED_GUARD` 後維持 Player 本身；清除時本地 Player tombstone、替換 clerk 識別為不可逆 ID、清理 local IdentityLink，以及僅清理屬於 guard-eligible 的已消費 `DiscordLinkChallenge`（未消費或無歸屬者保持 out-of-scope retain）、tombstone RestaurantMembership。Wipe 不得直接呼叫 Clerk。 | 已確認 |
 
 ### P2：AI、內容與營運
@@ -90,7 +90,7 @@
 |---|---|---|---|
 | PLAT-00 | Discord 優先主線 | 主線改為 `discord-first`，範圍只含 API、worker、Bot、SDK、release-evidence。前端、Bun、Python、Pterodactyl、Godot 移到里程碑分支，Web 前端延到 M2。取代 Godot 分支規劃中「Bot 只做附屬介面」的定位。里程碑與分支對照見 [roadmap](../roadmap.md)。 | 已確認 |
 | PLAT-01 | 存檔建立入口 | Bot principal 可以執行 bootstrap：第一次使用 `/game` 時，在同一 transaction 建立 Player、Discord IdentityLink 與存檔。 | 已確認（2026-11-08） |
-| PLAT-02 | Discord 身份 | 移除 Clerk，改用自有登入：Discord 為主要登入，email／密碼為選用的第二憑證（不在 M1）。見 [ADR 0001](../adr/0001-in-house-auth-discord-primary.md)。 | 已確認（2026-11-08） |
+| PLAT-02 | Discord 身份 | 方向：移除 Clerk，改用自有登入，Discord 為主、email／密碼選用（[ADR 0001](../adr/0001-in-house-auth-discord-primary.md)）。2026-11-08 決定延後實作，目前保留 Clerk。 | 方向已定，延後實作 |
 | PLAT-03 | 一致性 gate 改寫 | 原「Web／Discord 雙端 hash 一致」改為「Discord 操作結果與 server replay hash 一致」；E05-S-03、P0-PLAT-01、O-02 的雙端條件隨之調整。 | 待決 |
 
 以下各節中「Web／Discord 雙端」「Next.js」相關描述，在 PLAT-01～03 定案前維持原文作為歷史脈絡。

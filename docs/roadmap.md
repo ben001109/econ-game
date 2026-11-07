@@ -28,7 +28,7 @@ Runtime 只有 Node 22（`.nvmrc`）。前端、Bun、Python、Pterodactyl、God
 
 ### 已決定
 
-- **身份：** 移除 Clerk，改用自有登入。Discord 是主要登入，email／密碼是選用的第二憑證，不在 M1 範圍。見 [ADR 0001](adr/0001-in-house-auth-discord-primary.md)。
+- **身份：** 方向是移除 Clerk、改用自有登入（Discord 為主，email／密碼選用），見 [ADR 0001](adr/0001-in-house-auth-discord-primary.md)。目前延後實作，Clerk 先保留。
 - **存檔建立：** Bot 可以建立存檔。第一次使用 `/game` 時會建立 Player 與存檔。
 
 ### 還沒決定
@@ -38,7 +38,7 @@ Runtime 只有 Node 22（`.nvmrc`）。前端、Bun、Python、Pterodactyl、God
 ### 工作項目
 
 - 先修好 8 月留下的紅燈：API 1 個失敗測試、API／worker 的 TypeScript 錯誤、API／bot 的 lint error、三個服務的 format。
-- 自有登入（ADR 0001 後續工作）：`clerkUserId` 改名為 `authSubject`（forward migration）、verifier 改驗自有 issuer、`CLERK_*` 設定改為 `AUTH_*`、bootstrap 允許 Bot、移除 Discord↔Clerk 綁定 challenge。
+- 延後：自有登入（ADR 0001 後續工作）。在那之前，Bot 建立存檔仍需要一個已綁定 Clerk 的 Player。
 - `/game` 子命令背後的遊戲命令全部接上 durable handler（handoff 文件列為「六個遊戲命令尚未全部接入 durable handler」）。
 - PostgreSQL runtime 實跑：migration、RLS、延遲約束（`services/api` 的 `test:d0x:postgres` 系列）。
 - 日結 evidence producer：產生 `ReplayEvent`／`DayEndSnapshot`，讓 replay 驗證有上游資料。
