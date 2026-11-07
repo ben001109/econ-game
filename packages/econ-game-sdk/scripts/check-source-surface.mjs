@@ -20,12 +20,6 @@ const expectedGameplayRoutes = new Set([
   'GET /saves/:saveId/replay-jobs/:jobId',
 ]);
 
-const expectedPythonPreviewRoutes = new Set([
-  'GET /health',
-  'POST /players',
-  'GET /players/{player_id}',
-]);
-
 const nodeSource = readFileSync(
   resolve(repoRoot, 'services/api/src/commands/command-routes.ts'),
   'utf8',
@@ -42,25 +36,15 @@ const preopenChoicesSource = readFileSync(
   resolve(repoRoot, 'services/api/src/gameplay/preopen-configuration-choices-routes.ts'),
   'utf8',
 );
-const pythonSource = readFileSync(
-  resolve(repoRoot, 'python/services/api/src/econ_api/routes.py'),
-  'utf8',
-);
 
 const actualNodeRoutes = new Set(
   [...nodeSource.matchAll(/app\.(get|post)\s*(?:<[\s\S]*?>\s*)?\(\s*['\"]([^'\"]+)['\"]/g)].map(
     ([, method, path]) => `${method.toUpperCase()} ${path}`,
   ),
 );
-const actualPythonPreviewRoutes = new Set(
-  [...pythonSource.matchAll(/@router\.(get|post)\(\s*['\"]([^'\"]+)['\"]/g)].map(
-    ([, method, path]) => `${method.toUpperCase()} ${path}`,
-  ),
-);
 
 assertSameRoutes('D02 SDK command', expectedD02SdkRoutes, actualNodeRoutes);
 assertGameplayRouteConstants(expectedGameplayRoutes, bootstrapSource, gameplayReadSource, preopenChoicesSource);
-assertSameRoutes('Python preview', expectedPythonPreviewRoutes, actualPythonPreviewRoutes);
 
 console.log('SDK source-surface check passed.');
 

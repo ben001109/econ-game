@@ -14,11 +14,6 @@
       "types": "./dist/restaurant.d.ts",
       "import": "./dist/restaurant.js",
       "default": "./dist/restaurant.js"
-    },
-    "./python-preview": {
-      "types": "./dist/python-preview.d.ts",
-      "import": "./dist/python-preview.js",
-      "default": "./dist/python-preview.js"
     }
   },
   "main": "./dist/index.js",
@@ -33,7 +28,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check:surface": "node scripts/check-source-surface.mjs",
-    "test": "npm run build && node --test test/core.test.mjs test/restaurant-client.test.mjs test/python-preview-client.test.mjs test/game-command-client.test.mjs test/gameplay-client.test.mjs",
+    "test": "npm run build && node --test test/core.test.mjs test/restaurant-client.test.mjs test/game-command-client.test.mjs test/gameplay-client.test.mjs",
     "typecheck:contract": "tsc -p test/tsconfig.contract.json --noEmit",
     "verify": "npm run check:surface && npm run typecheck:contract && npm run test",
     "pack:dry-run": "npm pack --dry-run"

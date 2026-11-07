@@ -4,15 +4,14 @@
 
 ## Contract boundary
 
-The repository currently contains two incompatible HTTP surfaces. The architecture record identifies the Node/TypeScript line as the product direction; the Python/uv surface remains an isolated preview. The SDK therefore exposes two deliberately separate clients rather than hiding a choice behind a common `EconGameClient`.
+The SDK targets the Node/TypeScript API only. The former Python/uv preview client lives on the `milestone/python-port` branch.
 
 | Client | Source of truth | Current routes | Status |
 |---|---|---|---|
 | `createGameplayApiClient` | P0 gameplay composition | bootstrap, active save, scoped projection, replay recovery/polling, and six typed mutations | Supported Node production gameplay surface; server derives actor, tenant, membership, role, seeds, and authority. |
 | `createGameCommandClient` | D02 command composition | `POST /saves/:saveId/actions/:commandType` | Supported Node production command surface; server derives actor, tenant, membership, and role. |
-| `createPythonPreviewApiClient` | `python/services/api/src/econ_api/routes.py` | health, create/read player | Preview only; do not use for new product work |
 
-`createRestaurantApiClient` is retained only as a legacy compatibility client while callers migrate. Its restaurant/POS/KDS routes are not registered by the production composition and must not be used for new work. The static `check:surface` command compares the SDK's P0 gameplay constants, D02 command route, and Python preview route list. It is not a complete production API route inventory; production composition integration tests remain the authority for that surface.
+`createRestaurantApiClient` is retained only as a legacy compatibility client while callers migrate. Its restaurant/POS/KDS routes are not registered by the production composition and must not be used for new work. The static `check:surface` command compares the SDK's P0 gameplay constants and D02 command route. It is not a complete production API route inventory; production composition integration tests remain the authority for that surface.
 
 `GameplayApiClient` is the typed P0 client surface. Bootstrap is Web-only.
 Active-save discovery is readable by Discord Bot only when the linked player

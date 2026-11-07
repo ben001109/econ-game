@@ -37,13 +37,6 @@ export {
   type Tip,
 } from './restaurant.js';
 
-export {
-  PythonPreviewApiClient,
-  createPythonPreviewApiClient,
-  type CreatePreviewPlayerInput,
-  type PreviewPlayer,
-  type PythonPreviewHealthResponse,
-} from './python-preview.js';
 
 export {
   COMMAND_ENVELOPE_VERSION,
