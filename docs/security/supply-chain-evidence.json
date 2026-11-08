@@ -1,9 +1,9 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-08T07:01:48.849Z",
+  "generatedAt": "2026-11-08T07:10:14.335Z",
   "generator": "scripts/generate-supply-chain-evidence.mjs --write",
   "repository": {
-    "head": "98f3a87d3c77f38992f05a20fa11392c1c75854e",
+    "head": "375793e06ce2ee0289bda0f89a1e94d41638335a",
     "branch": "discord-first",
     "worktree": "dirty-authorized",
     "secretsRead": false
@@ -12,17 +12,17 @@
     {
       "path": "services/api/package-lock.json",
       "ecosystem": "npm",
-      "sha256": "74c1ac968715d40a0c573729d8890b943a8cfac7a056b1769c4a75b80efb9407"
+      "sha256": "d344734041631e60e6f875bc5e16f8b33693471058284bdf0c8d6f12f4176cc3"
     },
     {
       "path": "services/bot/package-lock.json",
       "ecosystem": "npm",
-      "sha256": "46954d1bd703dde031cdee7d4077015f67640caa68eb8e614c772e22f97d4b51"
+      "sha256": "60f003e3def3287c6f8b3d790c6776ad53a9402ccd2f9bfcfb9e5823b9f2cc3c"
     },
     {
       "path": "services/worker/package-lock.json",
       "ecosystem": "npm",
-      "sha256": "4a1fb291b58e9d15b5db31bd686bfc97fc9a47e03619284d6eb02166cc9ae510"
+      "sha256": "ba300ba4c30ba210379f69d220c759a2f8ad1194c3044aaebccb8697d03468a7"
     },
     {
       "path": "packages/econ-game-sdk/package-lock.json",
@@ -33,172 +33,61 @@
   "npmAudits": [
     {
       "path": "services/api/package-lock.json",
-      "queriedAt": "2026-11-08T07:01:48.849Z",
+      "queriedAt": "2026-11-08T07:10:14.335Z",
       "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
       "command": "npm audit --package-lock-only --ignore-scripts --json",
-      "exitCode": 1,
-      "status": "VULNERABILITIES_FOUND",
-      "fingerprint": "a59683ff55708dd0d4dc60f6e7b21bb28993f594e7c7b232cd8791e282af0593",
+      "exitCode": 0,
+      "status": "CLEAN",
+      "fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "counts": {
         "info": 0,
         "low": 0,
-        "moderate": 6,
+        "moderate": 0,
         "high": 0,
         "critical": 0,
-        "total": 6
+        "total": 0
       },
-      "entries": [
-        {
-          "package": "@typescript-eslint/eslint-plugin",
-          "severity": "moderate",
-          "direct": true,
-          "range": ">=6.16.0"
-        },
-        {
-          "package": "@typescript-eslint/parser",
-          "severity": "moderate",
-          "direct": true,
-          "range": ">=6.16.0"
-        },
-        {
-          "package": "@typescript-eslint/type-utils",
-          "severity": "moderate",
-          "direct": false,
-          "range": ">=6.16.0"
-        },
-        {
-          "package": "@typescript-eslint/typescript-estree",
-          "severity": "moderate",
-          "direct": false,
-          "range": ">=6.16.0"
-        },
-        {
-          "package": "@typescript-eslint/utils",
-          "severity": "moderate",
-          "direct": false,
-          "range": ">=6.16.0"
-        },
-        {
-          "package": "minimatch",
-          "severity": "moderate",
-          "direct": false,
-          "range": "7.0.0 - 11.0.0"
-        }
-      ]
+      "entries": []
     },
     {
       "path": "services/bot/package-lock.json",
-      "queriedAt": "2026-11-08T07:01:48.849Z",
+      "queriedAt": "2026-11-08T07:10:14.335Z",
       "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
       "command": "npm audit --package-lock-only --ignore-scripts --json",
-      "exitCode": 1,
-      "status": "VULNERABILITIES_FOUND",
-      "fingerprint": "a59683ff55708dd0d4dc60f6e7b21bb28993f594e7c7b232cd8791e282af0593",
+      "exitCode": 0,
+      "status": "CLEAN",
+      "fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "counts": {
         "info": 0,
         "low": 0,
-        "moderate": 6,
+        "moderate": 0,
         "high": 0,
         "critical": 0,
-        "total": 6
+        "total": 0
       },
-      "entries": [
-        {
-          "package": "@typescript-eslint/eslint-plugin",
-          "severity": "moderate",
-          "direct": true,
-          "range": ">=6.16.0"
-        },
-        {
-          "package": "@typescript-eslint/parser",
-          "severity": "moderate",
-          "direct": true,
-          "range": ">=6.16.0"
-        },
-        {
-          "package": "@typescript-eslint/type-utils",
-          "severity": "moderate",
-          "direct": false,
-          "range": ">=6.16.0"
-        },
-        {
-          "package": "@typescript-eslint/typescript-estree",
-          "severity": "moderate",
-          "direct": false,
-          "range": ">=6.16.0"
-        },
-        {
-          "package": "@typescript-eslint/utils",
-          "severity": "moderate",
-          "direct": false,
-          "range": ">=6.16.0"
-        },
-        {
-          "package": "minimatch",
-          "severity": "moderate",
-          "direct": false,
-          "range": "7.0.0 - 11.0.0"
-        }
-      ]
+      "entries": []
     },
     {
       "path": "services/worker/package-lock.json",
-      "queriedAt": "2026-11-08T07:01:48.849Z",
+      "queriedAt": "2026-11-08T07:10:14.335Z",
       "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
       "command": "npm audit --package-lock-only --ignore-scripts --json",
-      "exitCode": 1,
-      "status": "VULNERABILITIES_FOUND",
-      "fingerprint": "a59683ff55708dd0d4dc60f6e7b21bb28993f594e7c7b232cd8791e282af0593",
+      "exitCode": 0,
+      "status": "CLEAN",
+      "fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "counts": {
         "info": 0,
         "low": 0,
-        "moderate": 6,
+        "moderate": 0,
         "high": 0,
         "critical": 0,
-        "total": 6
+        "total": 0
       },
-      "entries": [
-        {
-          "package": "@typescript-eslint/eslint-plugin",
-          "severity": "moderate",
-          "direct": true,
-          "range": ">=6.16.0"
-        },
-        {
-          "package": "@typescript-eslint/parser",
-          "severity": "moderate",
-          "direct": true,
-          "range": ">=6.16.0"
-        },
-        {
-          "package": "@typescript-eslint/type-utils",
-          "severity": "moderate",
-          "direct": false,
-          "range": ">=6.16.0"
-        },
-        {
-          "package": "@typescript-eslint/typescript-estree",
-          "severity": "moderate",
-          "direct": false,
-          "range": ">=6.16.0"
-        },
-        {
-          "package": "@typescript-eslint/utils",
-          "severity": "moderate",
-          "direct": false,
-          "range": ">=6.16.0"
-        },
-        {
-          "package": "minimatch",
-          "severity": "moderate",
-          "direct": false,
-          "range": "7.0.0 - 11.0.0"
-        }
-      ]
+      "entries": []
     },
     {
       "path": "packages/econ-game-sdk/package-lock.json",
-      "queriedAt": "2026-11-08T07:01:48.849Z",
+      "queriedAt": "2026-11-08T07:10:14.335Z",
       "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
       "command": "npm audit --package-lock-only --ignore-scripts --json",
       "exitCode": 0,
@@ -287,7 +176,7 @@
   "runtime": {
     "node22": {
       "source": "https://raw.githubusercontent.com/nodejs/Release/main/schedule.json",
-      "verifiedAt": "2026-11-08T07:01:48.849Z",
+      "verifiedAt": "2026-11-08T07:10:14.335Z",
       "configured": "22.23.1",
       "executing": "v22.23.1",
       "end": "2027-04-30",
@@ -315,11 +204,15 @@
     },
     {
       "recordedAt": "2026-11-08",
-      "detail": "Regenerated after npm audit fix (non-breaking only) in api, bot and worker. Production dependencies report no advisories; the remaining six moderate entries are the dev-only typescript-eslint/minimatch chain, whose fix needs a major typescript-eslint upgrade. stageA still records the original 13-reference verification, which covers every remaining reference."
+      "detail": "Regenerated after npm audit fix (non-breaking only) in api, bot and worker. stageA still records the original 13-reference verification, which covers every remaining reference."
     },
     {
       "recordedAt": "2026-11-08",
       "detail": ".nvmrc now pins 22.23.1 instead of 22, so CI installs the same Node release the evidence records."
+    },
+    {
+      "recordedAt": "2026-11-08",
+      "detail": "Added an npm override forcing minimatch ^11.0.1 under @typescript-eslint/typescript-estree in api, bot and worker. typescript-eslint 8.72.1 (latest and canary) still requires minimatch ^10.2.2, and GHSA-g3hv-75wg-m249 is only fixed in 11.0.1. Remove the override once typescript-eslint depends on a fixed minimatch. All four npm locks now audit clean."
     }
   ]
 }
