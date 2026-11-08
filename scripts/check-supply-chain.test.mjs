@@ -91,6 +91,12 @@ test('recorded evidence audit preserves valid but genuinely red evidence', () =>
     result.every((finding) => finding.severity === 'critical'),
     true,
   );
+
+  const pinned = auditRecordedEvidence(evidenceSchema.validRedEvidence, {
+    nodeVersion: '22.23.1',
+    now: schemaNow,
+  });
+  assert.equal(pinned.some((finding) => finding.code === 'EOL_RUNTIME'), true);
 });
 
 test('OCI Stage A manifest evidence must cover every current reference with no side effects', () => {
@@ -98,7 +104,7 @@ test('OCI Stage A manifest evidence must cover every current reference with no s
     readFileSync(join(HERE, '..', 'docs/security/supply-chain-evidence.json'), 'utf8'),
   );
   const valid = auditRecordedEvidence(evidence, {
-    nodeVersion: '22',
+    nodeVersion: evidence.runtime.node22.configured,
     executingNodeVersion: evidence.runtime.node22.executing,
     now: Date.parse(evidence.generatedAt),
   });
@@ -113,7 +119,7 @@ test('OCI Stage A manifest evidence must cover every current reference with no s
     const altered = structuredClone(evidence);
     alter(altered);
     const invalid = auditRecordedEvidence(altered, {
-      nodeVersion: '22',
+      nodeVersion: evidence.runtime.node22.configured,
       executingNodeVersion: evidence.runtime.node22.executing,
       now: Date.parse(evidence.generatedAt),
     });

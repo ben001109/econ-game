@@ -500,7 +500,7 @@ export function auditRecordedEvidence(
   const node = evidence?.runtime?.node22;
   const endTimestamp = isoDateTimestamp(node?.end);
   if (
-    nodeVersion === '22' &&
+    /^22(?:\.|$)/.test(nodeVersion) &&
     endTimestamp !== null &&
     typeof node?.status === 'string' &&
     endTimestamp < now

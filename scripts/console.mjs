@@ -458,7 +458,7 @@ function readNvmrc() {
   const p = join(root, '.nvmrc');
   if (!existsSync(p)) return null;
   const raw = readFileSync(p, 'utf8').trim();
-  const major = Number(raw.replace(/^v/, ''));
+  const major = Number(raw.replace(/^v/, '').split('.')[0]);
   return Number.isFinite(major) ? major : null;
 }
 

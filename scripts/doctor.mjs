@@ -27,7 +27,7 @@ function getRequiredNode() {
   const p = join(process.cwd(), '.nvmrc');
   if (!existsSync(p)) return 20;
   const raw = readFileSync(p, 'utf8').trim();
-  const major = Number(raw.replace(/^v/, ''));
+  const major = Number(raw.replace(/^v/, '').split('.')[0]);
   return Number.isFinite(major) ? major : 20;
 }
 

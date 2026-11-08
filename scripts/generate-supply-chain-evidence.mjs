@@ -118,8 +118,9 @@ async function node22Lifecycle(verifiedAt) {
   if (!release || typeof release.end !== 'string') throw new Error('Node v22 lifecycle is absent from official schedule');
   const configured = read('.nvmrc').trim();
   const executing = command('node', ['--version']).stdout.trim();
-  if (configured !== '22' || !/^v22\.23\.1$/.test(executing)) {
-    throw new Error(`Node runtime must be configured/executing as 22/v22.23.1; got ${configured}/${executing}`);
+  // .nvmrc pins an exact Node 22 release, so CI and the evidence run the same runtime.
+  if (!/^22\.\d+\.\d+$/.test(configured) || executing !== `v${configured}`) {
+    throw new Error(`Node runtime must be an exact Node 22 release executing as v${configured}; got ${configured}/${executing}`);
   }
   return { source, verifiedAt, configured, executing, end: release.end, status: 'ACTIVE' };
 }
