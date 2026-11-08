@@ -13,7 +13,7 @@ const servicesDir = join(root, 'services');
 const CONFIG_PATH = join(root, '.econ-console.json');
 const services = {
   dev: ['api-dev', 'worker-dev', 'bot-dev'],
-  aux: ['adminer', 'redis-commander'],
+  aux: ['adminer'],
   db: ['postgres', 'redis'],
   prod: ['api', 'worker', 'bot'],
 };
@@ -69,7 +69,7 @@ const I18N = {
     select: 'Select: ',
     clean_first: 'Clean previous dev containers first?',
     start_db: 'Start DB services (postgres, redis)?',
-    start_tools: 'Start tools (adminer, redis-commander)?',
+    start_tools: 'Start tools (adminer)?',
     build_before: 'Build before start?',
     pull_before: 'Pull images before start?',
     recreate_question: 'Recreate containers? [none/no/force] (default: none): ',
@@ -77,7 +77,7 @@ const I18N = {
     select_dev_start: 'Select dev apps to start (empty = all dev apps):',
     select_dev_stop: 'Select dev apps to stop (empty = all dev apps):',
     indices: 'Indices: ',
-    include_db_stop: 'Also stop DB and tools (postgres/redis/adminer/redis-commander)?',
+    include_db_stop: 'Also stop DB and tools (postgres/redis/adminer)?',
     drop_schema_question: "Drop Postgres schema 'dev' as well?",
     drop_anon_vols: "Remove dev containers' anonymous volumes (-v)?",
     ensuring_pg: 'Ensuring postgres is up to run SQL...',
@@ -104,7 +104,7 @@ const I18N = {
     lang_prompt: 'Choose language: [1] English, [2] 繁體中文 (default based on locale): ',
     lang_changed: 'Language changed to',
     // DB removal prompts
-    db_also_remove_containers: 'Also remove DB containers (postgres/redis/adminer/redis-commander)?',
+    db_also_remove_containers: 'Also remove DB containers (postgres/redis/adminer)?',
     db_also_remove_volumes: 'Also remove DB named volumes (-v)?',
     // Services submenu
     services_header: '=== Service Ops ===',
@@ -159,7 +159,7 @@ const I18N = {
     select: '請選擇：',
     clean_first: '啟動前先清除舊的 dev 容器？',
     start_db: '要一併啟動資料庫服務（postgres、redis）嗎？',
-    start_tools: '要一併啟動工具（adminer、redis-commander）嗎？',
+    start_tools: '要一併啟動工具（adminer）嗎？',
     build_before: '啟動前要先 build 嗎？',
     pull_before: '啟動前要先 pull 映像嗎？',
     recreate_question: '要重建容器嗎？[none/no/force]（預設：none）：',
@@ -167,7 +167,7 @@ const I18N = {
     select_dev_start: '選擇要啟動的 dev 服務（空白＝全部）：',
     select_dev_stop: '選擇要停止的 dev 服務（空白＝全部）：',
     indices: '輸入編號：',
-    include_db_stop: '是否同時停止 DB/工具（postgres/redis/adminer/redis-commander）？',
+    include_db_stop: '是否同時停止 DB/工具（postgres/redis/adminer）？',
     drop_schema_question: '同時丟棄 Postgres 的 dev schema？',
     drop_anon_vols: '是否一併移除 dev 容器的匿名 volumes（-v）？',
     ensuring_pg: '正在確保 Postgres 可用，準備執行 SQL…',
@@ -194,7 +194,7 @@ const I18N = {
     lang_prompt: '選擇語言：[1] English, [2] 繁體中文（依環境預設）：',
     lang_changed: '語言已切換為',
     // DB removal prompts
-    db_also_remove_containers: '是否同時移除資料庫與工具容器（postgres/redis/adminer/redis-commander）？',
+    db_also_remove_containers: '是否同時移除資料庫與工具容器（postgres/redis/adminer）？',
     db_also_remove_volumes: '是否同時刪除資料庫命名卷（-v）？',
     // Services submenu
     services_header: '=== 服務操作 ===',
@@ -1488,7 +1488,6 @@ async function openUrls() {
   const urls = [
     { name: 'API Docs', url: 'http://localhost:4000/docs' },
     { name: 'Adminer', url: 'http://localhost:8080' },
-    { name: 'Redis Commander', url: 'http://localhost:8081' },
   ];
   const opener = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open';
   for (const u of urls) {

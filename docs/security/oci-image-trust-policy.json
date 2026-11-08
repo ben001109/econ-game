@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "adoptedAt": "2026-11-08",
+  "document": "docs/security/oci-image-trust-policy.md",
+  "maxScanAgeDays": 30,
+  "signatures": {
+    "required": false,
+    "reason": "Docker Official Images publish no Sigstore or Notation signatures (docker/roadmap#562 is still open), so trust rests on digest pinning, docker-library provenance and a current vulnerability scan. Revisit when upstream signs or when images move to a signed source such as Docker Hardened Images."
+  },
+  "provenance": {
+    "builder": "https://github.com/docker-library",
+    "sources": {
+      "adminer": "https://github.com/TimWolla/docker-adminer.git",
+      "node": "https://github.com/nodejs/docker-node.git",
+      "postgres": "https://github.com/docker-library/postgres.git",
+      "redis": "https://github.com/redis/docker-library-redis.git"
+    }
+  },
+  "productionImages": ["node:22-alpine", "postgres:16-alpine", "redis:7-alpine"],
+  "acceptedLanguageRisks": [
+    {
+      "image": "node:22-alpine",
+      "locationPrefix": "usr/local/lib/node_modules/npm/",
+      "reason": "Dependencies bundled inside the npm CLI that ships with the Node image. The services run node directly; npm only runs during image builds.",
+      "reviewBy": "2026-12-08"
+    },
+    {
+      "image": "postgres:16-alpine",
+      "locationPrefix": "usr/local/bin/gosu",
+      "reason": "Go standard library findings in gosu, which docker-library builds with an older Go toolchain. gosu only drops privileges once at container start and handles no network or user input.",
+      "reviewBy": "2026-12-08"
+    }
+  ]
+}

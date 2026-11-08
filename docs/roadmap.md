@@ -44,7 +44,7 @@ Runtime 只有 Node 22（`.nvmrc`）。前端、Bun、Python、Pterodactyl、God
 - 日結 evidence producer：產生 `ReplayEvent`／`DayEndSnapshot`，讓 replay 驗證有上游資料。
 - Bot 部署方式。原本的 Pterodactyl eggs 只有 Bun／Python 版，需要新增 Node 版或改用其他部署方式。
 - 移除 Bot 裡未註冊的舊 POS／KDS 指令模組。
-- 處理供應鏈檢查目前的兩個 finding：`services/bot/package-lock.json` 的 lock evidence 過期，以及 OCI 簽章／attestation evidence 缺失。
+- ~~處理供應鏈檢查的 finding~~（2026-11-08：npm 漏洞已修，Node 固定 22.23.1，映像檔改用 [OCI 映像檔信任政策](security/oci-image-trust-policy.md)）。映像檔證據每 30 天要重新收集一次。
 
 ### 完成條件
 

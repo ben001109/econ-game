@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-game}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in a private untracked root .env file}
@@ -16,7 +16,7 @@ services:
       retries: 20
 
   redis:
-    image: redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
+    image: redis:7-alpine@sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b
     command: [ "redis-server", "--save", "60", "1", "--loglevel", "warning" ]
     ports:
       - "${ECON_BIND_ADDRESS:-127.0.0.1}:6379:6379"
@@ -91,23 +91,12 @@ services:
       postgres:
         condition: service_healthy
 
-  redis-commander:
-    image: rediscommander/redis-commander:latest@sha256:19cd0c49f418779fa2822a0496c5e6516d0c792effc39ed20089e6268477e40a
-    profiles: [ "tools" ]
-    environment:
-      - REDIS_HOSTS=local:redis:6379
-    ports:
-      - "${ECON_BIND_ADDRESS:-127.0.0.1}:8081:8081"
-    depends_on:
-      redis:
-        condition: service_started
-
   # Development profile: hot-reload API and worker using ts-node-dev
   api-dev:
     profiles: [ "dev" ]
-    image: node:22-bullseye-slim@sha256:97924c8c7170c7a4c4464a281cc1f9569816496e546afbac17c4f2723397e116
+    image: node:22-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d
     working_dir: /workspace/services/api
-    # install OpenSSL (Prisma engine uses libssl1.1 on bullseye)
+    # install OpenSSL (the Prisma engine links against libssl3 on bookworm)
     user: root
     command: >
       sh -c "export DEBIAN_FRONTEND=noninteractive
@@ -140,7 +129,7 @@ services:
 
   worker-dev:
     profiles: [ "dev" ]
-    image: node:22-bookworm-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436
+    image: node:22-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d
     working_dir: /workspace/services/worker
     command: sh -c "npm install && (npm run dev | tee -a /logs/worker-dev.log)"
     environment:
@@ -163,7 +152,7 @@ services:
 
   bot-dev:
     profiles: [ "dev" ]
-    image: node:22-bookworm-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436
+    image: node:22-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d
     working_dir: /workspace/services/bot
     # The Bot depends on the local SDK package, which must be built before the Bot installs it.
     command: sh -c "(cd /workspace/packages/econ-game-sdk && npm install && npm run build) && npm install && (npm run dev | tee -a /logs/bot-dev.log)"

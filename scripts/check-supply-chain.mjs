@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EVIDENCE_PATH = join(ROOT, 'docs/security/supply-chain-evidence.json');
+const IMAGE_TRUST_EVIDENCE_PATH = 'docs/security/oci-image-trust-evidence.json';
+const IMAGE_TRUST_POLICY_PATH = 'docs/security/oci-image-trust-policy.json';
 const ONLINE = process.argv.includes('--online');
 const JSON_OUTPUT = process.argv.includes('--json');
 
@@ -341,15 +343,15 @@ function validateOciStageAAttempt(containers) {
     typeof attempt.environment?.dockerContext === 'string' &&
     attempt.environment.dockerContext !== '' &&
     attempt.registryResult?.registry === 'OCI registries' &&
-    attempt.registryResult?.authentication === 'unauthenticated' &&
+    ['unauthenticated', 'authenticated'].includes(attempt.registryResult?.authentication) &&
     attempt.registryResult?.status === 'ALL_REFERENCES_MATCHED' &&
     attempt.manifestReview?.completedReferences === recordedReferences &&
     attempt.manifestReview?.status === 'COMPLETE_MATCHED_IMMUTABLE_REFERENCES' &&
     attempt.manifestReview?.retryAttempted === true &&
     coversCurrentReferences &&
-    attempt.tooling?.cosignInstalled === false &&
-    attempt.tooling?.orasInstalled === false &&
-    attempt.tooling?.trustedIdentityPolicyConfigured === false &&
+    typeof attempt.tooling?.cosignInstalled === 'boolean' &&
+    typeof attempt.tooling?.orasInstalled === 'boolean' &&
+    typeof attempt.tooling?.trustedIdentityPolicyConfigured === 'boolean' &&
     sideEffects?.imageLayersPulled === false &&
     sideEffects?.imagesBuilt === false &&
     sideEffects?.containersRun === false &&
@@ -360,8 +362,89 @@ function validateOciStageAAttempt(containers) {
     : policyFinding(
       'EVIDENCE_SCHEMA_INVALID',
       path,
-      'OCI Stage A evidence must verify every current immutable reference, preserve absent tooling/policy, and record no side effects.',
+      'OCI Stage A evidence must verify every current immutable reference, record its tooling, and record no side effects.',
     );
+}
+
+function imageName(reference) {
+  return reference.split('@')[0].replace(/^docker\.io\/(?:library\/)?/, '');
+}
+
+function imageRepository(reference) {
+  return imageName(reference).replace(/:[^/]+$/, '');
+}
+
+// Applies docs/security/oci-image-trust-policy.json to the Stage B evidence written by
+// scripts/collect-oci-image-evidence.mjs. Every current reference needs a fresh record.
+export function auditImageTrust(references, trust, policy, { now = Date.now() } = {}) {
+  const path = IMAGE_TRUST_EVIDENCE_PATH;
+  if (!policy || policy.schemaVersion !== 1 || !Number.isInteger(policy.maxScanAgeDays)) {
+    return [policyFinding('EVIDENCE_SCHEMA_INVALID', IMAGE_TRUST_POLICY_PATH, 'OCI image trust policy is missing or malformed.')];
+  }
+  if (!trust || trust.schemaVersion !== 1 || !isIsoTimestamp(trust.recordedAt) || !Array.isArray(trust.images)) {
+    return [policyFinding('EVIDENCE_MISSING', path, 'No OCI image trust evidence; run scripts/collect-oci-image-evidence.mjs --write.')];
+  }
+  const result = [];
+  const ageDays = (now - Date.parse(trust.recordedAt)) / 86_400_000;
+  if (ageDays > policy.maxScanAgeDays) {
+    result.push(policyFinding('STALE_IMAGE_SCAN', path, `Image evidence is ${Math.floor(ageDays)} days old; the policy allows ${policy.maxScanAgeDays}.`));
+  }
+  const records = new Map(trust.images.map((record) => [record?.reference, record]));
+  const production = new Set(policy.productionImages ?? []);
+  for (const reference of references) {
+    const record = records.get(reference);
+    if (!record) {
+      result.push(policyFinding('IMAGE_EVIDENCE_MISSING', reference, 'No signature, provenance or scan record exists for this reference.'));
+      continue;
+    }
+    const name = imageName(reference);
+    if (policy.signatures?.required === true && record.signature?.status !== 'VERIFIED') {
+      result.push(policyFinding('IMAGE_SIGNATURE_UNVERIFIED', reference, 'The policy requires a verified signature.'));
+    }
+    const source = policy.provenance?.sources?.[imageRepository(reference)];
+    if (typeof source !== 'string') {
+      result.push(policyFinding('IMAGE_NOT_ALLOWED', reference, 'The trust policy lists no provenance source for this image.'));
+    } else {
+      const provenance = record.provenance;
+      const matches =
+        provenance?.status === 'PRESENT' &&
+        Array.isArray(provenance.builders) &&
+        provenance.builders.length > 0 &&
+        provenance.builders.every((builder) => builder === policy.provenance.builder) &&
+        Array.isArray(provenance.sources) &&
+        provenance.sources.length > 0 &&
+        provenance.sources.every((uri) => typeof uri === 'string' && uri.startsWith(`${source}#`));
+      if (!matches) {
+        result.push(policyFinding('PROVENANCE_MISMATCH', reference, `Provenance must name builder ${policy.provenance.builder} and source ${source}.`));
+      }
+    }
+    if (!production.has(name)) continue;
+    const scan = record.scan;
+    if (!scan || !Number.isInteger(scan.osFixableCritical) || !Number.isInteger(scan.osFixableHigh) || !Array.isArray(scan.languageFindings)) {
+      result.push(policyFinding('IMAGE_EVIDENCE_MISSING', reference, 'Production images need a complete vulnerability scan record.'));
+      continue;
+    }
+    if (scan.os?.eosl === true) {
+      result.push(policyFinding('EOL_IMAGE_OS', reference, `${scan.os.family} ${scan.os.name} no longer receives security updates.`));
+    }
+    if (scan.osFixableCritical + scan.osFixableHigh > 0) {
+      result.push(policyFinding('IMAGE_VULNERABILITIES_OPEN', reference, `${scan.osFixableCritical} critical and ${scan.osFixableHigh} high OS package findings have fixes; move the digest to a patched upstream build.`));
+    }
+    const accepted = (policy.acceptedLanguageRisks ?? []).filter((risk) => risk.image === name);
+    for (const risk of accepted) {
+      const reviewBy = isoDateTimestamp(risk.reviewBy);
+      if (reviewBy === null || reviewBy < now) {
+        result.push(policyFinding('ACCEPTED_RISK_EXPIRED', `${name} ${risk.locationPrefix}`, `The accepted risk was due for review on ${risk.reviewBy}.`));
+      }
+    }
+    const uncovered = scan.languageFindings.filter(
+      (finding) => !accepted.some((risk) => typeof finding?.location === 'string' && finding.location.startsWith(risk.locationPrefix)),
+    );
+    if (uncovered.length > 0) {
+      result.push(policyFinding('IMAGE_VULNERABILITIES_OPEN', reference, `${uncovered.length} critical/high language package findings are not covered by an accepted risk, for example ${uncovered[0].id} in ${uncovered[0].location}.`));
+    }
+  }
+  return result;
 }
 
 export function validateRecordedEvidenceSchema(evidence, { now = Date.now() } = {}) {
@@ -576,6 +659,14 @@ async function main() {
   auditBootstrap();
   const nodeVersion = existsSync(join(ROOT, '.nvmrc')) ? read('.nvmrc').trim() : '';
   findings.push(...auditRecordedEvidence(evidence, { nodeVersion }));
+  const readJson = (path) => (existsSync(join(ROOT, path)) ? JSON.parse(read(path)) : null);
+  findings.push(
+    ...auditImageTrust(
+      evidence?.containers?.images ?? [],
+      readJson(IMAGE_TRUST_EVIDENCE_PATH),
+      readJson(IMAGE_TRUST_POLICY_PATH),
+    ),
+  );
   if (ONLINE) await auditOnline(evidence);
 
   const result = {

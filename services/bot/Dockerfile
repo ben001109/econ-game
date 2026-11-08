@@ -1,11 +1,11 @@
-FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS sdk
+FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS sdk
 WORKDIR /workspace/packages/econ-game-sdk
 COPY packages/econ-game-sdk/package.json packages/econ-game-sdk/package-lock.json packages/econ-game-sdk/tsconfig.json ./
 RUN npm ci --no-audit --ignore-scripts
 COPY packages/econ-game-sdk/src ./src
 RUN npm run build
 
-FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS base
+FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS base
 WORKDIR /workspace/services/bot
 
 COPY --from=sdk /workspace/packages/econ-game-sdk/package.json /workspace/packages/econ-game-sdk/package.json

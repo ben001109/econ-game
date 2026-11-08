@@ -41,7 +41,7 @@ test('Compose files require credentials, bind locally, and gate administration t
         `${path}:${publishedPort}`,
       );
     }
-    for (const service of ['adminer', 'redis-commander']) {
+    for (const service of ['adminer']) {
       const block = compose.slice(compose.indexOf(`  ${service}:`));
       assert.match(block.slice(0, block.indexOf('\n\n')), /profiles:\s*\[[^\]]*['"]tools['"]/);
     }

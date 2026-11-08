@@ -19,8 +19,9 @@ const NPM_LOCKS = [
 ];
 const DOCKERFILES = SERVICES.map((service) => `services/${service}/Dockerfile`);
 const COMPOSE_FILES = ['docker-compose.yml'];
-const EXPECTED_IMAGE_OCCURRENCES = 13;
-const EXPECTED_UNIQUE_IMAGES = 7;
+const EXPECTED_IMAGE_OCCURRENCES = 12;
+const EXPECTED_UNIQUE_IMAGES = 5;
+const IMAGE_TRUST_EVIDENCE = 'docs/security/oci-image-trust-evidence.json';
 
 function read(path) {
   return readFileSync(join(ROOT, path), 'utf8');
@@ -44,6 +45,20 @@ function ociEvidenceMissing(stageA, images) {
     return [];
   }
   return [{ scope: 'OCI external runtime validation', blocking: true, detail: 'B8-C Stage A has not recorded a complete immutable-manifest verification covering every current reference; no image was pulled, built, started, or deployed.' }];
+}
+
+// Signatures, provenance and layer CVEs are judged by check-supply-chain.mjs against the trust
+// policy; this only records a gap when the collector has not covered every current reference.
+function imageTrustEvidenceMissing(images) {
+  let trust = null;
+  try {
+    trust = JSON.parse(read(IMAGE_TRUST_EVIDENCE));
+  } catch {
+    trust = null;
+  }
+  const recorded = new Set((trust?.images ?? []).map((image) => image.reference));
+  if (images.every((image) => recorded.has(image))) return [];
+  return [{ scope: 'OCI signatures, attestations, and layer CVEs', blocking: true, detail: `${IMAGE_TRUST_EVIDENCE} does not cover every current reference; run scripts/collect-oci-image-evidence.mjs --write.` }];
 }
 
 function command(command, args, cwd = ROOT) {
@@ -146,7 +161,7 @@ async function main() {
     knownRisks: [],
     evidenceMissing: [
       ...ociEvidenceMissing(stageA, [...new Set(images)]),
-      { scope: 'OCI signatures, attestations, and layer CVEs', blocking: true, detail: 'cosign and oras are not installed, no trusted identity policy is configured, and no signature/attestation verification or image-layer CVE scanner result is available.' },
+      ...imageTrustEvidenceMissing([...new Set(images)]),
     ],
     remediation: { lockfilesChangedByB7D: false, dependenciesInstalled: false, servicesOrContainersStarted: false, externalImagePullOrDeploy: false },
   };

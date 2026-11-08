@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  auditImageTrust,
   auditRecordedEvidence,
   evaluateNpmAuditRecord,
   parseNpmAuditJson,
@@ -125,4 +126,71 @@ test('OCI Stage A manifest evidence must cover every current reference with no s
     });
     assert.equal(invalid.some((finding) => finding.code === 'EVIDENCE_SCHEMA_INVALID'), true);
   }
+});
+
+test('OCI image trust policy accepts clean, attested images and flags each policy breach', () => {
+  const policy = JSON.parse(
+    readFileSync(join(HERE, '..', 'docs/security/oci-image-trust-policy.json'), 'utf8'),
+  );
+  const node = 'node:22-alpine@sha256:' + 'a'.repeat(64);
+  const devTool = 'adminer:4@sha256:' + 'b'.repeat(64);
+  const now = Date.parse('2026-11-10T00:00:00Z');
+  const record = (reference, source, scan) => ({
+    reference,
+    signature: { tool: 'cosign tree', status: 'NONE_PUBLISHED' },
+    provenance: {
+      status: 'PRESENT',
+      builders: ['https://github.com/docker-library'],
+      sources: [`${source}#0000000000000000000000000000000000000000:22/alpine3.24`],
+    },
+    scan,
+  });
+  const cleanScan = {
+    os: { family: 'alpine', name: '3.24.4', eosl: false },
+    osFixableCritical: 0,
+    osFixableHigh: 0,
+    languageFindings: [
+      { id: 'CVE-1', severity: 'HIGH', location: 'usr/local/lib/node_modules/npm/node_modules/glob/package.json' },
+    ],
+  };
+  const trust = {
+    schemaVersion: 1,
+    recordedAt: '2026-11-08T00:00:00Z',
+    images: [
+      record(node, 'https://github.com/nodejs/docker-node.git', cleanScan),
+      // Dev-only images are not held to the vulnerability rules.
+      record(devTool, 'https://github.com/TimWolla/docker-adminer.git', {
+        ...cleanScan,
+        osFixableCritical: 3,
+      }),
+    ],
+  };
+  assert.deepEqual(auditImageTrust([node, devTool], trust, policy, { now }), []);
+
+  const breach = (alter, references = [node, devTool]) => {
+    const altered = structuredClone(trust);
+    alter(altered);
+    return codes(auditImageTrust(references, altered, policy, { now }));
+  };
+  assert.deepEqual(breach(() => {}, [node, devTool, 'redis-commander:latest@sha256:' + 'c'.repeat(64)]), ['IMAGE_EVIDENCE_MISSING']);
+  assert.deepEqual(breach((t) => { t.recordedAt = '2026-09-01T00:00:00Z'; }), ['STALE_IMAGE_SCAN']);
+  assert.deepEqual(breach((t) => { t.images[0].provenance.builders = ['https://example.com']; }), ['PROVENANCE_MISMATCH']);
+  assert.deepEqual(breach((t) => { t.images[0].provenance.sources = ['https://github.com/attacker/docker-node.git#1']; }), ['PROVENANCE_MISMATCH']);
+  assert.deepEqual(breach((t) => { t.images[0].provenance = { status: 'ABSENT', builders: [], sources: [] }; }), ['PROVENANCE_MISMATCH']);
+  assert.deepEqual(breach((t) => { t.images[0].scan.osFixableHigh = 1; }), ['IMAGE_VULNERABILITIES_OPEN']);
+  assert.deepEqual(breach((t) => { t.images[0].scan.os.eosl = true; }), ['EOL_IMAGE_OS']);
+  assert.deepEqual(
+    breach((t) => { t.images[0].scan.languageFindings.push({ id: 'CVE-2', severity: 'CRITICAL', location: 'app/node_modules/x/package.json' }); }),
+    ['IMAGE_VULNERABILITIES_OPEN'],
+  );
+  assert.deepEqual(
+    codes(auditImageTrust([node], trust, policy, { now: Date.parse('2026-12-09T00:00:00Z') })),
+    ['ACCEPTED_RISK_EXPIRED', 'STALE_IMAGE_SCAN'],
+  );
+  assert.deepEqual(codes(auditImageTrust([node], null, policy, { now })), ['EVIDENCE_MISSING']);
+  const unlisted = 'ghcr.io/example/tool:1@sha256:' + 'd'.repeat(64);
+  assert.deepEqual(
+    breach((t) => { t.images.push(record(unlisted, 'https://github.com/example/tool.git', cleanScan)); }, [node, unlisted]),
+    ['IMAGE_NOT_ALLOWED'],
+  );
 });
