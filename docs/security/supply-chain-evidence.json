@@ -1,9 +1,9 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-08T07:57:36.936Z",
+  "generatedAt": "2026-11-09T02:47:28.643Z",
   "generator": "scripts/generate-supply-chain-evidence.mjs --write",
   "repository": {
-    "head": "8322161e7a9c713d844e67c93d4be5018422227f",
+    "head": "c0b2a4effbab60340db9e65f91b0537f616f62e1",
     "branch": "discord-first",
     "worktree": "dirty-authorized",
     "secretsRead": false
@@ -33,7 +33,7 @@
   "npmAudits": [
     {
       "path": "services/api/package-lock.json",
-      "queriedAt": "2026-11-08T07:57:36.936Z",
+      "queriedAt": "2026-11-09T02:47:28.643Z",
       "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
       "command": "npm audit --package-lock-only --ignore-scripts --json",
       "exitCode": 0,
@@ -51,7 +51,7 @@
     },
     {
       "path": "services/bot/package-lock.json",
-      "queriedAt": "2026-11-08T07:57:36.936Z",
+      "queriedAt": "2026-11-09T02:47:28.643Z",
       "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
       "command": "npm audit --package-lock-only --ignore-scripts --json",
       "exitCode": 0,
@@ -69,7 +69,7 @@
     },
     {
       "path": "services/worker/package-lock.json",
-      "queriedAt": "2026-11-08T07:57:36.936Z",
+      "queriedAt": "2026-11-09T02:47:28.643Z",
       "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
       "command": "npm audit --package-lock-only --ignore-scripts --json",
       "exitCode": 0,
@@ -87,7 +87,7 @@
     },
     {
       "path": "packages/econ-game-sdk/package-lock.json",
-      "queriedAt": "2026-11-08T07:57:36.936Z",
+      "queriedAt": "2026-11-09T02:47:28.643Z",
       "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
       "command": "npm audit --package-lock-only --ignore-scripts --json",
       "exitCode": 0,
@@ -166,9 +166,9 @@
   "runtime": {
     "node22": {
       "source": "https://raw.githubusercontent.com/nodejs/Release/main/schedule.json",
-      "verifiedAt": "2026-11-08T07:57:36.936Z",
-      "configured": "22.23.1",
-      "executing": "v22.23.1",
+      "verifiedAt": "2026-11-09T02:47:28.643Z",
+      "configured": "22.23.4",
+      "executing": "v22.23.4",
       "end": "2027-04-30",
       "status": "ACTIVE"
     }
@@ -201,6 +201,10 @@
     {
       "recordedAt": "2026-11-08",
       "detail": "Adopted docs/security/oci-image-trust-policy.md. Digests moved to current upstream builds, api-dev moved from bullseye to bookworm, and redis-commander was removed. Stage A was re-run for the 5 remaining references; signatures, provenance and trivy results are in docs/security/oci-image-trust-evidence.json."
+    },
+    {
+      "recordedAt": "2026-11-09",
+      "detail": ".nvmrc moved from 22.23.1 to 22.23.4, the Node release inside the pinned node:22-alpine and node:22-bookworm-slim images, so CI, local runs and the containers use the same runtime."
     }
   ]
 }
