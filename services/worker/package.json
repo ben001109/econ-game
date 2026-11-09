@@ -6,22 +6,24 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p .",
+    "test": "tsx --test src/simulation-platform.test.ts",
     "start": "node dist/index.js",
-    "bun:dev": "bun --hot src/index.ts",
-    "bun:start": "bun src/index.ts",
     "lint": "eslint .",
+    "typecheck": "tsc -p . --noEmit",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write ."
+    "format": "prettier --ignore-path ../../.prettierignore --write .",
+    "format:check": "prettier --ignore-path ../../.prettierignore --check ."
   },
   "dependencies": {
+    "@econ-game/release-evidence": "file:../../packages/econ-game-release-evidence",
+    "@prisma/client": "6.12.0",
     "@sentry/node": "^10.22.0",
-    "@prisma/client": "^6.18.0",
     "bullmq": "^5.63.0",
     "dotenv": "^17.2.3",
     "ioredis": "^5.8.2",
-    "newrelic": "^13.6.2",
+    "newrelic": "^14.3.7",
     "pino": "^10.1.0",
-    "prisma": "^6.18.0"
+    "prisma": "6.12.0"
   },
   "devDependencies": {
     "@types/node": "^24.9.2",
@@ -35,5 +37,10 @@
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
+    }
   }
 }

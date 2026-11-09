@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "retrievedAt": "2026-08-16T13:09:57Z",
+  "source": "npm registry raw stdout",
+  "registry": "https://registry.npmjs.org/",
+  "command": ["npm", "view", "newrelic@14.3.7", "version", "engines", "dist.integrity", "dist.tarball", "--json"],
+  "fixture": "newrelic-14.3.7-metadata.json",
+  "fixtureSha256": "276a32e0d6d2cf465bb664cdf165e91aa10f2b642dc44e8aaf6870c5284d3abc",
+  "expected": {
+    "version": "14.3.7",
+    "nodeEngine": ">=22"
+  }
+}

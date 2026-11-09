@@ -13,6 +13,7 @@ OS_ID_LIKE=""
 PKG_MANAGER=""
 APT_UPDATED=0
 AUTO_INSTALL="${AUTO_INSTALL:-1}"
+DOCKER_INSTALL_SCRIPT_SHA256="${DOCKER_INSTALL_SCRIPT_SHA256:-}"
 INSTALL_PORTAINER=0
 PORTAINER_EDITION="${PORTAINER_EDITION:-}"
 VERBOSE_SELECTED=0
@@ -22,7 +23,6 @@ fi
 VERBOSE="${VERBOSE:-0}"
 MODE=""
 DEV="0"
-DB_PUSH="0"
 START_DB="0"
 SKIP_INSTALL="0"
 NODE_REQUIRED_VERSION=""
@@ -84,7 +84,11 @@ print_summary() {
 
 ensure_env_file() {
   local path="$1"
+  if [[ -L "$path" ]]; then
+    fail "Refusing symbolic-link credential file: ${path}"
+  fi
   if [[ -f "$path" ]]; then
+    chmod 600 "$path"
     return 0
   fi
   local example="${path}.example"
@@ -93,6 +97,7 @@ ensure_env_file() {
   else
     : >"$path"
   fi
+  chmod 600 "$path"
 }
 
 update_env_file() {
@@ -148,6 +153,7 @@ update_env_file() {
 
   if [[ "$changed" == "1" ]]; then
     printf '%s\n' "${lines[@]}" >"$path"
+    chmod 600 "$path"
     return 0
   fi
   return 1
@@ -188,8 +194,6 @@ configure_monitoring() {
     "${SERVICES_DIR}/worker/.env.local"
     "${SERVICES_DIR}/bot/.env"
     "${SERVICES_DIR}/bot/.env.local"
-    "${SERVICES_DIR}/frontend/.env"
-    "${SERVICES_DIR}/frontend/.env.local"
   )
 
   local env_file=""
@@ -206,14 +210,6 @@ configure_monitoring() {
       "SENTRY_PROFILES_SAMPLE_RATE=${sentry_profiles}"
       "SENTRY_RELEASE=${sentry_release_value}"
     )
-    if [[ "$env_file" == "${SERVICES_DIR}/frontend/.env" || "$env_file" == "${SERVICES_DIR}/frontend/.env.local" ]]; then
-      updates+=(
-        "NEXT_PUBLIC_SENTRY_DSN=${sentry_dsn_value}"
-        "NEXT_PUBLIC_SENTRY_ENVIRONMENT=${sentry_env}"
-        "NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=${sentry_traces}"
-        "NEXT_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE=${sentry_profiles}"
-      )
-    fi
     if update_env_file "$env_file" "${updates[@]}"; then
       local rel_path="${env_file#"${ROOT}/"}"
       log "Updated monitoring settings in ${rel_path}"
@@ -391,14 +387,43 @@ download_to_file() {
   return 1
 }
 
+verify_sha256() {
+  local path="$1"
+  local expected="$2"
+  local actual=""
+
+  if [[ ${#expected} -ne 64 || "$expected" == *[!0-9A-Fa-f]* ]]; then
+    warn "Expected SHA-256 must contain exactly 64 hexadecimal characters."
+    return 1
+  fi
+  if ! command_exists sha256sum; then
+    warn "sha256sum is required to verify downloaded bootstrap scripts."
+    return 1
+  fi
+  read -r actual _ < <(sha256sum -- "$path")
+  if [[ "${actual,,}" != "${expected,,}" ]]; then
+    warn "Downloaded bootstrap script SHA-256 did not match the trusted value."
+    return 1
+  fi
+  return 0
+}
+
 install_docker_via_convenience_script() {
   local tmp=""
+  if [[ -z "$DOCKER_INSTALL_SCRIPT_SHA256" ]]; then
+    warn "Docker convenience-script installation is disabled without DOCKER_INSTALL_SCRIPT_SHA256."
+    return 1
+  fi
   tmp="$(mktemp)" || tmp=""
   if [[ -z "$tmp" ]]; then
     warn "mktemp failed; cannot stage Docker installation script."
     return 1
   fi
   if ! download_to_file "https://get.docker.com" "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if ! verify_sha256 "$tmp" "$DOCKER_INSTALL_SCRIPT_SHA256"; then
     rm -f "$tmp"
     return 1
   fi
@@ -600,7 +625,7 @@ prompt_docker_options() {
   if [[ ! -t 0 ]]; then
     return 0
   fi
-  printf 'Include developer containers (api-dev, worker-dev, frontend-dev, bot-dev)? [Y/n]: ' >&2
+  printf 'Include developer containers (api-dev, worker-dev, bot-dev)? [Y/n]: ' >&2
   local answer=""
   read -r answer || answer=""
   case "${answer,,}" in
@@ -620,7 +645,6 @@ prompt_docker_options() {
 
 prompt_local_options() {
   SKIP_INSTALL="0"
-  DB_PUSH="0"
   START_DB="0"
   if [[ ! -t 0 ]]; then
     return 0
@@ -641,17 +665,9 @@ prompt_local_options() {
       START_DB="1"
       ;;
   esac
-  printf 'Push database migrations/data after setup? [y/N]: ' >&2
-  answer=""
-  read -r answer || answer=""
-  case "${answer,,}" in
-    y|yes|1)
-      DB_PUSH="1"
-      ;;
-  esac
   log "Local npm install: $([[ "$SKIP_INSTALL" == "1" ]] && printf 'skipped' || printf 'will run')."
   log "Start local databases: $([[ "$START_DB" == "1" ]] && printf 'yes' || printf 'no')."
-  log "Run Prisma db push: $([[ "$DB_PUSH" == "1" ]] && printf 'yes' || printf 'no')."
+  log "Database schema is unchanged; apply reviewed migrations in a separate release step."
 }
 
 prompt_portainer_selection() {
@@ -717,7 +733,8 @@ prompt_monitoring_options() {
     y|yes|1)
       USE_NEW_RELIC=1
       printf 'Enter New Relic license key: ' >&2
-      read -r NEW_RELIC_LICENSE || NEW_RELIC_LICENSE=""
+      read -r -s NEW_RELIC_LICENSE || NEW_RELIC_LICENSE=""
+      printf '\n' >&2
       NEW_RELIC_LICENSE="${NEW_RELIC_LICENSE//$'\r'/}"
       if [[ -z "$NEW_RELIC_LICENSE" ]]; then
         warn 'New Relic enabled but license key empty. Agent will remain disabled.'
@@ -736,7 +753,8 @@ prompt_monitoring_options() {
     y|yes|1)
       USE_SENTRY=1
       printf 'Enter Sentry DSN: ' >&2
-      read -r SENTRY_DSN || SENTRY_DSN=""
+      read -r -s SENTRY_DSN || SENTRY_DSN=""
+      printf '\n' >&2
       SENTRY_DSN="${SENTRY_DSN//$'\r'/}"
       if [[ -z "$SENTRY_DSN" ]]; then
         warn 'Sentry enabled but DSN empty. Monitoring will remain disabled.'
@@ -836,18 +854,13 @@ format_local_and_lan() {
 record_docker_summary() {
   local dev_flag="$1"
   if [[ "$dev_flag" == "1" ]]; then
-    add_summary_line "Docker dev profile running (api-dev, worker-dev, frontend-dev, bot-dev)."
+    add_summary_line "Docker dev profile running (api-dev, worker-dev, bot-dev)."
   else
     add_summary_line "Docker stack running with production profile containers."
   fi
-  add_summary_line "Frontend: $(format_local_and_lan http 3000)"
   add_summary_line "API (REST): $(format_local_and_lan http 4000)"
-  add_summary_line "Adminer (Postgres UI): $(format_local_and_lan http 8080)"
-  add_summary_line "Redis Commander: $(format_local_and_lan http 8081)"
-  add_summary_line "Postgres: postgres://game:gamepass@localhost:5432/game"
-  if [[ -n "$PRIVATE_IP" ]]; then
-    add_summary_line "Postgres from LAN: postgres://game:gamepass@${PRIVATE_IP}:5432/game"
-  fi
+  add_summary_line "Administration tools: disabled unless the tools profile is explicitly enabled"
+  add_summary_line "Postgres: localhost:5432 (credentials are read from the private root .env)"
   add_summary_line "Redis: redis://localhost:6379"
   add_summary_line "Inspect containers with: docker compose ps"
   if [[ "$dev_flag" == "1" ]]; then
@@ -859,12 +872,11 @@ record_docker_summary() {
 
 record_local_summary() {
   local skip_install="$1"
-  local db_push="$2"
-  local start_db="$3"
+  local start_db="$2"
   add_summary_line "Local development ready in services/."
   add_summary_line "API: cd services/api && npm run dev"
   add_summary_line "Worker: cd services/worker && npm run dev"
-  add_summary_line "Frontend: cd services/frontend && npm run dev"
+  add_summary_line "Bot: cd services/bot && npm run dev"
   if [[ "$start_db" == "1" ]]; then
     add_summary_line "Postgres & Redis started via docker compose up -d postgres redis"
   else
@@ -873,9 +885,7 @@ record_local_summary() {
   if [[ "$skip_install" == "1" ]]; then
     add_summary_line "npm install skipped; run npm install in each service before dev."
   fi
-  if [[ "$db_push" == "1" ]]; then
-    add_summary_line "Prisma schema pushed to database."
-  fi
+  add_summary_line "Database schema unchanged; reviewed migrations are a separate release step."
 }
 
 enable_verbose_tracing() {
@@ -1120,12 +1130,13 @@ setup_docker() {
   log_section "Docker Workflow"
   ensure_docker
   if [[ "$dev" == "1" ]]; then
-    log "Cleaning previous dev containers (api-dev, worker-dev, frontend-dev, bot-dev)..."
-    if ! docker_compose rm -s -f api-dev worker-dev frontend-dev bot-dev >/dev/null 2>&1; then
+    log "Cleaning previous dev containers (api-dev, worker-dev, bot-dev)..."
+    if ! docker_compose rm -s -f api-dev worker-dev bot-dev >/dev/null 2>&1; then
       warn "No existing dev containers to remove or cleanup failed; continuing."
     fi
-    log "Starting dev profile containers (api-dev, worker-dev, frontend-dev, bot-dev, dbs)..."
-    docker_compose --profile dev up --build -d postgres redis api-dev worker-dev frontend-dev bot-dev adminer redis-commander
+    log "Starting dev profile containers (api-dev, worker-dev, bot-dev, dbs)..."
+    docker_compose --profile dev up --build -d postgres redis api-dev worker-dev bot-dev
+    log "Administration tools remain disabled; enable the tools profile explicitly if required."
   else
     log "Building and starting production-like stack..."
     docker_compose up --build -d
@@ -1150,8 +1161,7 @@ install_package_deps() {
 
 setup_local() {
   local skip_install="$1"
-  local db_push="$2"
-  local start_db="$3"
+  local start_db="$2"
   log_section "Local Workflow"
 
   local required_node_spec="20"
@@ -1215,8 +1225,11 @@ setup_local() {
     install_package_deps "${SERVICES_DIR}/api"
     log "Installing dependencies for worker..."
     install_package_deps "${SERVICES_DIR}/worker"
-    log "Installing dependencies for frontend..."
-    install_package_deps "${SERVICES_DIR}/frontend"
+    log "Installing and building the SDK (Bot dependency)..."
+    install_package_deps "${ROOT}/packages/econ-game-sdk"
+    (cd "${ROOT}/packages/econ-game-sdk" && npm run build)
+    log "Installing dependencies for bot..."
+    install_package_deps "${SERVICES_DIR}/bot"
   else
     log "Skipping npm install for services."
   fi
@@ -1224,18 +1237,14 @@ setup_local() {
   if [[ -d "${SERVICES_DIR}/api/prisma" ]]; then
     log "Generating Prisma client (api)..."
     (cd "${SERVICES_DIR}/api" && npx prisma generate)
-    if [[ "$db_push" == "1" ]]; then
-      log "Pushing Prisma schema to DB (requires reachable Postgres)..."
-      (cd "${SERVICES_DIR}/api" && npx prisma db push)
-    fi
   fi
 
   log "Local setup complete."
   log "Next steps:"
   log "- API:      cd services/api && npm run dev"
   log "- Worker:   cd services/worker && npm run dev"
-  log "- Frontend: cd services/frontend && npm run dev"
-  record_local_summary "$skip_install" "$db_push" "$start_db"
+  log "- Bot:      cd services/bot && npm run dev"
+  record_local_summary "$skip_install" "$start_db"
 }
 
 main() {
@@ -1260,7 +1269,7 @@ main() {
       setup_docker "$DEV"
       ;;
     local)
-      setup_local "$SKIP_INSTALL" "$DB_PUSH" "$START_DB"
+      setup_local "$SKIP_INSTALL" "$START_DB"
       ;;
     *)
       fail "Unknown mode: ${MODE:-unset}"

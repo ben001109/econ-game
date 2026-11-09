@@ -5,17 +5,17 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { resolve, join, basename, relative } from 'node:path';
-import { existsSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { Writable } from 'node:stream';
 
 const root = resolve(process.cwd());
 const servicesDir = join(root, 'services');
 const CONFIG_PATH = join(root, '.econ-console.json');
 const services = {
-  dev: ['api-dev', 'worker-dev', 'frontend-dev', 'bot-dev'],
-  aux: ['adminer', 'redis-commander'],
+  dev: ['api-dev', 'worker-dev', 'bot-dev'],
+  aux: ['adminer'],
   db: ['postgres', 'redis'],
-  prod: ['api', 'worker', 'frontend', 'bot'],
-  bun: ['api-bun', 'worker-bun', 'frontend-bun', 'bot-bun'],
+  prod: ['api', 'worker', 'bot'],
 };
 
 const ENV_GROUPS = [
@@ -28,14 +28,6 @@ const ENV_GROUPS = [
   {
     name: 'worker',
     dir: join(root, 'services', 'worker'),
-    files: ['.env', '.env.local'],
-    example: '.env.example',
-    requiresDiscordToken: true,
-    tokenKey: 'DISCORD_BOT_TOKEN',
-  },
-  {
-    name: 'frontend',
-    dir: join(root, 'services', 'frontend'),
     files: ['.env', '.env.local'],
     example: '.env.example',
   },
@@ -77,7 +69,7 @@ const I18N = {
     select: 'Select: ',
     clean_first: 'Clean previous dev containers first?',
     start_db: 'Start DB services (postgres, redis)?',
-    start_tools: 'Start tools (adminer, redis-commander)?',
+    start_tools: 'Start tools (adminer)?',
     build_before: 'Build before start?',
     pull_before: 'Pull images before start?',
     recreate_question: 'Recreate containers? [none/no/force] (default: none): ',
@@ -85,7 +77,7 @@ const I18N = {
     select_dev_start: 'Select dev apps to start (empty = all dev apps):',
     select_dev_stop: 'Select dev apps to stop (empty = all dev apps):',
     indices: 'Indices: ',
-    include_db_stop: 'Also stop DB and tools (postgres/redis/adminer/redis-commander)?',
+    include_db_stop: 'Also stop DB and tools (postgres/redis/adminer)?',
     drop_schema_question: "Drop Postgres schema 'dev' as well?",
     drop_anon_vols: "Remove dev containers' anonymous volumes (-v)?",
     ensuring_pg: 'Ensuring postgres is up to run SQL...',
@@ -112,7 +104,7 @@ const I18N = {
     lang_prompt: 'Choose language: [1] English, [2] 繁體中文 (default based on locale): ',
     lang_changed: 'Language changed to',
     // DB removal prompts
-    db_also_remove_containers: 'Also remove DB containers (postgres/redis/adminer/redis-commander)?',
+    db_also_remove_containers: 'Also remove DB containers (postgres/redis/adminer)?',
     db_also_remove_volumes: 'Also remove DB named volumes (-v)?',
     // Services submenu
     services_header: '=== Service Ops ===',
@@ -123,7 +115,7 @@ const I18N = {
     services_opt_5: 'Quick Restart (Dev)',
     services_opt_6: 'Quick Restart (Prod)',
     services_select: 'Choose (1-6, 0=back): ',
-    services_scope: 'Scope: [1] Dev, [2] Prod, [3] Bun, [4] Pick dev services [1]: ',
+    services_scope: 'Scope: [1] Dev, [2] Prod, [3] Pick dev services [1]: ',
     // Build flags
     build_no_cache: 'Rebuild without cache?',
     build_pull_base: 'Pull base images before build?',
@@ -167,7 +159,7 @@ const I18N = {
     select: '請選擇：',
     clean_first: '啟動前先清除舊的 dev 容器？',
     start_db: '要一併啟動資料庫服務（postgres、redis）嗎？',
-    start_tools: '要一併啟動工具（adminer、redis-commander）嗎？',
+    start_tools: '要一併啟動工具（adminer）嗎？',
     build_before: '啟動前要先 build 嗎？',
     pull_before: '啟動前要先 pull 映像嗎？',
     recreate_question: '要重建容器嗎？[none/no/force]（預設：none）：',
@@ -175,7 +167,7 @@ const I18N = {
     select_dev_start: '選擇要啟動的 dev 服務（空白＝全部）：',
     select_dev_stop: '選擇要停止的 dev 服務（空白＝全部）：',
     indices: '輸入編號：',
-    include_db_stop: '是否同時停止 DB/工具（postgres/redis/adminer/redis-commander）？',
+    include_db_stop: '是否同時停止 DB/工具（postgres/redis/adminer）？',
     drop_schema_question: '同時丟棄 Postgres 的 dev schema？',
     drop_anon_vols: '是否一併移除 dev 容器的匿名 volumes（-v）？',
     ensuring_pg: '正在確保 Postgres 可用，準備執行 SQL…',
@@ -202,7 +194,7 @@ const I18N = {
     lang_prompt: '選擇語言：[1] English, [2] 繁體中文（依環境預設）：',
     lang_changed: '語言已切換為',
     // DB removal prompts
-    db_also_remove_containers: '是否同時移除資料庫與工具容器（postgres/redis/adminer/redis-commander）？',
+    db_also_remove_containers: '是否同時移除資料庫與工具容器（postgres/redis/adminer）？',
     db_also_remove_volumes: '是否同時刪除資料庫命名卷（-v）？',
     // Services submenu
     services_header: '=== 服務操作 ===',
@@ -213,7 +205,7 @@ const I18N = {
     services_opt_5: '快速重啟（開發）',
     services_opt_6: '快速重啟（正式）',
     services_select: '請選擇（1-6，0 返回）：',
-    services_scope: '操作範圍：[1] 開發、[2] 正式、[3] Bun、[4] 自選（Dev） [1]：',
+    services_scope: '操作範圍：[1] 開發、[2] 正式、[3] 自選（Dev） [1]：',
     // Build flags
     build_no_cache: '重建時不使用快取？',
     build_pull_base: '重建前先拉取基底映像？',
@@ -250,7 +242,28 @@ function loadConfig() {
 }
 
 function saveConfig(cfg) {
-  try { writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2)); } catch {}
+  try { writePrivateFile(CONFIG_PATH, JSON.stringify(cfg, null, 2)); } catch {}
+}
+
+function writePrivateFile(path, contents) {
+  if (existsSync(path) && lstatSync(path).isSymbolicLink()) {
+    throw Object.assign(new Error('refusing credential symlink'), { code: 'CREDENTIAL_SYMLINK' });
+  }
+  writeFileSync(path, contents, { mode: 0o600 });
+  chmodSync(path, 0o600);
+}
+
+function ensurePrivateFileMode(path) {
+  if (!existsSync(path)) return;
+  if (lstatSync(path).isSymbolicLink()) {
+    throw Object.assign(new Error('refusing credential symlink'), { code: 'CREDENTIAL_SYMLINK' });
+  }
+  chmodSync(path, 0o600);
+}
+
+function safeErrorLabel(error) {
+  const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+  return /^[A-Z0-9_-]{1,80}$/i.test(code) ? code : 'operation failed';
 }
 
 let CONFIG = loadConfig();
@@ -274,12 +287,12 @@ function ensureEnvFileWithExample(path) {
   try {
     if (existsSync(examplePath)) {
       const seed = readFileSync(examplePath, 'utf8');
-      writeFileSync(path, seed);
+      writePrivateFile(path, seed);
     } else {
-      writeFileSync(path, '');
+      writePrivateFile(path, '');
     }
   } catch (e) {
-    console.error('[console]', t('error_prefix'), e.message || e);
+    console.error('[console]', t('error_prefix'), safeErrorLabel(e));
   }
 }
 
@@ -330,10 +343,10 @@ function updateEnvEntries(path, entries) {
   if (!changed) return false;
   const output = lines.length ? `${lines.join(eol)}${eol}` : '';
   try {
-    writeFileSync(path, output);
+    writePrivateFile(path, output);
     return true;
   } catch (e) {
-    console.error('[console]', t('error_prefix'), e.message || e);
+    console.error('[console]', t('error_prefix'), safeErrorLabel(e));
     return false;
   }
 }
@@ -379,7 +392,7 @@ function configureMonitoringFromSetup(monitoring) {
       ],
     },
     {
-      path: join(servicesDir, 'bot', '.env'),
+      path: join(servicesDir, 'bot', '.env.local'),
       entries: [
         ['NEW_RELIC_LICENSE_KEY', newRelicLicense],
         ['SENTRY_DSN', sentryDsn],
@@ -387,21 +400,6 @@ function configureMonitoringFromSetup(monitoring) {
         ['SENTRY_TRACES_SAMPLE_RATE', sentryTraces.toString()],
         ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfiles.toString()],
         ['SENTRY_RELEASE', sentryRelease],
-      ],
-    },
-    {
-      path: join(servicesDir, 'frontend', '.env'),
-      entries: [
-        ['NEW_RELIC_LICENSE_KEY', newRelicLicense],
-        ['SENTRY_DSN', sentryDsn],
-        ['SENTRY_ENVIRONMENT', sentryEnvironment],
-        ['SENTRY_TRACES_SAMPLE_RATE', sentryTraces.toString()],
-        ['SENTRY_PROFILES_SAMPLE_RATE', sentryProfiles.toString()],
-        ['SENTRY_RELEASE', sentryRelease],
-        ['NEXT_PUBLIC_SENTRY_DSN', sentryDsn],
-        ['NEXT_PUBLIC_SENTRY_ENVIRONMENT', sentryEnvironment],
-        ['NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE', sentryTraces.toString()],
-        ['NEXT_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE', sentryProfiles.toString()],
       ],
     },
   ];
@@ -460,21 +458,22 @@ function readNvmrc() {
   const p = join(root, '.nvmrc');
   if (!existsSync(p)) return null;
   const raw = readFileSync(p, 'utf8').trim();
-  const major = Number(raw.replace(/^v/, ''));
+  const major = Number(raw.replace(/^v/, '').split('.')[0]);
   return Number.isFinite(major) ? major : null;
 }
 
 async function setupDockerWorkflow(includeDevProfile) {
   await setupEnsureDocker();
   if (includeDevProfile) {
-    console.log('[console] Cleaning previous dev containers (api-dev, worker-dev, frontend-dev, bot-dev)...');
+    console.log('[console] Cleaning previous dev containers (api-dev, worker-dev, bot-dev)...');
     try {
-      await dockerCompose(['rm', '-s', '-f', 'api-dev', 'worker-dev', 'frontend-dev', 'bot-dev']);
+      await dockerCompose(['rm', '-s', '-f', 'api-dev', 'worker-dev', 'bot-dev']);
     } catch {
       console.warn('[console] No existing dev containers to remove or cleanup failed; continuing.');
     }
-    console.log('[console] Starting dev profile containers (api-dev, worker-dev, frontend-dev, bot-dev, postgres, redis, adminer, redis-commander)...');
-    await dockerCompose(['--profile', 'dev', 'up', '--build', '-d', 'postgres', 'redis', 'api-dev', 'worker-dev', 'frontend-dev', 'bot-dev', 'adminer', 'redis-commander']);
+    console.log('[console] Starting dev profile containers (api-dev, worker-dev, bot-dev, postgres, redis).');
+    await dockerCompose(['--profile', 'dev', 'up', '--build', '-d', 'postgres', 'redis', 'api-dev', 'worker-dev', 'bot-dev']);
+    console.log('[console] Administration tools remain disabled; enable the tools profile explicitly.');
   } else {
     console.log('[console] Building and starting production-like stack...');
     await dockerCompose(['up', '--build', '-d']);
@@ -482,7 +481,7 @@ async function setupDockerWorkflow(includeDevProfile) {
   console.log('[console] Docker setup complete.');
 }
 
-async function setupLocalWorkflow({ skipInstall, dbPush, startDb }) {
+async function setupLocalWorkflow({ skipInstall, startDb }) {
   const requiredNode = readNvmrc() ?? 20;
   const current = getNodeMajor();
   if (current < requiredNode) {
@@ -504,10 +503,12 @@ async function setupLocalWorkflow({ skipInstall, dbPush, startDb }) {
     }
   }
 
+  // The Bot links the local SDK, so the SDK must be installed and built first.
   const packages = [
+    { name: 'sdk', dir: join(root, 'packages', 'econ-game-sdk'), build: true },
     { name: 'api', dir: join(servicesDir, 'api') },
     { name: 'worker', dir: join(servicesDir, 'worker') },
-    { name: 'frontend', dir: join(servicesDir, 'frontend') },
+    { name: 'bot', dir: join(servicesDir, 'bot') },
   ];
 
   for (const pkg of packages) {
@@ -520,22 +521,20 @@ async function setupLocalWorkflow({ skipInstall, dbPush, startDb }) {
     const hasLock = existsSync(join(pkg.dir, 'package-lock.json'));
     const args = hasLock ? ['ci'] : ['install'];
     await sh(platformCommand('npm'), args, { cwd: pkg.dir });
+    if (pkg.build) await sh(platformCommand('npm'), ['run', 'build'], { cwd: pkg.dir });
   }
 
   if (existsSync(join(servicesDir, 'api', 'prisma'))) {
     console.log('[console] Generating Prisma client (api)...');
     await sh(platformCommand('npx'), ['prisma', 'generate'], { cwd: join(servicesDir, 'api') });
-    if (dbPush) {
-      console.log('[console] Pushing Prisma schema to DB (requires reachable Postgres)...');
-      await sh(platformCommand('npx'), ['prisma', 'db', 'push'], { cwd: join(servicesDir, 'api') });
-    }
   }
+  console.log('[console] Database schema unchanged; reviewed migrations are a separate release step.');
 
   console.log('[console] Local setup complete.');
   console.log('[console] Next steps:');
   console.log('- API:      cd services/api && npm run dev');
   console.log('- Worker:   cd services/worker && npm run dev');
-  console.log('- Frontend: cd services/frontend && npm run dev');
+  console.log('- Bot:      cd services/bot && npm run dev');
 }
 
 async function setupAskQuestion(prompt, defaultValue = '') {
@@ -543,6 +542,11 @@ async function setupAskQuestion(prompt, defaultValue = '') {
   const ans = await rlPrompt(prompt);
   if (ans == null || ans === '') return defaultValue ?? '';
   return ans;
+}
+
+async function setupAskSecret(prompt) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return '';
+  return rlSecretPrompt(prompt);
 }
 
 async function setupAskYesNo(question, defaultYes = true) {
@@ -586,7 +590,6 @@ async function gatherSetupSelections() {
     mode: '',
     dockerDev: true,
     localSkipInstall: false,
-    localDbPush: false,
     localStartDb: false,
     monitoring: {
       newRelicEnabled: false,
@@ -627,20 +630,19 @@ async function gatherSetupSelections() {
   console.log(`[console] Selected workflow: ${mode}.`);
 
   if (mode === 'docker') {
-    state.dockerDev = await setupAskYesNo('Include developer containers (api-dev, worker-dev, frontend-dev, bot-dev)?', true);
+    state.dockerDev = await setupAskYesNo('Include developer containers (api-dev, worker-dev, bot-dev)?', true);
     console.log(`[console] Docker dev profile: ${state.dockerDev ? 'enabled' : 'disabled'}.`);
   } else {
     state.localSkipInstall = await setupAskYesNo('Skip Node.js package installation (npm install)?', false);
     state.localStartDb = await setupAskYesNo('Start databases after setup?', false);
-    state.localDbPush = await setupAskYesNo('Push Prisma schema to DB after setup?', false);
     console.log(`[console] npm install: ${state.localSkipInstall ? 'skipped' : 'will run'}.`);
     console.log(`[console] Start local databases: ${state.localStartDb ? 'yes' : 'no'}.`);
-    console.log(`[console] Prisma db push: ${state.localDbPush ? 'yes' : 'no'}.`);
+    console.log('[console] Database schema will not be changed by setup.');
   }
 
   state.monitoring.newRelicEnabled = await setupAskYesNo('Configure New Relic APM?', false);
   if (state.monitoring.newRelicEnabled) {
-    const license = (await setupAskQuestion('Enter New Relic license key: ', '')).trim();
+    const license = (await setupAskSecret('Enter New Relic license key: ')).trim();
     state.monitoring.newRelicLicense = license;
     if (!license) {
       console.warn('[console] New Relic enabled but license key left empty. Agent will remain disabled.');
@@ -651,7 +653,7 @@ async function gatherSetupSelections() {
 
   state.monitoring.sentryEnabled = await setupAskYesNo('Configure Sentry monitoring?', false);
   if (state.monitoring.sentryEnabled) {
-    const dsn = (await setupAskQuestion('Enter Sentry DSN: ', '')).trim();
+    const dsn = (await setupAskSecret('Enter Sentry DSN: ')).trim();
     state.monitoring.sentryDsn = dsn;
     if (!dsn) {
       console.warn('[console] Sentry enabled but DSN left empty. SDK will remain disabled.');
@@ -680,7 +682,7 @@ function setupPrintWindowsDbSetupHelp() {
   console.log('[console] - Chocolatey (alternative):');
   console.log('    choco install postgresql redis-64');
   console.log('[console] After install, ensure services are running and reachable:');
-  console.log('[console] - Postgres: localhost:5432 (user=game pass=gamepass db=game)');
+  console.log('[console] - Postgres: localhost:5432 (credentials come from the private root .env)');
   console.log('[console] - Redis:    localhost:6379');
   console.log('[console] Then update .env files to use localhost hosts if needed.');
 }
@@ -696,7 +698,6 @@ async function runSetupWizard() {
   } else if (selections.mode === 'local') {
     await setupLocalWorkflow({
       skipInstall: selections.localSkipInstall,
-      dbPush: selections.localDbPush,
       startDb: selections.localStartDb,
     });
   } else {
@@ -715,7 +716,11 @@ function ensureEnvFiles(names) {
   for (const group of targetGroups) {
     const absFiles = group.files.map((name) => join(group.dir, name));
     if (!absFiles.length) continue;
-    const existing = absFiles.filter((p) => existsSync(p));
+    const existing = [];
+    for (const path of absFiles.filter((candidate) => existsSync(candidate))) {
+      ensurePrivateFileMode(path);
+      existing.push(path);
+    }
     let primary = existing[0];
     if (!primary) {
       const examplePath = group.example ? join(group.dir, group.example) : null;
@@ -726,7 +731,7 @@ function ensureEnvFiles(names) {
         } catch {}
       }
       try {
-        writeFileSync(absFiles[0], seed);
+        writePrivateFile(absFiles[0], seed);
         primary = absFiles[0];
         created.push(relative(root, absFiles[0]));
       } catch {}
@@ -736,7 +741,7 @@ function ensureEnvFiles(names) {
       if (existsSync(abs)) continue;
       const stub = `# Auto-generated stub by console.mjs\n# Actual values in ${basename(primary)}\n`;
       try {
-        writeFileSync(abs, stub);
+        writePrivateFile(abs, stub);
         created.push(relative(root, abs));
       } catch {}
     }
@@ -751,7 +756,6 @@ function getEnvGroupNameForService(service) {
   if (/^api(-|$)/.test(service)) return 'api';
   if (/^bot(-|$)/.test(service)) return 'bot';
   if (/^worker(-|$)/.test(service)) return 'worker';
-  if (/^frontend(-|$)/.test(service)) return 'frontend';
   return null;
 }
 
@@ -844,7 +848,7 @@ async function configureDiscordTokenInteractive(groupNames) {
     const prompt = current
       ? 'Discord bot token (leave blank to keep existing): '
       : 'Discord bot token (required): ';
-    const ans = (await rlPrompt(prompt)).trim();
+    const ans = (await rlSecretPrompt(prompt)).trim();
     if (!ans && !current) {
       console.log('[console] A Discord bot token is required for the bot service.');
       continue;
@@ -858,10 +862,10 @@ async function configureDiscordTokenInteractive(groupNames) {
       const updated = upsertEnvValue(file.contents, key, value);
       if (updated !== file.contents) {
         try {
-          writeFileSync(file.envPath, updated);
+          writePrivateFile(file.envPath, updated);
           updatedPaths.push(relative(root, file.envPath));
         } catch (e) {
-          console.error('[console]', t('error_prefix'), e.message || e);
+          console.error('[console]', t('error_prefix'), safeErrorLabel(e));
         }
       }
       file.contents = updated;
@@ -893,7 +897,9 @@ function sh(cmd, args, opts = {}) {
   return new Promise((resolveP, reject) => {
     const child = spawn(cmd, args, { stdio: 'inherit', shell: false, ...opts });
     child.on('error', reject);
-    child.on('close', (code) => (code === 0 ? resolveP() : reject(new Error(`${cmd} ${args.join(' ')} -> ${code}`))));
+    child.on('close', (code) => code === 0
+      ? resolveP()
+      : reject(Object.assign(new Error('child process failed'), { code: 'CHILD_PROCESS_FAILED' })));
   });
 }
 
@@ -901,11 +907,12 @@ function runCapture(cmd, args, opts = {}) {
   return new Promise((resolveP, reject) => {
     const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: false, ...opts });
     let out = '';
-    let err = '';
     child.stdout.on('data', (d) => (out += d.toString()));
-    child.stderr.on('data', (d) => (err += d.toString()));
+    child.stderr.resume();
     child.on('error', reject);
-    child.on('close', (code) => (code === 0 ? resolveP(out) : reject(new Error(err || `${cmd} ${args.join(' ')} -> ${code}`))));
+    child.on('close', (code) => code === 0
+      ? resolveP(out)
+      : reject(Object.assign(new Error('captured command failed'), { code: 'CAPTURE_FAILED' })));
   });
 }
 
@@ -958,9 +965,8 @@ async function checkForUpdates() {
     if (remoteHash && remoteHash !== localHash) {
       console.log(`[console] ${t('update_available')} (${remoteName}/${remoteBranch})`);
     }
-  } catch (err) {
-    const msg = err && err.message ? ` (${err.message})` : '';
-    console.log('[console]', t('update_failed') + msg);
+  } catch {
+    console.log('[console]', t('update_failed'));
   }
 }
 
@@ -1009,6 +1015,27 @@ function followLogs(services) {
 function rlPrompt(query) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((res) => rl.question(query, (ans) => { rl.close(); res(ans); }));
+}
+
+function rlSecretPrompt(query) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return Promise.resolve('');
+  let muted = false;
+  const output = new Writable({
+    write(chunk, encoding, callback) {
+      if (!muted) process.stdout.write(chunk, encoding);
+      callback();
+    },
+  });
+  const rl = createInterface({ input: process.stdin, output, terminal: true });
+  return new Promise((resolvePrompt) => {
+    rl.question(query, (answer) => {
+      muted = false;
+      rl.close();
+      process.stdout.write('\n');
+      resolvePrompt(answer);
+    });
+    muted = true;
+  });
 }
 
 async function confirm(msg) {
@@ -1080,6 +1107,7 @@ async function startDev() {
   const recreateAns = (await rlPrompt(t('recreate_question'))).trim().toLowerCase();
 
   const flags = ['--profile', 'dev', 'up', '-d'];
+  if (includeAux) flags.splice(2, 0, '--profile', 'tools');
   if (withBuild) flags.push('--build');
   if (withPull) flags.push('--pull', 'always');
   if (recreateAns === 'no') flags.push('--no-recreate');
@@ -1265,26 +1293,17 @@ async function clearLogs() {
     mkdirSync(logsPath, { recursive: true });
     console.log('[console]', t('logs_cleared'));
   } catch (e) {
-    console.error('[console]', t('error_prefix'), e.message || e);
+    console.error('[console]', t('error_prefix'), safeErrorLabel(e));
   }
 }
 
 async function startProd() {
   await ensureEnvForServices([...services.prod], { promptTokens: true });
-  await dockerCompose(['--profile', 'prod', 'up', '-d', ...services.db, ...services.prod, ...services.aux]);
+  await dockerCompose(['--profile', 'prod', 'up', '-d', ...services.db, ...services.prod]);
 }
 
 async function stopProd() {
   await dockerCompose(['rm', '-s', '-f', ...services.prod]);
-}
-
-async function startBun() {
-  await ensureEnvForServices([...services.bun], { promptTokens: true });
-  await dockerCompose(['--profile', 'bun', 'up', '-d', ...services.db, ...services.bun, ...services.aux]);
-}
-
-async function stopBun() {
-  await dockerCompose(['rm', '-s', '-f', ...services.bun]);
 }
 
 async function status() {
@@ -1307,7 +1326,7 @@ async function tailLogs() {
 }
 
 async function restartServices() {
-  const all = [...services.dev, ...services.prod, ...services.bun];
+  const all = [...services.dev, ...services.prod];
   all.forEach((s, i) => console.log(`  [${i + 1}] ${s}`));
   const sel = (await rlPrompt(LANG === 'zh' ? '要重啟哪些服務（輸入編號，空白＝dev）：' : 'Restart which (indices, empty for dev apps): ')).trim();
   let chosen = services.dev;
@@ -1394,16 +1413,13 @@ async function servicesMenu() {
   }
   const scope = (await rlPrompt(t('services_scope'))).trim();
   const isProd = scope === '2';
-  const isBun = scope === '3';
-  const isPick = scope === '4';
+  const isPick = scope === '3';
   if (choice === '1') {
     if (isProd) await startProd();
-    else if (isBun) await startBun();
     else if (isPick) await startDev(); // startDev already allows picking dev services and extras
     else await startDev();
   } else if (choice === '2') {
     if (isProd) await stopProd();
-    else if (isBun) await stopBun();
     else if (isPick) await stopDev(); // stopDev allows picking dev services + extras
     else await stopDev();
   } else if (choice === '4') {
@@ -1412,7 +1428,7 @@ async function servicesMenu() {
 }
 
 async function buildService() {
-  const all = [...services.prod, ...services.dev, ...services.bun];
+  const all = [...services.prod, ...services.dev];
   all.forEach((s, i) => console.log(`  [${i + 1}] ${s}`));
   const sel = (await rlPrompt(LANG === 'zh' ? '要 build/重建 哪些服務（輸入編號，空白＝全部）：' : 'Build/Rebuild which (indices, empty for all prod+dev): ')).trim();
   let chosen = all;
@@ -1470,10 +1486,8 @@ async function execShell() {
 
 async function openUrls() {
   const urls = [
-    { name: 'Frontend', url: 'http://localhost:3000' },
     { name: 'API Docs', url: 'http://localhost:4000/docs' },
     { name: 'Adminer', url: 'http://localhost:8080' },
-    { name: 'Redis Commander', url: 'http://localhost:8081' },
   ];
   const opener = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open';
   for (const u of urls) {
@@ -1525,7 +1539,7 @@ async function main() {
       else if (ans === '12') await runSetupWizard();
       else if (ans === '0') break;
     } catch (e) {
-      console.error('[console]', t('error_prefix'), e.message || e);
+      console.error('[console]', t('error_prefix'), safeErrorLabel(e));
     }
   }
 }

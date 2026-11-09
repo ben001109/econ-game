@@ -1,0 +1,2 @@
+# Managed by Prisma Migrate. The D01 SQL itself remains hand-written and reviewed.
+provider = "postgresql"

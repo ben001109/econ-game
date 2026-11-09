@@ -7,17 +7,19 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p .",
     "start": "node dist/index.js",
-    "bun:dev": "bun --hot src/index.ts",
-    "bun:start": "bun src/index.ts",
     "lint": "eslint .",
+    "typecheck": "tsc -p . --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test test/*.test.mjs",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write ."
+    "format": "prettier --ignore-path ../../.prettierignore --write .",
+    "format:check": "prettier --ignore-path ../../.prettierignore --check ."
   },
   "dependencies": {
+    "@econ-game/sdk": "file:../../packages/econ-game-sdk",
     "@sentry/node": "^10.22.0",
     "discord.js": "^14.24.2",
     "dotenv": "^17.2.3",
-    "newrelic": "^13.6.2",
+    "newrelic": "^14.3.7",
     "pino": "^10.1.0"
   },
   "devDependencies": {
@@ -33,5 +35,10 @@
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
+    }
   }
 }

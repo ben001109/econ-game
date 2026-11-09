@@ -1,0 +1,210 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-09T02:47:28.643Z",
+  "generator": "scripts/generate-supply-chain-evidence.mjs --write",
+  "repository": {
+    "head": "c0b2a4effbab60340db9e65f91b0537f616f62e1",
+    "branch": "discord-first",
+    "worktree": "dirty-authorized",
+    "secretsRead": false
+  },
+  "locks": [
+    {
+      "path": "services/api/package-lock.json",
+      "ecosystem": "npm",
+      "sha256": "d344734041631e60e6f875bc5e16f8b33693471058284bdf0c8d6f12f4176cc3"
+    },
+    {
+      "path": "services/bot/package-lock.json",
+      "ecosystem": "npm",
+      "sha256": "60f003e3def3287c6f8b3d790c6776ad53a9402ccd2f9bfcfb9e5823b9f2cc3c"
+    },
+    {
+      "path": "services/worker/package-lock.json",
+      "ecosystem": "npm",
+      "sha256": "ba300ba4c30ba210379f69d220c759a2f8ad1194c3044aaebccb8697d03468a7"
+    },
+    {
+      "path": "packages/econ-game-sdk/package-lock.json",
+      "ecosystem": "npm",
+      "sha256": "e1ce16f73d14629854bc8aef65344169f595f2ffd921b4106ce6ac68fb9a3f37"
+    }
+  ],
+  "npmAudits": [
+    {
+      "path": "services/api/package-lock.json",
+      "queriedAt": "2026-11-09T02:47:28.643Z",
+      "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
+      "command": "npm audit --package-lock-only --ignore-scripts --json",
+      "exitCode": 0,
+      "status": "CLEAN",
+      "fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "entries": []
+    },
+    {
+      "path": "services/bot/package-lock.json",
+      "queriedAt": "2026-11-09T02:47:28.643Z",
+      "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
+      "command": "npm audit --package-lock-only --ignore-scripts --json",
+      "exitCode": 0,
+      "status": "CLEAN",
+      "fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "entries": []
+    },
+    {
+      "path": "services/worker/package-lock.json",
+      "queriedAt": "2026-11-09T02:47:28.643Z",
+      "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
+      "command": "npm audit --package-lock-only --ignore-scripts --json",
+      "exitCode": 0,
+      "status": "CLEAN",
+      "fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "entries": []
+    },
+    {
+      "path": "packages/econ-game-sdk/package-lock.json",
+      "queriedAt": "2026-11-09T02:47:28.643Z",
+      "source": "https://registry.npmjs.org/-/npm/v1/security/audits/quick",
+      "command": "npm audit --package-lock-only --ignore-scripts --json",
+      "exitCode": 0,
+      "status": "CLEAN",
+      "fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "entries": []
+    }
+  ],
+  "containers": {
+    "source": "docs/security/b7-c-oci-digest-remediation.md (authoritative registry manifests at 2026-08-16T16:03:07Z)",
+    "imageOccurrences": 12,
+    "uniqueImages": 5,
+    "digestPinnedOccurrences": 12,
+    "images": [
+      "adminer:4@sha256:c1c24d89d06fcb8fc0fb5a049240dc292ff4a121ae05d7e74d64b58c421d2921",
+      "node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202",
+      "node:22-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d",
+      "postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139",
+      "redis:7-alpine@sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b"
+    ],
+    "runtimeDockerfiles": 3,
+    "explicitNonRootRuntime": 3,
+    "status": "DIGESTS_VERIFIED_STATIC",
+    "stageA": {
+      "schemaVersion": 2,
+      "recordedAt": "2026-11-08T07:55:46Z",
+      "stage": "B8-C-A",
+      "status": "MANIFESTS_VERIFIED",
+      "command": "docker buildx imagetools inspect <immutable-reference> --format '{{.Name}}' (once for each of the 5 recorded references, by scripts/collect-oci-image-evidence.mjs)",
+      "commandTimestamp": "2026-11-08T07:55:46Z",
+      "environment": {
+        "dockerClient": "29.4.0",
+        "buildx": "github.com/docker/buildx v0.33.0 f7897eba028583e0071642db3c011e860444f8cf",
+        "dockerContext": "orbstack"
+      },
+      "registryResult": {
+        "registry": "OCI registries",
+        "authentication": "authenticated",
+        "status": "ALL_REFERENCES_MATCHED"
+      },
+      "manifestReview": {
+        "expectedReferences": 5,
+        "completedReferences": 5,
+        "status": "COMPLETE_MATCHED_IMMUTABLE_REFERENCES",
+        "retryAttempted": true,
+        "verifiedReferences": [
+          "adminer:4@sha256:c1c24d89d06fcb8fc0fb5a049240dc292ff4a121ae05d7e74d64b58c421d2921",
+          "node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202",
+          "node:22-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d",
+          "postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139",
+          "redis:7-alpine@sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b"
+        ]
+      },
+      "tooling": {
+        "cosignInstalled": true,
+        "orasInstalled": false,
+        "trustedIdentityPolicyConfigured": false
+      },
+      "sideEffects": {
+        "imageLayersPulled": false,
+        "imagesBuilt": false,
+        "containersRun": false,
+        "imagesScanned": false,
+        "imagesDeployed": false
+      }
+    }
+  },
+  "runtime": {
+    "node22": {
+      "source": "https://raw.githubusercontent.com/nodejs/Release/main/schedule.json",
+      "verifiedAt": "2026-11-09T02:47:28.643Z",
+      "configured": "22.23.4",
+      "executing": "v22.23.4",
+      "end": "2027-04-30",
+      "status": "ACTIVE"
+    }
+  },
+  "knownRisks": [],
+  "evidenceMissing": [],
+  "remediation": {
+    "lockfilesChangedByB7D": false,
+    "dependenciesInstalled": false,
+    "servicesOrContainersStarted": false,
+    "externalImagePullOrDeploy": false
+  },
+  "scopeChanges": [
+    {
+      "recordedAt": "2026-11-08",
+      "detail": "Frontend, Python/uv, Bun and Pterodactyl moved to milestone branches. Their lock, audit and image entries were removed and the container counts were recomputed from the remaining Dockerfiles and Compose file."
+    },
+    {
+      "recordedAt": "2026-11-08",
+      "detail": "Regenerated after npm audit fix (non-breaking only) in api, bot and worker. stageA still records the original 13-reference verification, which covers every remaining reference."
+    },
+    {
+      "recordedAt": "2026-11-08",
+      "detail": ".nvmrc now pins 22.23.1 instead of 22, so CI installs the same Node release the evidence records."
+    },
+    {
+      "recordedAt": "2026-11-08",
+      "detail": "Added an npm override forcing minimatch ^11.0.1 under @typescript-eslint/typescript-estree in api, bot and worker. typescript-eslint 8.72.1 (latest and canary) still requires minimatch ^10.2.2, and GHSA-g3hv-75wg-m249 is only fixed in 11.0.1. Remove the override once typescript-eslint depends on a fixed minimatch. All four npm locks now audit clean."
+    },
+    {
+      "recordedAt": "2026-11-08",
+      "detail": "Adopted docs/security/oci-image-trust-policy.md. Digests moved to current upstream builds, api-dev moved from bullseye to bookworm, and redis-commander was removed. Stage A was re-run for the 5 remaining references; signatures, provenance and trivy results are in docs/security/oci-image-trust-evidence.json."
+    },
+    {
+      "recordedAt": "2026-11-09",
+      "detail": ".nvmrc moved from 22.23.1 to 22.23.4, the Node release inside the pinned node:22-alpine and node:22-bookworm-slim images, so CI, local runs and the containers use the same runtime."
+    }
+  ]
+}

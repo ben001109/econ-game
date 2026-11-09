@@ -1,0 +1,115 @@
+{
+  "now": "2026-08-16T00:00:00.000Z",
+  "schemaCases": [
+    {
+      "name": "valid current Node 22 evidence schema",
+      "evidence": {
+        "evidenceMissing": [],
+        "runtime": { "node22": { "end": "2026-04-30", "status": "EOL" } }
+      },
+      "expectedPaths": []
+    },
+    {
+      "name": "missing evidenceMissing",
+      "evidence": {
+        "runtime": { "node22": { "end": "2026-04-30", "status": "EOL" } }
+      },
+      "expectedPaths": ["evidenceMissing"]
+    },
+    {
+      "name": "iterable string evidenceMissing",
+      "evidence": {
+        "evidenceMissing": "network unavailable",
+        "runtime": { "node22": { "end": "2026-04-30", "status": "EOL" } }
+      },
+      "expectedPaths": ["evidenceMissing"]
+    },
+    {
+      "name": "object evidenceMissing",
+      "evidence": {
+        "evidenceMissing": {},
+        "runtime": { "node22": { "end": "2026-04-30", "status": "EOL" } }
+      },
+      "expectedPaths": ["evidenceMissing"]
+    },
+    {
+      "name": "malformed evidenceMissing item",
+      "evidence": {
+        "evidenceMissing": [{ "scope": "registry", "detail": "unavailable" }],
+        "runtime": { "node22": { "end": "2026-04-30", "status": "EOL" } }
+      },
+      "expectedPaths": ["evidenceMissing[0]"]
+    },
+    {
+      "name": "missing Node 22 runtime",
+      "evidence": { "evidenceMissing": [], "runtime": {} },
+      "expectedPaths": ["runtime.node22"]
+    },
+    {
+      "name": "wrong type Node 22 runtime",
+      "evidence": { "evidenceMissing": [], "runtime": { "node22": "EOL" } },
+      "expectedPaths": ["runtime.node22"]
+    },
+    {
+      "name": "missing Node 22 end date",
+      "evidence": {
+        "evidenceMissing": [],
+        "runtime": { "node22": { "status": "EOL" } }
+      },
+      "expectedPaths": ["runtime.node22.end"]
+    },
+    {
+      "name": "invalid Node 22 ISO date format",
+      "evidence": {
+        "evidenceMissing": [],
+        "runtime": { "node22": { "end": "April 30 2026", "status": "EOL" } }
+      },
+      "expectedPaths": ["runtime.node22.end"]
+    },
+    {
+      "name": "impossible Node 22 ISO date",
+      "evidence": {
+        "evidenceMissing": [],
+        "runtime": { "node22": { "end": "2026-02-30", "status": "EOL" } }
+      },
+      "expectedPaths": ["runtime.node22.end"]
+    },
+    {
+      "name": "missing Node 22 status",
+      "evidence": {
+        "evidenceMissing": [],
+        "runtime": { "node22": { "end": "2026-04-30" } }
+      },
+      "expectedPaths": ["runtime.node22.status"]
+    },
+    {
+      "name": "wrong type Node 22 status",
+      "evidence": {
+        "evidenceMissing": [],
+        "runtime": { "node22": { "end": "2026-04-30", "status": false } }
+      },
+      "expectedPaths": ["runtime.node22.status"]
+    },
+    {
+      "name": "non-EOL status after end date",
+      "evidence": {
+        "evidenceMissing": [],
+        "runtime": { "node22": { "end": "2026-04-30", "status": "ACTIVE" } }
+      },
+      "expectedPaths": ["runtime.node22.status"]
+    }
+  ],
+  "validRedEvidence": {
+    "npmAudits": [
+      {
+        "path": "services/api/package-lock.json",
+        "status": "VULNERABILITIES_FOUND",
+        "counts": { "info": 0, "low": 0, "moderate": 0, "high": 1, "critical": 0, "total": 1 }
+      }
+    ],
+    "evidenceMissing": [
+      { "scope": "registry evidence", "blocking": true, "detail": "Network evidence is missing." }
+    ],
+    "runtime": { "node22": { "end": "2026-04-30", "status": "EOL" } }
+  }
+}

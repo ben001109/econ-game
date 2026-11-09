@@ -7,7 +7,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Restaurant-centric minimal schema (P0)
+// Legacy Restaurant/POS enums and models remain available while the D01 P0
+// persistence families are added alongside them.
 
 enum OrderType {
   DINE_IN
@@ -28,94 +29,1635 @@ enum PaymentMethod {
   CARD
 }
 
+enum MembershipRole {
+  OWNER
+  MANAGER
+  CASHIER
+  KITCHEN
+  INVENTORY
+  VIEWER
+}
+
+enum SaveMode {
+  COMPETITIVE
+  SANDBOX
+}
+
+enum EmployeeKind {
+  PLAYER
+  NPC
+}
+
+enum InventoryTransactionKind {
+  RECEIPT
+  CONSUMPTION
+  RESERVATION
+  RELEASE
+  WASTE
+  ADJUSTMENT
+}
+
+enum InventoryPool {
+  DURABLE
+  PERISHABLE
+}
+
+enum FinancialRiskStatus {
+  NORMAL
+  DELINQUENT
+  RESOLUTION
+  REHAB
+}
+
+enum ReputationDimension {
+  PRICE
+  SPEED
+  QUALITY
+  FAIRNESS
+  VIBE
+}
+
+enum WipeBatchStatus {
+  DRAFT
+  APPROVED
+  ANNOUNCED
+  SCHEDULED
+  RUNNING
+  VERIFYING
+  COMPLETED
+  FAILED
+}
+
+enum WipeLifecyclePhase {
+  FROZEN
+  ISOLATED
+  CLEARED
+  VERIFIED
+}
+
+enum WipeCheckpointOutcome {
+  SUCCEEDED
+  FAILED
+}
+
+enum WipeExecutionLeaseStatus {
+  CLAIMED
+  SUCCEEDED
+  FAILED
+  EXPIRED
+}
+
+enum WipeAccountGuardOutcome {
+  ELIGIBLE
+  ACCOUNT_RETAINED_GUARD
+}
+
+enum WipeTombstoneFamily {
+  CompetitiveSave
+  Employee
+  InventoryStock
+  Order
+  Player
+  RestaurantMembership
+}
+
+enum TestCohortStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  REVOKED
+}
+
+enum InviteStatus {
+  DRAFT
+  ACTIVE
+  CONSUMED
+  EXPIRED
+  REVOKED
+}
+
+enum CohortMembershipStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum BootstrapProvisioningStatus {
+  ACTIVE
+  RETIRED
+  CLEARED
+}
+
+enum ConsentDecisionKind {
+  ACCEPTED
+  WITHDRAWN
+}
+
+enum RewardEligibilitySource {
+  SERVER_EVENT
+  MANUAL_ADJUSTMENT
+  REVOCATION
+}
+
+enum LedgerTransactionKind {
+  POSTING
+  COMPENSATION
+}
+
+enum LedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+enum SimulationArtifactKind {
+  RULE
+  CATALOG
+}
+
+enum SimulationJobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  DEAD_LETTER
+}
+
+enum SimulationJobErrorClass {
+  TRANSIENT
+  PERMANENT
+}
+
+enum BusinessDayStatus {
+  PREOPEN
+  OPEN
+  SERVICE_COMPLETE
+  SETTLED
+}
+
+enum MarketTickMaterializationSource {
+  JOB
+  COMMAND
+}
+
+model Player {
+  id                            String                 @id @default(cuid())
+  clerkUserId                   String                 @unique
+  displayName                   String
+  createdAt                     DateTime               @default(now())
+  updatedAt                     DateTime               @updatedAt
+  identityLinks                 IdentityLink[]
+  memberships                   RestaurantMembership[]
+  ownedSaves                    CompetitiveSave[]
+  auditLogs                     AuditLog[]
+  employees                     Employee[]
+  idempotencyRecords            IdempotencyRecord[]
+  consumedDiscordLinkChallenges DiscordLinkChallenge[]
+  cohortInvitesReceived         TestCohortInvite[]     @relation("D05InvitedPlayer")
+  cohortInvitesIssued           TestCohortInvite[]     @relation("D05InviteIssuer")
+  cohortInvitesConsumed         TestCohortInvite[]     @relation("D05InviteConsumer")
+  cohortInvitesRevoked          TestCohortInvite[]     @relation("D05InviteRevoker")
+  cohortMemberships             TestCohortMembership[] @relation("D05CohortMember")
+  cohortMembershipRevocations   TestCohortMembership[] @relation("D05MembershipRevoker")
+  testCohortsCreated            TestCohort[]           @relation("D05CohortCreator")
+  consentPoliciesCreated        ConsentPolicy[]        @relation("D05ConsentPolicyCreator")
+  consentDecisions              ConsentDecision[]      @relation("D05ConsentSubject")
+  consentDecisionsActed         ConsentDecision[]      @relation("D05ConsentActor")
+  rewardEligibilities           RewardEligibility[]    @relation("D05RewardSubject")
+  rewardEligibilityDecisions    RewardEligibility[]    @relation("D05RewardDecider")
+  ledgerTransactions            LedgerTransaction[]    @relation("D03LedgerActor")
+  wipeBatchesRequested          WipeBatch[]             @relation("D05WipeRequester")
+  wipeBatchesApproved           WipeBatch[]             @relation("D05WipeApprover")
+  wipeCheckpointsRecorded       WipeBatchCheckpoint[]   @relation("D05WipeCheckpointActor")
+  wipeAccountGuardEvaluations   WipeAccountGuardEvaluation[]
+  wipeTombstones                WipeTombstone[]
+  wipeExecutionLeasesRequested  WipeExecutionLease[]
+  bootstrapAuthority            BootstrapAuthority?
+  bootstrapProvisioningEpochs   BootstrapProvisioningEpoch[]
+  bootstrapPlayerCommandState   BootstrapPlayerCommandState?
+
+  @@unique([id, clerkUserId])
+}
+
+model IdentityLink {
+  id             String    @id @default(cuid())
+  playerId       String
+  clerkUserId    String
+  provider       String
+  providerUserId String
+  verifiedAt     DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  player         Player    @relation(fields: [playerId, clerkUserId], references: [id, clerkUserId], onDelete: Restrict)
+
+  @@unique([provider, providerUserId])
+  @@unique([clerkUserId, provider])
+  @@index([playerId])
+}
+
+model DiscordLinkChallenge {
+  id                 String    @id
+  tokenDigest        String    @unique @db.VarChar(64)
+  discordUserId      String
+  correlationId      String
+  expiresAt          DateTime
+  consumedAt         DateTime?
+  consumedByPlayerId String?
+  createdAt          DateTime  @default(now())
+  consumedByPlayer   Player?   @relation(fields: [consumedByPlayerId], references: [id], onDelete: Restrict)
+
+  @@index([discordUserId, consumedAt])
+  @@index([expiresAt, consumedAt])
+  @@index([consumedByPlayerId, consumedAt])
+}
+
 model Restaurant {
-  id        String   @id @default(cuid())
-  name      String
-  timezone  String   @default("UTC")
-  branches  Branch[]
+  id                  String                       @id @default(cuid())
+  name                String
+  timezone            String                       @default("UTC")
+  branches            Branch[]
+  memberships         RestaurantMembership[]
+  auditLogs           AuditLog[]
+  competitiveSaves    CompetitiveSave[]
+  employees           Employee[]
+  wageContracts       WageContract[]
+  employeeShifts      EmployeeShift[]
+  menuCatalogs        MenuCatalog[]
+  recipeVersions      RecipeVersion[]
+  menuSelections      MenuSelection[]
+  inventoryItems      InventoryItem[]
+  inventoryStocks     InventoryStock[]
+  inventoryTxs        InventoryTransaction[]
+  inventoryPoolStates InventoryPoolState[]
+  marketSeedAuthorities MarketSeedAuthority[]
+  orders              Order[]
+  menuItems           MenuItem[]
+  orderItems          OrderItem[]
+  orderServiceStates  OrderServiceState[]
+  replayEvents        ReplayEvent[]
+  dayEndSnapshots     DayEndSnapshot[]
+  riskStates          RiskState[]
+  reputationHistory   ReputationDimensionHistory[]
+  loans               Loan[]
+  loanInstallments    LoanInstallment[]
+  wipeBatches         WipeBatch[]
+  idempotencyRecords  IdempotencyRecord[]
+  testCohorts         TestCohort[]
+  bootstrapSourceEligibilityAuthorities BootstrapAuthority[]
+  bootstrapProvisionedEpochs BootstrapProvisioningEpoch[]
+  ledgerTransactions  LedgerTransaction[]
+  outboxEvents        OutboxEvent[]
+  outboxReceipts      OutboxConsumerReceipt[]
+  outboxDeadLetters   OutboxConsumerDeadLetter[]
+  simulationJobs      SimulationJob[]
+  simulationJobAudits SimulationJobAudit[]
+  marketTicks         MarketTick[]
+  replayExecutions    VersionedReplayExecution[]
+  businessDays        BusinessDay[]
+  preopenDaySnapshots PreopenDaySnapshot[]
+  servicePeriodExecutions ServicePeriodExecution[]
+  createdAt           DateTime                     @default(now())
+}
+
+model TestCohort {
+  id                       String                 @id
+  restaurantId             String
+  name                     String
+  purpose                  String
+  environment              String
+  status                   TestCohortStatus       @default(DRAFT)
+  quota                    Int
+  opensAt                  DateTime
+  closesAt                 DateTime
+  featureFlags             Json
+  eligibilityPolicyVersion String
+  eligibilityPolicyDigest  String                 @db.VarChar(64)
+  entryConsentPolicyId     String?
+  createdByPlayerId        String
+  openedAt                 DateTime?
+  closedAt                 DateTime?
+  revokedAt                DateTime?
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  restaurant               Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  createdBy                Player                 @relation("D05CohortCreator", fields: [createdByPlayerId], references: [id], onDelete: Restrict)
+  consentPolicies          ConsentPolicy[]
+  invites                  TestCohortInvite[]
+  memberships              TestCohortMembership[]
+  consentDecisions         ConsentDecision[]
+  rewardEligibilities      RewardEligibility[]
+  bootstrapAuthorities     BootstrapAuthority[]
+
+  @@unique([restaurantId, id])
+  @@index([restaurantId, status, opensAt, closesAt])
+}
+
+model ConsentPolicy {
+  id                String            @id
+  cohortId          String
+  purpose           String
+  version           String
+  policyDigest      String            @db.VarChar(64)
+  scope             Json
+  dataCategories    Json
+  retentionDays     Int
+  requiredForEntry  Boolean           @default(false)
+  createdByPlayerId String
+  createdAt         DateTime          @default(now())
+  retiredAt         DateTime?
+  cohort            TestCohort        @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+  createdBy         Player            @relation("D05ConsentPolicyCreator", fields: [createdByPlayerId], references: [id], onDelete: Restrict)
+  decisions         ConsentDecision[]
+
+  @@unique([cohortId, id])
+  @@unique([cohortId, purpose, version])
+  @@index([cohortId, requiredForEntry, retiredAt])
+}
+
+model TestCohortInvite {
+  id                 String                @id
+  cohortId           String
+  invitedPlayerId    String
+  issuedByPlayerId   String
+  tokenDigest        String                @unique @db.VarChar(64)
+  status             InviteStatus          @default(DRAFT)
+  expiresAt          DateTime
+  activatedAt        DateTime?
+  consumedAt         DateTime?
+  consumedByPlayerId String?
+  revokedAt          DateTime?
+  revokedByPlayerId  String?
+  createdAt          DateTime              @default(now())
+  cohort             TestCohort            @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+  invitedPlayer      Player                @relation("D05InvitedPlayer", fields: [invitedPlayerId], references: [id], onDelete: Restrict)
+  issuedBy           Player                @relation("D05InviteIssuer", fields: [issuedByPlayerId], references: [id], onDelete: Restrict)
+  consumedBy         Player?               @relation("D05InviteConsumer", fields: [consumedByPlayerId], references: [id], onDelete: Restrict)
+  revokedBy          Player?               @relation("D05InviteRevoker", fields: [revokedByPlayerId], references: [id], onDelete: Restrict)
+  membership         TestCohortMembership?
+  bootstrapAuthority BootstrapAuthority?
+
+  @@unique([cohortId, id])
+  @@index([cohortId, status, expiresAt])
+  @@index([invitedPlayerId, status])
+}
+
+model TestCohortMembership {
+  id                String                 @id
+  cohortId          String
+  playerId          String
+  inviteId          String                 @unique
+  status            CohortMembershipStatus @default(ACTIVE)
+  joinedAt          DateTime               @default(now())
+  revokedAt         DateTime?
+  revokedByPlayerId String?
+  revokeReason      String?
+  cohort            TestCohort             @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+  player            Player                 @relation("D05CohortMember", fields: [playerId], references: [id], onDelete: Restrict)
+  invite            TestCohortInvite       @relation(fields: [cohortId, inviteId], references: [cohortId, id], onDelete: Restrict)
+  revokedBy         Player?                @relation("D05MembershipRevoker", fields: [revokedByPlayerId], references: [id], onDelete: Restrict)
+  bootstrapAuthority BootstrapAuthority?
+
+  @@unique([cohortId, playerId])
+  @@unique([cohortId, inviteId])
+  @@index([playerId, status])
+  @@index([cohortId, status])
+}
+
+model ConsentDecision {
+  id               String              @id
+  decisionSequence BigInt              @unique @default(autoincrement())
+  cohortId         String
+  playerId         String
+  policyId         String
+  actorPlayerId    String
+  decision         ConsentDecisionKind
+  policyVersion    String
+  policyDigest     String              @db.VarChar(64)
+  purpose          String
+  scope            Json
+  dataCategories   Json
+  retentionUntil   DateTime
+  acceptedAt       DateTime?
+  withdrawnAt      DateTime?
+  createdAt        DateTime            @default(now())
+  cohort           TestCohort          @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+  player           Player              @relation("D05ConsentSubject", fields: [playerId], references: [id], onDelete: Restrict)
+  actor            Player              @relation("D05ConsentActor", fields: [actorPlayerId], references: [id], onDelete: Restrict)
+  policy           ConsentPolicy       @relation(fields: [cohortId, policyId], references: [cohortId, id], onDelete: Restrict)
+  bootstrapAuthority BootstrapAuthority?
+
+  @@index([cohortId, playerId, policyId, decisionSequence])
+  @@index([playerId, purpose, decisionSequence])
+}
+
+model RewardEligibility {
+  id                      String                  @id
+  cohortId                String
+  playerId                String
+  policyVersion           String
+  policyDigest            String                  @db.VarChar(64)
+  milestoneEventId        String
+  evidenceSnapshot        Json
+  evidenceHash            String                  @db.VarChar(64)
+  eligible                Boolean
+  rewardKind              String
+  source                  RewardEligibilitySource
+  reason                  String
+  decidedByPlayerId       String?
+  decidedAt               DateTime                @default(now())
+  revokedAt               DateTime?
+  supersedesEligibilityId String?
+  cohort                  TestCohort              @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+  player                  Player                  @relation("D05RewardSubject", fields: [playerId], references: [id], onDelete: Restrict)
+  decidedBy               Player?                 @relation("D05RewardDecider", fields: [decidedByPlayerId], references: [id], onDelete: Restrict)
+  supersedes              RewardEligibility?      @relation("D05RewardSupersession", fields: [cohortId, playerId, rewardKind, supersedesEligibilityId], references: [cohortId, playerId, rewardKind, id], onDelete: Restrict)
+  supersededBy            RewardEligibility?      @relation("D05RewardSupersession")
+
+  @@unique([cohortId, playerId, rewardKind, id])
+  @@unique([cohortId, playerId, rewardKind, supersedesEligibilityId])
+  @@index([playerId, eligible, revokedAt])
+  @@index([cohortId, decidedAt])
+  @@index([cohortId, playerId, milestoneEventId])
+}
+
+model RestaurantMembership {
+  id           String            @id @default(cuid())
+  playerId     String
+  restaurantId String
+  role         MembershipRole
+  branchScope  Json?
+  createdAt    DateTime          @default(now())
+  revokedAt    DateTime?
+  player       Player            @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  ownedSaves   CompetitiveSave[] @relation("CompetitiveSaveOwnerMembership")
+  wipeTombstones WipeTombstone[]
+  bootstrapProvisioningEpoch BootstrapProvisioningEpoch?
+
+  @@unique([playerId, restaurantId])
+  @@index([restaurantId, revokedAt])
+  @@index([playerId, revokedAt])
+}
+
+model AuditLog {
+  id            String      @id @default(cuid())
+  restaurantId  String?
+  actorPlayerId String?
+  actorType     String
+  action        String
+  targetType    String
+  targetId      String
+  metadata      Json
+  correlationId String?
+  createdAt     DateTime    @default(now())
+  restaurant    Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  actorPlayer   Player?     @relation(fields: [actorPlayerId], references: [id], onDelete: Restrict)
+  bootstrapOwnerAuditEpoch BootstrapProvisioningEpoch?
+
+  @@index([restaurantId, createdAt])
+  @@index([actorPlayerId, createdAt])
+  @@index([targetType, targetId])
+}
+
+model CompetitiveSave {
+  id                    String                       @id @default(cuid())
+  restaurantId          String
+  ownerPlayerId         String
+  mode                  SaveMode
+  version               Int                          @default(1)
+  openingScenario       String
+  operatingMode         String
+  servicePeriodPlan     String
+  difficultyGroup       String
+  demandSeed            String
+  simulationRuleVersion String
+  openingSnapshot       Json
+  openingSnapshotHash   String                       @db.VarChar(64)
+  retiredAt             DateTime?
+  retiredByWipeBatchId  String?
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
+  restaurant            Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  ownerPlayer           Player                       @relation(fields: [ownerPlayerId], references: [id], onDelete: Restrict)
+  ownerMembership       RestaurantMembership         @relation("CompetitiveSaveOwnerMembership", fields: [ownerPlayerId, restaurantId], references: [playerId, restaurantId], onDelete: Restrict)
+  retiredByWipeBatch    WipeBatch?                   @relation(fields: [retiredByWipeBatchId], references: [id], onDelete: Restrict)
+  wipeBatchScopes       WipeBatchSaveScope[]
+  wipeTombstones        WipeTombstone[]
+  employees             Employee[]
+  wageContracts         WageContract[]
+  employeeShifts        EmployeeShift[]
+  menuSelections        MenuSelection[]
+  inventoryStocks       InventoryStock[]
+  inventoryTxs          InventoryTransaction[]
+  inventoryPoolStates   InventoryPoolState[]
+  marketSeedAuthority   MarketSeedAuthority?
+  orders                Order[]
+  replayEvents          ReplayEvent[]
+  dayEndSnapshots       DayEndSnapshot[]
+  riskStates            RiskState[]
+  reputationHistory     ReputationDimensionHistory[]
+  loans                 Loan[]
+  ledgerTransactions    LedgerTransaction[]
+  outboxEvents          OutboxEvent[]
+  simulationJobs        SimulationJob[]
+  marketTicks           MarketTick[]
+  replayExecutions      VersionedReplayExecution[]
+  businessDays          BusinessDay[]
+  preopenDaySnapshots   PreopenDaySnapshot[]
+  servicePeriodExecutions ServicePeriodExecution[]
+  bootstrapProvisioningEpoch BootstrapProvisioningEpoch?
+
+  @@unique([restaurantId, id])
+  @@unique([restaurantId, id, version])
+  @@index([restaurantId, retiredAt])
+  @@index([ownerPlayerId, retiredAt])
+}
+
+model BusinessDay {
+  id                        String
+  restaurantId              String
+  saveId                    String
+  businessDay               Int
+  status                    BusinessDayStatus @default(PREOPEN)
+  servicePeriodPlan         String
+  simulationRuleVersion     String
+  createdByCommandId        String            @unique
+  openedByCommandId         String?           @unique
+  settledByCommandId        String?           @unique
+  consumedPreopenSnapshotId String?
+  openSnapshot              Json?
+  openSnapshotHash          String?           @db.VarChar(64)
+  createdAt                 DateTime          @default(now())
+  openedAt                  DateTime?
+  settledAt                 DateTime?
+  restaurant                Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                      CompetitiveSave   @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  consumedPreopenSnapshot   PreopenDaySnapshot? @relation("BusinessDayConsumedPreopenSnapshot", fields: [restaurantId, saveId, businessDay, consumedPreopenSnapshotId], references: [restaurantId, saveId, businessDay, id], onDelete: Restrict)
+  preopenSnapshots          PreopenDaySnapshot[] @relation("PreopenSnapshotBusinessDay")
+  servicePeriodExecutions   ServicePeriodExecution[]
+  replayEvents              ReplayEvent[]
+  dayEndSnapshots           DayEndSnapshot[]
+  replayExecutions          VersionedReplayExecution[]
+  marketTicks               MarketTick[]
+
+  @@id([restaurantId, id])
+  @@unique([saveId, businessDay])
+  @@unique([restaurantId, saveId, businessDay])
+  @@index([restaurantId, status])
+}
+
+model PreopenDaySnapshot {
+  id                    String
+  restaurantId          String
+  saveId                String
+  businessDay           Int
+  revision              Int
+  commandId             String          @unique
+  snapshotSchemaVersion String
+  simulationRuleVersion String
+  payload               Json
+  snapshotHash          String          @db.VarChar(64)
+  createdAt             DateTime        @default(now())
+  restaurant            Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                  CompetitiveSave @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  businessDayRecord     BusinessDay     @relation("PreopenSnapshotBusinessDay", fields: [restaurantId, saveId, businessDay], references: [restaurantId, saveId, businessDay], onDelete: Restrict)
+  consumedByBusinessDays BusinessDay[]  @relation("BusinessDayConsumedPreopenSnapshot")
+
+  @@id([restaurantId, id])
+  @@unique([saveId, businessDay, revision])
+  @@unique([restaurantId, saveId, businessDay, id])
+  @@index([restaurantId, saveId, businessDay])
+}
+
+model ServicePeriodExecution {
+  id                    String
+  restaurantId          String
+  saveId                String
+  businessDay           Int
+  ordinal               Int
+  periodKey             String
+  commandId             String          @unique
+  simulationRuleVersion String
+  inputSnapshot         Json
+  inputHash             String          @db.VarChar(64)
+  resultSnapshot        Json
+  resultHash            String          @db.VarChar(64)
+  completedAt           DateTime
+  restaurant            Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                  CompetitiveSave @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  businessDayRecord     BusinessDay     @relation(fields: [restaurantId, saveId, businessDay], references: [restaurantId, saveId, businessDay], onDelete: Restrict)
+  replayEvents          ReplayEvent[]
+
+  @@id([restaurantId, id])
+  @@unique([saveId, businessDay, ordinal])
+  @@unique([saveId, businessDay, periodKey])
+  @@unique([restaurantId, saveId, businessDay, id])
+  @@index([restaurantId, saveId, businessDay])
+}
+
+/// Immutable server-created binding from one qualifying closed-beta invite/consent
+/// context to every allowed provisioning epoch for that player.
+model BootstrapAuthority {
+  id                      String   @id
+  playerId                String   @unique
+  cohortId                String
+  cohortMembershipId      String   @unique
+  inviteId                String   @unique
+  consentDecisionId       String   @unique
+  sourceEligibilityRestaurantId String
+  policyVersion           String
+  policyDigest            String   @db.VarChar(64)
+  createdAt               DateTime @default(now())
+  player                  Player   @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  cohort                  TestCohort @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+  cohortMembership        TestCohortMembership @relation(fields: [cohortMembershipId], references: [id], onDelete: Restrict)
+  invite                  TestCohortInvite @relation(fields: [inviteId], references: [id], onDelete: Restrict)
+  consentDecision         ConsentDecision @relation(fields: [consentDecisionId], references: [id], onDelete: Restrict)
+  sourceEligibilityRestaurant Restaurant @relation(fields: [sourceEligibilityRestaurantId], references: [id], onDelete: Restrict)
+  epochs                  BootstrapProvisioningEpoch[]
+
+  @@index([cohortId, playerId])
+  @@index([sourceEligibilityRestaurantId])
+}
+
+/// Forward-only isolated restaurant/save epochs. Partial uniqueness and transition
+/// guards are expressed in the paired PostgreSQL migration because Prisma cannot
+/// represent partial unique indexes or transition triggers.
+model BootstrapProvisioningEpoch {
+  id                    String                      @id
+  authorityId           String
+  playerId              String
+  epochNumber           Int
+  playerCommandVersion  Int
+  predecessorEpochId    String?                     @unique
+  status                BootstrapProvisioningStatus @default(ACTIVE)
+  provisionedRestaurantId String                    @unique
+  ownerMembershipId     String                      @unique
+  saveId                String                      @unique
+  ownerAuditLogId       String                      @unique
+  commandId             String                      @unique
+  requestFingerprint    String                      @db.VarChar(64)
+  createdAt             DateTime                    @default(now())
+  retiredAt             DateTime?
+  clearedAt             DateTime?
+  authority             BootstrapAuthority          @relation(fields: [authorityId], references: [id], onDelete: Restrict)
+  player                Player                      @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  playerCommandState    BootstrapPlayerCommandState @relation(fields: [playerId], references: [playerId], onDelete: Restrict, map: "BootstrapProvisioningEpoch_player_command_state_fkey")
+  provisionedRestaurant Restaurant                  @relation(fields: [provisionedRestaurantId], references: [id], onDelete: Restrict)
+  ownerMembership       RestaurantMembership        @relation(fields: [ownerMembershipId], references: [id], onDelete: Restrict)
+  save                  CompetitiveSave             @relation(fields: [saveId], references: [id], onDelete: Restrict)
+  ownerAuditLog         AuditLog                    @relation(fields: [ownerAuditLogId], references: [id], onDelete: Restrict)
+  predecessor           BootstrapProvisioningEpoch? @relation("BootstrapEpochLineage", fields: [predecessorEpochId], references: [id], onDelete: Restrict)
+  successor             BootstrapProvisioningEpoch? @relation("BootstrapEpochLineage")
+
+  @@unique([authorityId, epochNumber])
+  @@unique([playerId, playerCommandVersion])
+  @@index([playerId, status])
+  @@index([authorityId, createdAt])
+}
+
+/// Durable D02 aggregate version for bootstrap commands. Its Player scope does
+/// not reset when a provisioning epoch is cleared or authority lineage changes.
+model BootstrapPlayerCommandState {
+  playerId  String   @id
+  version   Int      @default(0)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  epochs    BootstrapProvisioningEpoch[]
 }
 
 model Branch {
-  id           String      @id @default(cuid())
+  id           String     @id @default(cuid())
   restaurantId String
-  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
   name         String
   address      String?
   hours        String?
   tables       Table[]
   menuItems    MenuItem[]
   orders       Order[]
+
+  @@unique([restaurantId, id])
+  @@index([restaurantId])
 }
 
 model Table {
-  id       String @id @default(cuid())
+  id       String  @id @default(cuid())
   branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
+  branch   Branch  @relation(fields: [branchId], references: [id], onDelete: Restrict)
   code     String
   seats    Int
-  status   String @default("AVAILABLE")
+  status   String  @default("AVAILABLE")
   orders   Order[]
+
+  @@unique([branchId, code])
+  @@unique([branchId, id])
+  @@index([branchId])
 }
 
 model MenuItem {
-  id        String  @id @default(cuid())
-  branchId  String
-  branch    Branch  @relation(fields: [branchId], references: [id])
-  sku       String  @unique
-  name      String
-  basePrice Decimal @db.Decimal(10,2)
-  active    Boolean @default(true)
-  orderItems OrderItem[]
+  id           String      @id @default(cuid())
+  restaurantId String
+  branchId     String
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  branch       Branch      @relation(fields: [restaurantId, branchId], references: [restaurantId, id], onDelete: Restrict)
+  sku          String      @unique
+  name         String
+  basePrice    Decimal     @db.Decimal(10, 2)
+  active       Boolean     @default(true)
+  orderItems   OrderItem[]
+
+  @@unique([restaurantId, id])
+  @@unique([branchId, id])
+  @@index([restaurantId, active])
+  @@index([branchId, active])
 }
 
 model Order {
-  id         String       @id @default(cuid())
-  branchId   String
-  branch     Branch       @relation(fields: [branchId], references: [id])
-  tableId    String?
-  table      Table?       @relation(fields: [tableId], references: [id])
-  type       OrderType    @default(DINE_IN)
-  status     OrderStatus  @default(OPEN)
-  openedAt   DateTime     @default(now())
-  closedAt   DateTime?
-  items      OrderItem[]
-  payments   Payment[]
-  taxLines   TaxLine[]
-  tips       Tip[]
+  id            String              @id @default(cuid())
+  restaurantId  String
+  saveId        String?
+  branchId      String
+  tableId       String?
+  businessDay   Int?
+  version       Int                 @default(1)
+  type          OrderType           @default(DINE_IN)
+  status        OrderStatus         @default(OPEN)
+  openedAt      DateTime            @default(now())
+  closedAt      DateTime?
+  restaurant    Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save          CompetitiveSave?    @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  branch        Branch              @relation(fields: [restaurantId, branchId], references: [restaurantId, id], onDelete: Restrict)
+  table         Table?              @relation(fields: [branchId, tableId], references: [branchId, id], onDelete: Restrict)
+  items         OrderItem[]
+  payments      Payment[]
+  taxLines      TaxLine[]
+  tips          Tip[]
+  serviceStates OrderServiceState[]
+  wipeTombstones WipeTombstone[]
+
+  @@unique([restaurantId, id, version])
+  @@unique([restaurantId, id])
+  @@unique([restaurantId, saveId, id])
+  @@index([restaurantId, businessDay, status])
+  @@index([branchId, status])
+  @@index([saveId, businessDay])
 }
 
 model OrderItem {
-  id         String   @id @default(cuid())
-  orderId    String
-  order      Order    @relation(fields: [orderId], references: [id])
-  menuItemId String
-  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
-  qty        Int      @default(1)
-  price      Decimal  @db.Decimal(10,2)
-  notes      String?
+  id           String     @id @default(cuid())
+  restaurantId String
+  orderId      String
+  menuItemId   String
+  qty          Int        @default(1)
+  price        Decimal    @db.Decimal(10, 2)
+  notes        String?
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  order        Order      @relation(fields: [restaurantId, orderId], references: [restaurantId, id], onDelete: Restrict)
+  menuItem     MenuItem   @relation(fields: [restaurantId, menuItemId], references: [restaurantId, id], onDelete: Restrict)
+
+  @@index([restaurantId, orderId])
+  @@index([restaurantId, menuItemId])
 }
 
 model Payment {
-  id       String        @id @default(cuid())
-  orderId  String
-  order    Order         @relation(fields: [orderId], references: [id])
-  method   PaymentMethod
-  amount   Decimal       @db.Decimal(10,2)
-  paidAt   DateTime      @default(now())
+  id      String        @id @default(cuid())
+  orderId String
+  order   Order         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  method  PaymentMethod
+  amount  Decimal       @db.Decimal(10, 2)
+  paidAt  DateTime      @default(now())
+
+  @@index([orderId, paidAt])
 }
 
 model TaxLine {
   id      String  @id @default(cuid())
   orderId String
-  order   Order   @relation(fields: [orderId], references: [id])
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Restrict)
   name    String
-  amount  Decimal @db.Decimal(10,2)
+  amount  Decimal @db.Decimal(10, 2)
+
+  @@index([orderId])
 }
 
 model Tip {
   id      String  @id @default(cuid())
   orderId String
-  order   Order   @relation(fields: [orderId], references: [id])
-  amount  Decimal @db.Decimal(10,2)
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  amount  Decimal @db.Decimal(10, 2)
+
+  @@index([orderId])
+}
+
+model Employee {
+  id           String          @id @default(cuid())
+  restaurantId String
+  saveId       String
+  playerId     String?
+  stableKey    String
+  kind         EmployeeKind
+  role         String
+  displayName  String
+  active       Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save         CompetitiveSave @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  player       Player?         @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  contracts    WageContract[]
+  shifts       EmployeeShift[]
+  wipeTombstones WipeTombstone[]
+
+  @@unique([saveId, stableKey])
+  @@unique([restaurantId, saveId, id])
+  @@index([restaurantId, active])
+  @@index([playerId])
+}
+
+model WageContract {
+  id             String          @id @default(cuid())
+  restaurantId   String
+  saveId         String
+  employeeId     String
+  version        Int
+  termsVersion   String
+  currency       String          @db.VarChar(3)
+  salaryMinor    BigInt
+  salaryUnit     String
+  shiftCoverage  String
+  effectiveDay   Int
+  endDay         Int?
+  bonusType      String
+  bonusMinor     BigInt          @default(0)
+  profitShareBps Int             @default(0)
+  termsSnapshot  Json
+  acceptedAt     DateTime?
+  supersedesId   String?
+  createdAt      DateTime        @default(now())
+  restaurant     Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save           CompetitiveSave @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  employee       Employee        @relation(fields: [restaurantId, saveId, employeeId], references: [restaurantId, saveId, id], onDelete: Restrict)
+  supersedes     WageContract?   @relation("WageContractVersions", fields: [restaurantId, employeeId, supersedesId], references: [restaurantId, employeeId, id], onDelete: Restrict)
+  replacements   WageContract[]  @relation("WageContractVersions")
+  shifts         EmployeeShift[]
+
+  @@unique([employeeId, version])
+  @@unique([restaurantId, employeeId, id])
+  @@index([restaurantId, effectiveDay])
+  @@index([saveId, effectiveDay])
+}
+
+model EmployeeShift {
+  id             String          @id @default(cuid())
+  restaurantId   String
+  saveId         String
+  employeeId     String
+  wageContractId String
+  businessDay    Int
+  servicePeriod  String
+  shiftSnapshot  Json
+  completedAt    DateTime?
+  createdAt      DateTime        @default(now())
+  restaurant     Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save           CompetitiveSave @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  employee       Employee        @relation(fields: [restaurantId, saveId, employeeId], references: [restaurantId, saveId, id], onDelete: Restrict)
+  wageContract   WageContract    @relation(fields: [restaurantId, employeeId, wageContractId], references: [restaurantId, employeeId, id], onDelete: Restrict)
+
+  @@unique([employeeId, businessDay, servicePeriod])
+  @@index([restaurantId, businessDay])
+  @@index([saveId, businessDay])
+}
+
+model MenuCatalog {
+  id           String          @id @default(cuid())
+  restaurantId String
+  revision     String
+  createdAt    DateTime        @default(now())
+  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  recipes      RecipeVersion[]
+  selections   MenuSelection[]
+
+  @@unique([restaurantId, id])
+  @@unique([restaurantId, revision])
+  @@index([restaurantId, createdAt])
+}
+
+model RecipeVersion {
+  id           String      @id @default(cuid())
+  restaurantId String
+  catalogId    String
+  stableKey    String
+  version      Int
+  recipe       Json
+  createdAt    DateTime    @default(now())
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  catalog      MenuCatalog @relation(fields: [restaurantId, catalogId], references: [restaurantId, id], onDelete: Restrict)
+
+  @@unique([catalogId, stableKey, version])
+  @@index([restaurantId, stableKey, version])
+}
+
+model MenuSelection {
+  id           String          @id @default(cuid())
+  restaurantId String
+  saveId       String
+  catalogId    String
+  businessDay  Int
+  version      Int
+  selection    Json
+  createdAt    DateTime        @default(now())
+  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save         CompetitiveSave @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  catalog      MenuCatalog     @relation(fields: [restaurantId, catalogId], references: [restaurantId, id], onDelete: Restrict)
+
+  @@unique([saveId, businessDay, version])
+  @@index([restaurantId, businessDay])
+}
+
+model InventoryItem {
+  id           String           @id @default(cuid())
+  restaurantId String
+  stableKey    String
+  category     String
+  unit         String
+  perishable   Boolean
+  createdAt    DateTime         @default(now())
+  restaurant   Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  stocks       InventoryStock[]
+
+  @@unique([restaurantId, id])
+  @@unique([restaurantId, stableKey])
+  @@index([restaurantId, category])
+}
+
+model InventoryPoolState {
+  restaurantId         String
+  saveId               String
+  pool                 InventoryPool
+  revision             Int
+  capacityPoints       BigInt
+  storageBundleVersion String
+  storageBundleKind    String
+  updatedByCommandId   String
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  restaurant           Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                 CompetitiveSave @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+
+  @@id([restaurantId, saveId, pool])
+  @@unique([saveId, pool])
+  @@unique([updatedByCommandId, pool])
+}
+
+model MarketSeedAuthority {
+  restaurantId       String
+  saveId             String
+  seed               String
+  seedVersion        String
+  createdByCommandId String          @unique
+  createdAt          DateTime        @default(now())
+  restaurant         Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save               CompetitiveSave @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  marketTicks        MarketTick[]
+
+  @@id([restaurantId, saveId])
+  @@unique([saveId])
+}
+
+model InventoryStock {
+  id                  String                 @id @default(cuid())
+  restaurantId        String
+  saveId              String
+  inventoryItemId     String
+  version             Int                    @default(1)
+  onHand              BigInt                 @default(0)
+  reservedUndelivered BigInt                 @default(0)
+  costPoolMinor       BigInt                 @default(0)
+  updatedAt           DateTime               @updatedAt
+  restaurant          Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                CompetitiveSave        @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  inventoryItem       InventoryItem          @relation(fields: [restaurantId, inventoryItemId], references: [restaurantId, id], onDelete: Restrict)
+  transactions        InventoryTransaction[]
+  wipeTombstones      WipeTombstone[]
+
+  @@unique([saveId, inventoryItemId])
+  @@unique([id, version])
+  @@unique([restaurantId, saveId, id])
+  @@index([restaurantId, inventoryItemId])
+}
+
+model InventoryTransaction {
+  id            String                   @id @default(cuid())
+  restaurantId  String
+  saveId        String
+  stockId       String
+  transactionId String
+  commandId     String
+  commandSequence Int
+  ledgerTransactionId String?
+  stockVersion  Int
+  kind          InventoryTransactionKind
+  quantityDelta BigInt
+  onHandAfter   BigInt
+  reservedAfter BigInt
+  amountMinor   BigInt
+  costPoolMinorAfter BigInt
+  referenceId   String
+  reason        String
+  metadata      Json?
+  occurredAt    DateTime                 @default(now())
+  restaurant    Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save          CompetitiveSave          @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  stock         InventoryStock           @relation(fields: [restaurantId, saveId, stockId], references: [restaurantId, saveId, id], onDelete: Restrict)
+  ledgerTransaction LedgerTransaction?    @relation(fields: [restaurantId, saveId, ledgerTransactionId, commandId], references: [restaurantId, saveId, id, commandId], onDelete: Restrict)
+
+  @@unique([restaurantId, transactionId])
+  @@unique([stockId, stockVersion])
+  @@unique([commandId, commandSequence])
+  @@index([restaurantId, occurredAt])
+  @@index([saveId, occurredAt])
+}
+
+model OrderServiceState {
+  id           String     @id @default(cuid())
+  restaurantId String
+  orderId      String
+  version      Int
+  state        String
+  reason       String?
+  snapshot     Json
+  occurredAt   DateTime   @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  order        Order      @relation(fields: [restaurantId, orderId], references: [restaurantId, id], onDelete: Restrict)
+
+  @@unique([orderId, version])
+  @@index([restaurantId, occurredAt])
+}
+
+model ReplayEvent {
+  id                       String                  @id @default(cuid())
+  restaurantId             String
+  saveId                   String
+  eventId                  String                  @unique
+  businessDay              Int
+  servicePeriodExecutionId String?
+  sequence                 Int
+  eventType                String
+  simulationRuleVersion    String
+  payload                  Json
+  eventHash                String                  @db.VarChar(64)
+  occurredAt               DateTime                @default(now())
+  restaurant               Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                     CompetitiveSave         @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  businessDayRecord        BusinessDay             @relation(fields: [restaurantId, saveId, businessDay], references: [restaurantId, saveId, businessDay], onDelete: Restrict)
+  servicePeriodExecution   ServicePeriodExecution? @relation(fields: [restaurantId, saveId, businessDay, servicePeriodExecutionId], references: [restaurantId, saveId, businessDay, id], onDelete: Restrict)
+
+  @@unique([saveId, businessDay, sequence])
+  @@index([restaurantId, businessDay, sequence])
+}
+
+model DayEndSnapshot {
+  id                                 String              @id @default(cuid())
+  restaurantId                       String
+  saveId                             String
+  businessDay                        Int
+  currency                           String              @db.VarChar(3)
+  grossRevenueMinor                  BigInt
+  cogsMinor                          BigInt
+  wasteLossMinor                     BigInt
+  payrollMinor                       BigInt
+  opexMinor                          BigInt
+  taxMinor                           BigInt
+  debtDueMinor                       BigInt
+  riskPenaltyMinor                   BigInt
+  dailyNetMinor                      BigInt
+  resolutionComparisonShortfallMinor BigInt
+  shortfallMinor                     BigInt
+  cashAfterMinor                     BigInt
+  riskPenaltyRuleVersion             String
+  riskPenaltyBaseMinor               BigInt
+  riskPenaltyRateBps                 Int
+  riskPenaltyRateDenominator         Int
+  riskPenaltyRoundingMode            String
+  riskPenaltyMinimumPositiveMinor    BigInt
+  riskPenaltyAccruedTotalMinor       BigInt
+  reputationPrice                    Decimal             @db.Decimal(9, 6)
+  reputationSpeed                    Decimal             @db.Decimal(9, 6)
+  reputationQuality                  Decimal             @db.Decimal(9, 6)
+  reputationFairness                 Decimal             @db.Decimal(9, 6)
+  reputationVibe                     Decimal             @db.Decimal(9, 6)
+  riskStatus                         FinancialRiskStatus
+  riskTags                           Json
+  highRiskRevenueEnabled             Boolean
+  leaderboardEligible                Boolean
+  eventHash                          String              @db.VarChar(64)
+  snapshotHash                       String              @db.VarChar(64)
+  finalResourceVersions              Json
+  fixedFieldSnapshot                 Json
+  createdAt                          DateTime            @default(now())
+  restaurant                         Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                               CompetitiveSave     @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  businessDayRecord                  BusinessDay         @relation(fields: [restaurantId, saveId, businessDay], references: [restaurantId, saveId, businessDay], onDelete: Restrict)
+
+  @@unique([saveId, businessDay])
+  @@index([restaurantId, businessDay])
+}
+
+model RiskState {
+  id            String              @id @default(cuid())
+  restaurantId  String
+  saveId        String
+  version       Int
+  businessDay   Int
+  status        FinancialRiskStatus
+  reason        String
+  precondition  Json
+  postcondition Json
+  createdAt     DateTime            @default(now())
+  restaurant    Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save          CompetitiveSave     @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+
+  @@unique([saveId, version])
+  @@index([restaurantId, businessDay])
+}
+
+model ReputationDimensionHistory {
+  id           String              @id @default(cuid())
+  restaurantId String
+  saveId       String
+  businessDay  Int
+  dimension    ReputationDimension
+  version      Int
+  score        Decimal             @db.Decimal(9, 6)
+  reason       String
+  createdAt    DateTime            @default(now())
+  restaurant   Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save         CompetitiveSave     @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+
+  @@unique([saveId, businessDay, dimension, version])
+  @@index([restaurantId, businessDay])
+}
+
+model Loan {
+  id                String            @id @default(cuid())
+  restaurantId      String
+  saveId            String
+  stableKey         String
+  termsVersion      Int
+  currency          String            @db.VarChar(3)
+  principalMinor    BigInt
+  interestRateBps   Int
+  lateFeeBps        Int
+  graceBusinessDays Int
+  termsSnapshot     Json
+  replacesLoanId    String?
+  createdAt         DateTime          @default(now())
+  restaurant        Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save              CompetitiveSave   @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  replacesLoan      Loan?             @relation("LoanVersions", fields: [restaurantId, saveId, replacesLoanId], references: [restaurantId, saveId, id], onDelete: Restrict)
+  replacementLoans  Loan[]            @relation("LoanVersions")
+  installments      LoanInstallment[]
+
+  @@unique([saveId, stableKey, termsVersion])
+  @@unique([restaurantId, saveId, id])
+  @@unique([restaurantId, id])
+  @@index([restaurantId, createdAt])
+}
+
+model LoanInstallment {
+  id             String     @id @default(cuid())
+  restaurantId   String
+  loanId         String
+  sequence       Int
+  dueBusinessDay Int
+  principalMinor BigInt
+  interestMinor  BigInt
+  totalMinor     BigInt
+  status         String
+  snapshot       Json
+  createdAt      DateTime   @default(now())
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  loan           Loan       @relation(fields: [restaurantId, loanId], references: [restaurantId, id], onDelete: Restrict)
+
+  @@unique([loanId, sequence])
+  @@index([restaurantId, dueBusinessDay])
+}
+
+model WipeBatch {
+  id                     String            @id @default(cuid())
+  restaurantId           String?
+  status                 WipeBatchStatus
+  lifecyclePhase         WipeLifecyclePhase?
+  scope                  Json
+  scopeVersion           String?
+  scopeHash              String?           @db.VarChar(64)
+  policyVersion          String?
+  policyHash             String?           @db.VarChar(64)
+  reason                 String
+  requestedByPlayerId    String?
+  approvedByPlayerId     String?
+  approvedAt             DateTime?
+  announcedAt            DateTime?
+  frozenAt               DateTime?
+  isolatedAt             DateTime?
+  clearEligibleAt        DateTime?
+  clearedAt              DateTime?
+  verifiedAt             DateTime?
+  startedAt              DateTime?
+  completedAt            DateTime?
+  dryRunManifest         Json?
+  dryRunManifestHash     String?           @db.VarChar(64)
+  verificationSnapshot   Json?
+  verificationHash       String?           @db.VarChar(64)
+  createdAt              DateTime          @default(now())
+  restaurant             Restaurant?       @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  requestedBy            Player?           @relation("D05WipeRequester", fields: [requestedByPlayerId], references: [id], onDelete: Restrict)
+  approvedBy             Player?           @relation("D05WipeApprover", fields: [approvedByPlayerId], references: [id], onDelete: Restrict)
+  retiredSaves           CompetitiveSave[]
+  saveScopes             WipeBatchSaveScope[]
+  checkpoints            WipeBatchCheckpoint[]
+  accountGuardEvaluations WipeAccountGuardEvaluation[]
+  tombstones             WipeTombstone[]
+  executionLeases        WipeExecutionLease[]
+
+  @@unique([id, restaurantId])
+  @@index([restaurantId, createdAt])
+  @@index([status, createdAt])
+  @@index([lifecyclePhase, createdAt])
+}
+
+model WipeExecutionLease {
+  id                       String                   @id
+  wipeBatchId              String
+  restaurantId             String
+  phase                    WipeLifecyclePhase
+  attempt                  Int
+  status                   WipeExecutionLeaseStatus @default(CLAIMED)
+  requestedByPlayerId      String
+  executorEnvironment      String
+  scopeEnvironment         String
+  databaseFixtureNonceHash String                   @db.VarChar(64)
+  authorityHash            String                   @db.VarChar(64)
+  leaseTokenHash           String                   @unique @db.VarChar(64)
+  claimedAt                DateTime                 @default(now())
+  expiresAt                DateTime
+  completedAt              DateTime?
+  resultEvidence           Json?
+  resultEvidenceHash       String?                  @db.VarChar(64)
+  errorCode                String?
+  wipeBatch                WipeBatch                @relation(fields: [wipeBatchId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  requestedBy              Player                   @relation(fields: [requestedByPlayerId], references: [id], onDelete: Restrict)
+
+  @@unique([wipeBatchId, phase, attempt])
+  @@index([wipeBatchId, phase, status])
+  @@index([expiresAt, status])
+}
+
+model WipeBatchSaveScope {
+  wipeBatchId  String
+  restaurantId String
+  saveId       String
+  ordinal      Int
+  scopeItemHash String            @db.VarChar(64)
+  createdAt    DateTime           @default(now())
+  wipeBatch    WipeBatch          @relation(fields: [wipeBatchId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  save         CompetitiveSave    @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+
+  @@id([wipeBatchId, saveId])
+  @@unique([wipeBatchId, ordinal])
+  @@index([restaurantId, saveId])
+}
+
+model WipeBatchCheckpoint {
+  id             String                 @id
+  wipeBatchId    String
+  sequence       BigInt
+  phase          WipeLifecyclePhase
+  attempt        Int
+  outcome        WipeCheckpointOutcome
+  actorPlayerId  String
+  manifestHash   String?                @db.VarChar(64)
+  countSnapshot  Json?
+  countHash      String?                @db.VarChar(64)
+  evidence       Json
+  evidenceHash   String                 @db.VarChar(64)
+  errorCode      String?
+  errorDetails   Json?
+  occurredAt     DateTime               @default(now())
+  wipeBatch      WipeBatch              @relation(fields: [wipeBatchId], references: [id], onDelete: Restrict)
+  actorPlayer    Player                 @relation("D05WipeCheckpointActor", fields: [actorPlayerId], references: [id], onDelete: Restrict)
+
+  @@unique([wipeBatchId, sequence])
+  @@unique([wipeBatchId, phase, attempt])
+  @@index([wipeBatchId, phase, occurredAt])
+}
+
+model WipeAccountGuardEvaluation {
+  id            String                  @id
+  wipeBatchId   String
+  restaurantId  String
+  playerId      String
+  attempt       Int
+  outcome       WipeAccountGuardOutcome
+  evidence      Json
+  evidenceHash  String                  @db.VarChar(64)
+  evaluatedAt   DateTime                @default(now())
+  wipeBatch     WipeBatch               @relation(fields: [wipeBatchId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  player        Player                  @relation(fields: [playerId], references: [id], onDelete: Restrict)
+
+  @@unique([wipeBatchId, playerId, attempt])
+  @@index([playerId, evaluatedAt])
+}
+
+model WipeTombstone {
+  id                     String                 @id
+  wipeBatchId            String
+  family                 WipeTombstoneFamily
+  recordId               String
+  restaurantId           String
+  saveId                 String?
+  playerId               String?
+  restaurantMembershipId String?
+  employeeId             String?
+  inventoryStockId       String?
+  orderId                String?
+  locator                 Json
+  locatorHash             String                 @db.VarChar(64)
+  retainedEvidenceHash   String                 @db.VarChar(64)
+  tombstonedAt            DateTime               @default(now())
+  wipeBatch              WipeBatch              @relation(fields: [wipeBatchId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  save                   CompetitiveSave?       @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  player                 Player?                @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  restaurantMembership   RestaurantMembership?  @relation(fields: [restaurantMembershipId], references: [id], onDelete: Restrict)
+  employee               Employee?              @relation(fields: [restaurantId, saveId, employeeId], references: [restaurantId, saveId, id], onDelete: Restrict)
+  inventoryStock         InventoryStock?        @relation(fields: [restaurantId, saveId, inventoryStockId], references: [restaurantId, saveId, id], onDelete: Restrict)
+  order                  Order?                 @relation(fields: [restaurantId, saveId, orderId], references: [restaurantId, saveId, id], onDelete: Restrict)
+
+  @@unique([wipeBatchId, family, recordId])
+  @@index([restaurantId, saveId])
+  @@index([playerId])
+  @@index([restaurantMembershipId])
+  @@index([employeeId])
+  @@index([inventoryStockId])
+  @@index([orderId])
+}
+
+model IdempotencyRecord {
+  id                 String      @id @default(cuid())
+  restaurantId       String?
+  playerId           String?
+  actorScope         String
+  idempotencyKey     String
+  requestFingerprint String      @db.VarChar(64)
+  status             String
+  aggregateType      String?
+  aggregateId        String?
+  responseSnapshot   Json?
+  createdAt          DateTime    @default(now())
+  terminalAt         DateTime?
+  expiresAt          DateTime
+  restaurant         Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  player             Player?     @relation(fields: [playerId], references: [id], onDelete: Restrict)
+
+  @@unique([actorScope, idempotencyKey])
+  @@index([restaurantId, createdAt])
+  @@index([playerId, createdAt])
+  @@index([expiresAt])
+}
+
+model LedgerTransaction {
+  id                    String                @id
+  restaurantId          String
+  saveId                String
+  commandId             String                @unique
+  actorPlayerId         String
+  kind                  LedgerTransactionKind
+  currency              String                @db.VarChar(3)
+  reason                String
+  reversesTransactionId String?               @unique
+  createdAt             DateTime              @default(now())
+  restaurant            Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                  CompetitiveSave       @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  actorPlayer           Player                @relation("D03LedgerActor", fields: [actorPlayerId], references: [id], onDelete: Restrict)
+  reverses              LedgerTransaction?    @relation("D03LedgerCompensation", fields: [restaurantId, saveId, reversesTransactionId], references: [restaurantId, saveId, id], onDelete: Restrict)
+  compensation          LedgerTransaction?    @relation("D03LedgerCompensation")
+  lines                 LedgerLine[]
+  outboxEvent           OutboxEvent?
+  simulationJobs        SimulationJob[]       @relation("D03SimulationSourceTransaction")
+  inventoryTransactions InventoryTransaction[]
+
+  @@unique([restaurantId, saveId, id])
+  @@unique([restaurantId, saveId, id, commandId])
+  @@unique([restaurantId, saveId, reversesTransactionId])
+  @@index([restaurantId, saveId, createdAt])
+  @@index([actorPlayerId, createdAt])
+}
+
+model LedgerLine {
+  id            String            @id
+  restaurantId  String
+  saveId        String
+  transactionId String
+  sequence      Int
+  accountCode   String
+  direction     LedgerDirection
+  amountMinor   BigInt
+  createdAt     DateTime          @default(now())
+  transaction   LedgerTransaction @relation(fields: [restaurantId, saveId, transactionId], references: [restaurantId, saveId, id], onDelete: Restrict)
+
+  @@unique([transactionId, sequence])
+  @@index([restaurantId, saveId, accountCode, createdAt])
+}
+
+model OutboxEvent {
+  id                   String                  @id
+  restaurantId         String
+  saveId               String
+  transactionId        String?                 @unique
+  causationCommandId   String
+  eventSequence        Int                     @default(0)
+  aggregateType        String
+  aggregateId          String
+  aggregateVersion     Int
+  eventType            String
+  eventVersion         Int                     @default(1)
+  payload              Json
+  occurredAt           DateTime                @default(now())
+  restaurant           Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                 CompetitiveSave         @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  transaction          LedgerTransaction?      @relation(fields: [restaurantId, saveId, transactionId], references: [restaurantId, saveId, id], onDelete: Restrict)
+  receipts             OutboxConsumerReceipt[]
+  deadLetters          OutboxConsumerDeadLetter[]
+  simulationJobs       SimulationJob[]
+  materializedMarketTicks MarketTick[]
+
+  @@unique([restaurantId, id])
+  @@unique([restaurantId, saveId, transactionId])
+  @@unique([restaurantId, saveId, id, causationCommandId])
+  @@unique([causationCommandId, eventSequence])
+  @@index([restaurantId, saveId, occurredAt])
+  @@index([restaurantId, saveId, causationCommandId])
+}
+
+model OutboxConsumerReceipt {
+  id           String      @id
+  restaurantId String
+  eventId      String
+  consumerName String
+  processedAt  DateTime    @default(now())
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  event        OutboxEvent @relation(fields: [restaurantId, eventId], references: [restaurantId, id], onDelete: Restrict)
+
+  @@unique([eventId, consumerName])
+  @@index([restaurantId, consumerName, processedAt])
+}
+
+model OutboxConsumerDeadLetter {
+  id           String      @id
+  restaurantId String
+  eventId      String
+  consumerName String
+  eventType    String
+  eventVersion Int
+  errorCode    String
+  errorDetails Json
+  failedAt     DateTime    @default(now())
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  event        OutboxEvent @relation(fields: [restaurantId, eventId], references: [restaurantId, id], onDelete: Restrict)
+
+  @@unique([eventId, consumerName])
+  @@index([restaurantId, consumerName, failedAt])
+  @@index([errorCode, failedAt])
+}
+
+model SimulationVersionArtifact {
+  id           String                 @id
+  artifactKind SimulationArtifactKind
+  artifactKey  String
+  version      String
+  processorId  String?
+  payload      Json
+  payloadHash  String                 @db.VarChar(64)
+  createdAt    DateTime               @default(now())
+
+  @@unique([artifactKind, artifactKey, version])
+  @@index([artifactKind, artifactKey, createdAt])
+}
+
+model SimulationJob {
+  id                  String                    @id
+  restaurantId        String
+  saveId              String
+  sourceEventId       String
+  sourceTransactionId String?
+  jobKind             String
+  businessKey         String
+  status              SimulationJobStatus       @default(PENDING)
+  inputPayload        Json
+  inputHash           String                    @db.VarChar(64)
+  resultPayload       Json?
+  attemptCount        Int                       @default(0)
+  maxAttempts         Int                       @default(5)
+  availableAt         DateTime                  @default(now())
+  leaseOwner          String?
+  leaseToken          String?
+  leaseExpiresAt      DateTime?
+  errorClass          SimulationJobErrorClass?
+  errorCode           String?
+  errorDetails        Json?
+  startedAt           DateTime?
+  terminalAt          DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  restaurant          Restaurant                @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                CompetitiveSave           @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  sourceEvent         OutboxEvent               @relation(fields: [restaurantId, sourceEventId], references: [restaurantId, id], onDelete: Restrict)
+  sourceTransaction   LedgerTransaction?        @relation("D03SimulationSourceTransaction", fields: [restaurantId, saveId, sourceTransactionId], references: [restaurantId, saveId, id], onDelete: Restrict)
+  audits              SimulationJobAudit[]
+  materializedTicks   MarketTick[]
+  replayExecution     VersionedReplayExecution?
+
+  @@unique([restaurantId, id])
+  @@unique([sourceEventId, jobKind, businessKey])
+  @@index([status, availableAt, createdAt])
+  @@index([restaurantId, saveId, createdAt])
+  @@index([leaseExpiresAt])
+}
+
+model SimulationJobAudit {
+  id           String        @id
+  restaurantId String
+  jobId        String
+  action       String
+  attempt      Int
+  details      Json
+  occurredAt   DateTime      @default(now())
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  job          SimulationJob @relation(fields: [restaurantId, jobId], references: [restaurantId, id], onDelete: Restrict)
+
+  @@index([restaurantId, jobId, occurredAt])
+  @@index([action, occurredAt])
+}
+
+model VersionedReplayExecution {
+  id                String          @id
+  restaurantId      String
+  saveId            String
+  jobId             String          @unique
+  replayKind        String
+  businessDay       Int?
+  ruleArtifactKey   String
+  ruleVersion       String
+  rulePayloadHash   String          @db.VarChar(64)
+  catalogSelections Json
+  replayPayload     Json
+  replayInputHash   String          @db.VarChar(64)
+  resultPayload     Json
+  resultHash        String          @db.VarChar(64)
+  createdAt         DateTime        @default(now())
+  restaurant        Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save              CompetitiveSave @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict)
+  job               SimulationJob   @relation(fields: [restaurantId, jobId], references: [restaurantId, id], onDelete: Restrict)
+  businessDayRecord BusinessDay?    @relation(fields: [restaurantId, saveId, businessDay], references: [restaurantId, saveId, businessDay], onDelete: Restrict)
+  marketTicks       MarketTick[]
+
+  @@unique([restaurantId, id])
+  @@unique([restaurantId, jobId])
+  @@index([restaurantId, saveId, replayKind, createdAt])
+}
+
+model MarketTick {
+  id                    String                   @id
+  restaurantId          String
+  saveId                String
+  businessDay           Int
+  tickKind              String
+  materializationSource MarketTickMaterializationSource @default(JOB)
+  materializedByJobId   String?
+  replayExecutionId     String?
+  materializedByCommandId String?
+  sourceEventId         String?
+  marketSeed            String
+  ruleArtifactKey       String
+  simulationRuleVersion String
+  rulePayloadHash       String                   @db.VarChar(64)
+  catalogArtifactKey    String
+  catalogRevision       String
+  catalogPayloadHash    String                   @db.VarChar(64)
+  prngCursor            Int
+  inputPayload          Json
+  outputPayload         Json
+  outputHash            String                   @db.VarChar(64)
+  createdAt             DateTime                 @default(now())
+  restaurant            Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  save                  CompetitiveSave          @relation(fields: [restaurantId, saveId], references: [restaurantId, id], onDelete: Restrict, map: "MarketTick_save_scope_fkey")
+  materializedByJob     SimulationJob?            @relation(fields: [restaurantId, materializedByJobId], references: [restaurantId, id], onDelete: Restrict)
+  replayExecution       VersionedReplayExecution? @relation(fields: [restaurantId, replayExecutionId], references: [restaurantId, id], onDelete: Restrict)
+  sourceEvent           OutboxEvent?              @relation(fields: [restaurantId, saveId, sourceEventId, materializedByCommandId], references: [restaurantId, saveId, id, causationCommandId], onDelete: Restrict)
+  marketSeedAuthority   MarketSeedAuthority       @relation(fields: [restaurantId, saveId], references: [restaurantId, saveId], onDelete: Restrict, map: "MarketTick_market_seed_authority_scope_fkey")
+  businessDayRecord     BusinessDay               @relation(fields: [restaurantId, saveId, businessDay], references: [restaurantId, saveId, businessDay], onDelete: Restrict)
+
+  @@unique([saveId, businessDay, tickKind])
+  @@index([restaurantId, saveId, businessDay])
+  @@index([materializedByJobId])
+  @@index([sourceEventId])
 }

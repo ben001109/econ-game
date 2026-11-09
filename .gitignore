@@ -8,13 +8,28 @@ pnpm-debug.log*
 .turbo
 .next
 dist
+*.tsbuildinfo
 .DS_Store
+.hermes/
+
+# Python
+.venv
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ruff_cache
 
 # Env
-.env
-.env.local
-**/.env.local
-**/.env.*.local
+.env*
+**/.env*
+!.env.example
+!.env.*.example
+!.env.sample
+!.env.*.sample
+!**/.env.example
+!**/.env.*.example
+!**/.env.sample
+!**/.env.*.sample
 
 # DB
 postgres-data

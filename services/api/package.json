@@ -7,27 +7,36 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p .",
     "start": "node dist/index.js",
-    "bun:setup": "bunx prisma generate && bunx prisma db push",
-    "bun:dev": "bun run bun:setup && bun --hot src/index.ts",
-    "bun:start": "bun run bun:setup && bun src/index.ts",
+    "test": "tsx --test src/domains/**/*.test.ts src/commands/**/*.test.ts src/auth/**/*.test.ts src/identity/**/*.test.ts src/closed-beta/**/*.test.ts src/security/**/*.test.ts src/gameplay/**/*.test.ts",
+    "test:d04:static": "node --test tests/security/d04-rls-claims.test.mjs",
+    "test:d04:postgres": "sh tests/security/run-d04-postgres-integration.sh",
+    "test:d05:static": "node --test tests/security/d05-privacy-regressions.test.mjs",
+    "test:d05:postgres": "sh tests/security/run-d05-postgres-integration.sh",
+    "test:d03:postgres": "sh tests/ledger/run-d03-postgres-integration.sh",
+    "test:d03:s02:postgres": "sh tests/simulation/run-d03-s02-postgres-integration.sh",
+    "test:d03:s02:static": "node --test tests/simulation/d03-s02-migration.test.mjs",
+    "test:b2:static": "node --test tests/security/b2-outbox-dead-letter-migration.test.mjs",
     "lint": "eslint .",
+    "typecheck": "tsc -p . --noEmit",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write .",
-    "db:push": "prisma db push",
+    "format": "prettier --ignore-path ../../.prettierignore --write .",
+    "format:check": "prettier --ignore-path ../../.prettierignore --check .",
+    "db:migrate:deploy": "prisma migrate deploy",
     "prisma:generate": "prisma generate"
   },
   "dependencies": {
+    "@econ-game/release-evidence": "file:../../packages/econ-game-release-evidence",
     "@fastify/cors": "^11.1.0",
     "@fastify/swagger": "^9.5.2",
-    "@fastify/swagger-ui": "^5.2.3",
-    "@prisma/client": "^6.18.0",
-    "dotenv": "^17.2.3",
-    "fastify": "^5.6.1",
-    "ioredis": "^5.8.2",
+    "@fastify/swagger-ui": "^6.1.1",
+    "@prisma/client": "6.12.0",
     "@sentry/node": "^10.22.0",
-    "newrelic": "^13.6.2",
+    "dotenv": "^17.2.3",
+    "fastify": "^5.8.5",
+    "ioredis": "^5.8.2",
+    "newrelic": "^14.3.7",
     "pino": "^10.1.0",
-    "prisma": "^6.18.0",
+    "prisma": "6.12.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
@@ -42,5 +51,10 @@
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
+    }
   }
 }

@@ -1,0 +1,109 @@
+{
+  "cases": [
+    {
+      "name": "clean",
+      "record": {
+        "path": "fixture/package-lock.json",
+        "status": "CLEAN",
+        "counts": { "info": 0, "low": 0, "moderate": 0, "high": 0, "critical": 0, "total": 0 }
+      },
+      "expectedCodes": []
+    },
+    {
+      "name": "info advisory",
+      "record": {
+        "path": "fixture/package-lock.json",
+        "status": "VULNERABILITIES_FOUND",
+        "counts": { "info": 1, "low": 0, "moderate": 0, "high": 0, "critical": 0, "total": 1 }
+      },
+      "expectedCodes": ["NPM_VULNERABILITIES_OPEN"]
+    },
+    {
+      "name": "low advisory",
+      "record": {
+        "path": "fixture/package-lock.json",
+        "status": "VULNERABILITIES_FOUND",
+        "counts": { "info": 0, "low": 1, "moderate": 0, "high": 0, "critical": 0, "total": 1 }
+      },
+      "expectedCodes": ["NPM_VULNERABILITIES_OPEN"]
+    },
+    {
+      "name": "moderate advisory",
+      "record": {
+        "path": "fixture/package-lock.json",
+        "status": "VULNERABILITIES_FOUND",
+        "counts": { "info": 0, "low": 0, "moderate": 1, "high": 0, "critical": 0, "total": 1 }
+      },
+      "expectedCodes": ["NPM_VULNERABILITIES_OPEN"]
+    },
+    {
+      "name": "high advisory",
+      "record": {
+        "path": "fixture/package-lock.json",
+        "status": "VULNERABILITIES_FOUND",
+        "counts": { "info": 0, "low": 0, "moderate": 0, "high": 1, "critical": 0, "total": 1 }
+      },
+      "expectedCodes": ["NPM_VULNERABILITIES_OPEN"]
+    },
+    {
+      "name": "critical advisory",
+      "record": {
+        "path": "fixture/package-lock.json",
+        "status": "VULNERABILITIES_FOUND",
+        "counts": { "info": 0, "low": 0, "moderate": 0, "high": 0, "critical": 1, "total": 1 }
+      },
+      "expectedCodes": ["NPM_VULNERABILITIES_OPEN"]
+    },
+    {
+      "name": "clean status with advisory",
+      "record": {
+        "path": "fixture/package-lock.json",
+        "status": "CLEAN",
+        "counts": { "info": 0, "low": 1, "moderate": 0, "high": 0, "critical": 0, "total": 1 }
+      },
+      "expectedCodes": ["NPM_AUDIT_INCONSISTENT", "NPM_VULNERABILITIES_OPEN"]
+    },
+    {
+      "name": "vulnerable status with zero total",
+      "record": {
+        "path": "fixture/package-lock.json",
+        "status": "VULNERABILITIES_FOUND",
+        "counts": { "info": 0, "low": 0, "moderate": 0, "high": 0, "critical": 0, "total": 0 }
+      },
+      "expectedCodes": ["NPM_AUDIT_INCONSISTENT"]
+    },
+    {
+      "name": "severity sum mismatch",
+      "record": {
+        "path": "fixture/package-lock.json",
+        "status": "VULNERABILITIES_FOUND",
+        "counts": { "info": 0, "low": 0, "moderate": 1, "high": 0, "critical": 0, "total": 0 }
+      },
+      "expectedCodes": [
+        "NPM_AUDIT_INCONSISTENT",
+        "NPM_AUDIT_INCONSISTENT",
+        "NPM_VULNERABILITIES_OPEN"
+      ]
+    },
+    {
+      "name": "missing counts",
+      "record": { "path": "fixture/package-lock.json", "status": "CLEAN" },
+      "expectedCodes": ["NPM_AUDIT_MALFORMED"]
+    },
+    {
+      "name": "unknown status",
+      "record": {
+        "path": "fixture/package-lock.json",
+        "status": "NETWORK_ERROR",
+        "counts": { "info": 0, "low": 1, "moderate": 0, "high": 0, "critical": 0, "total": 1 }
+      },
+      "expectedCodes": ["NPM_AUDIT_MALFORMED", "NPM_VULNERABILITIES_OPEN"]
+    }
+  ],
+  "jsonInputs": {
+    "clean": "{\"metadata\":{\"vulnerabilities\":{\"info\":0,\"low\":0,\"moderate\":0,\"high\":0,\"critical\":0,\"total\":0}},\"vulnerabilities\":{}}",
+    "malformed": "{not-json",
+    "malformedDetails": "{\"metadata\":{\"vulnerabilities\":{\"info\":0,\"low\":1,\"moderate\":0,\"high\":0,\"critical\":0,\"total\":1}},\"vulnerabilities\":{}}",
+    "network": "{\"message\":\"registry request failed\",\"error\":{\"summary\":\"network unavailable\"}}"
+  }
+}

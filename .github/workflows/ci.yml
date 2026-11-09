@@ -1,17 +1,60 @@
 name: CI
 
 on:
+  workflow_call:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  lint-build:
-    name: Lint and Build (${{ matrix.service }})
+  supply-chain-security:
+    name: Supply-chain security (fail closed)
     runs-on: ubuntu-latest
-    env:
-      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Test supply-chain checker policy
+        run: node --test scripts/check-supply-chain.test.mjs
+      - name: Verify locks, advisories, actions, images, and bootstrap policy
+        run: node scripts/check-supply-chain.mjs --online
+
+  migration-safety:
+    name: Migration safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Reject schema push commands
+        run: node scripts/check-migration-safety.mjs
+
+      - name: Run persistence and migration static contracts
+        run: node scripts/run-ci-static-contracts.mjs
+
+      - name: Verify CI workflow contract
+        run: node --test scripts/ci-workflow-contract.test.mjs
+
+  service-quality:
+    name: Quality (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -20,8 +63,6 @@ jobs:
             dir: services/api
           - service: worker
             dir: services/worker
-          - service: frontend
-            dir: services/frontend
           - service: bot
             dir: services/bot
     defaults:
@@ -30,126 +71,106 @@ jobs:
         shell: bash
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
           cache-dependency-path: ${{ matrix.dir }}/package-lock.json
 
-      - name: Discord token not set (worker)
-        if: ${{ matrix.service == 'worker' && (env.DISCORD_BOT_TOKEN == '' || env.DISCORD_BOT_TOKEN == null) }}
-        run: echo "::notice title=Discord::DISCORD_BOT_TOKEN not set; worker will skip Discord features"
-
-      - name: Discord token not set (bot)
-        if: ${{ matrix.service == 'bot' && (env.DISCORD_BOT_TOKEN == '' || env.DISCORD_BOT_TOKEN == null) }}
-        run: echo "::warning title=Discord::DISCORD_BOT_TOKEN not set; bot cannot start in CI"
+      - name: Build SDK dependency
+        if: matrix.service == 'bot'
+        working-directory: packages/econ-game-sdk
+        run: npm ci --no-audit --ignore-scripts && npm run build
 
       - name: Install deps
-        run: |
-          if [ -f package-lock.json ]; then npm ci --no-audit --ignore-scripts; else npm install --no-audit --ignore-scripts; fi
+        run: npm ci --no-audit --ignore-scripts
 
-      - name: Generate Prisma Client (if script exists)
-        run: |
-          npm run prisma:generate --if-present
+      - name: Generate Prisma Client
+        if: matrix.service == 'api'
+        timeout-minutes: 5
+        run: npm run prisma:generate
+
+      - name: Format
+        run: npm run format:check
 
       - name: Lint
-        run: |
-          npm run lint --if-present
+        run: npm run lint
+
+      - name: Typecheck (bounded diagnostics)
+        if: matrix.service == 'api' || matrix.service == 'worker'
+        run: node ../../scripts/run-bounded-typecheck.mjs --service "${{ matrix.service }}" --timeout-seconds 180
+
+      - name: Typecheck
+        if: matrix.service != 'api' && matrix.service != 'worker'
+        run: npm run typecheck
+
+      - name: Unit and invariant tests
+        run: npm run test
+
+      - name: Worker runtime environment contract
+        if: matrix.service == 'worker'
+        run: ./node_modules/.bin/tsx --test src/runtime-env.test.ts
 
       - name: Build
-        run: |
-          npm run build --if-present
+        run: npm run build
 
-  lint-build-windows:
-    name: Lint and Build (Windows ${{ matrix.service }})
-    runs-on: windows-latest
-    env:
-      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - service: api
-            dir: services/api
-          - service: worker
-            dir: services/worker
-          - service: frontend
-            dir: services/frontend
-          - service: bot
-            dir: services/bot
+  sdk-quality:
+    name: SDK surface and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
-        working-directory: ${{ matrix.dir }}
-        shell: bash
+        working-directory: packages/econ-game-sdk
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
-          cache-dependency-path: ${{ matrix.dir }}/package-lock.json
-
-      - name: Discord token not set (worker)
-        if: ${{ matrix.service == 'worker' && (env.DISCORD_BOT_TOKEN == '' || env.DISCORD_BOT_TOKEN == null) }}
-        run: echo "::notice title=Discord::DISCORD_BOT_TOKEN not set; worker will skip Discord features"
-
-      - name: Discord token not set (bot)
-        if: ${{ matrix.service == 'bot' && (env.DISCORD_BOT_TOKEN == '' || env.DISCORD_BOT_TOKEN == null) }}
-        run: echo "::warning title=Discord::DISCORD_BOT_TOKEN not set; bot cannot start in CI"
-
+          cache-dependency-path: packages/econ-game-sdk/package-lock.json
       - name: Install deps
-        run: |
-          if [ -f package-lock.json ]; then npm ci --no-audit --ignore-scripts; else npm install --no-audit --ignore-scripts; fi
-
-      - name: Generate Prisma Client (if script exists)
-        run: |
-          npm run prisma:generate --if-present
-
-      - name: Lint
-        run: |
-          npm run lint --if-present
-
-      - name: Build
-        run: |
-          npm run build --if-present
+        run: npm ci --no-audit --ignore-scripts
+      - name: Verify SDK
+        run: npm run verify
 
   docker-build:
     name: Docker Build (${{ matrix.service }})
     runs-on: ubuntu-latest
-    needs: lint-build
+    timeout-minutes: 30
+    needs: [supply-chain-security, migration-safety, service-quality, sdk-quality]
     strategy:
       fail-fast: false
       matrix:
         include:
           - service: api
-            context: services/api
+            context: .
+            dockerfile: services/api/Dockerfile
           - service: worker
-            context: services/worker
-          - service: frontend
-            context: services/frontend
+            context: .
+            dockerfile: services/worker/Dockerfile
           - service: bot
-            context: services/bot
+            context: .
+            dockerfile: services/bot/Dockerfile
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Build image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: ${{ matrix.context }}
-          file: ${{ matrix.context }}/Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: false
           load: true
           tags: econ-game/${{ matrix.service }}:ci

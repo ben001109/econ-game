@@ -34,10 +34,10 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
       await import('newrelic');
       monitoringState.newRelic = true;
       globalState[newRelicFlag] = true;
-    } catch (err) {
+    } catch {
       if (process.env.NODE_ENV === 'production') {
         // eslint-disable-next-line no-console
-        console.error('[newrelic] Failed to load agent module.', err);
+        console.error('[newrelic] Failed to load agent module.');
       }
     }
   } else {
@@ -73,7 +73,10 @@ if (hasSentryDsn && !dsnLooksValid && !globalState[sentryWarnFlag]) {
 if (dsnLooksValid && !globalState[sentryFlag]) {
   const environment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development';
   const tracesSampleRate = parseSampleRate(process.env.SENTRY_TRACES_SAMPLE_RATE, 0);
-  const profilesSampleRate = parseSampleRate(process.env.SENTRY_PROFILES_SAMPLE_RATE, tracesSampleRate);
+  const profilesSampleRate = parseSampleRate(
+    process.env.SENTRY_PROFILES_SAMPLE_RATE,
+    tracesSampleRate,
+  );
   Sentry.init({
     dsn: trimmedDsn,
     environment,
@@ -89,9 +92,8 @@ if (dsnLooksValid && !globalState[sentryFlag]) {
 }
 
 if (monitoringState.sentry && !globalState[sentryHooksFlag]) {
-  const captureUnhandled = (reason: unknown) => {
-    const error = reason instanceof Error ? reason : new Error(`Unhandled rejection: ${String(reason)}`);
-    Sentry.captureException(error);
+  const captureUnhandled = (_reason: unknown) => {
+    Sentry.captureException(new Error('UNHANDLED_REJECTION'));
   };
   process.on('unhandledRejection', captureUnhandled);
   globalState[sentryHooksFlag] = true;

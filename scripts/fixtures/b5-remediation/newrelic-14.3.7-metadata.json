@@ -1,0 +1,9 @@
+{
+  "version": "14.3.7",
+  "engines": {
+    "npm": ">=6.0.0",
+    "node": ">=22"
+  },
+  "dist.integrity": "sha512-GDXgQO+as8B81dMsgpynnkWHnjS7pBO0v92iHLYBakeAIyWWfAetOE4hkfeXfIpBae3Vw0mlVlJx5vZ0DLit1g==",
+  "dist.tarball": "https://registry.npmjs.org/newrelic/-/newrelic-14.3.7.tgz"
+}

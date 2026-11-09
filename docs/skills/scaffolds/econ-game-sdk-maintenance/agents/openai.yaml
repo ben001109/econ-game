@@ -1,0 +1,4 @@
+interface:
+  display_name: "Econ Game SDK Maintenance"
+  short_description: "Check and maintain current SDK clients"
+  default_prompt: "Use $econ-game-sdk-maintenance to verify and update the internal SDK for a reviewed route change."

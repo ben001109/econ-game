@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "commitSha": null,
+  "gates": [
+    { "id": "quality", "status": "blocked", "evidence": [] },
+    { "id": "unit-invariant", "status": "blocked", "evidence": [] },
+    { "id": "api-integration", "status": "blocked", "evidence": [] },
+    { "id": "rls-isolation", "status": "blocked", "evidence": [] },
+    { "id": "web-e2e", "status": "blocked", "evidence": [] },
+    { "id": "discord-e2e", "status": "blocked", "evidence": [] },
+    { "id": "concurrency-redelivery", "status": "blocked", "evidence": [] },
+    { "id": "event-hash", "status": "blocked", "evidence": [] },
+    { "id": "snapshot-hash", "status": "blocked", "evidence": [] },
+    { "id": "rollback", "status": "blocked", "evidence": [] },
+    { "id": "incident-response", "status": "blocked", "evidence": [] },
+    { "id": "backup-restore", "status": "blocked", "evidence": [] },
+    { "id": "market-replay-rebuild", "status": "blocked", "evidence": [] },
+    { "id": "wipe-resume", "status": "blocked", "evidence": [] }
+  ]
+}

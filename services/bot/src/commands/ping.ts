@@ -5,4 +5,3 @@ export const data = new SlashCommandBuilder().setName('ping').setDescription('Pi
 export async function execute(interaction: ChatInputCommandInteraction, t: (k: string) => string) {
   await interaction.reply(t('pong'));
 }
-

@@ -1,0 +1,520 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-11-08T07:55:46Z",
+  "collector": "scripts/collect-oci-image-evidence.mjs --write",
+  "policy": "docs/security/oci-image-trust-policy.json",
+  "scanPlatform": "linux/amd64",
+  "tooling": {
+    "cosign": "v3.1.3",
+    "trivy": "0.74.0",
+    "trivyDbUpdatedAt": "2026-11-08T06:39:21.614725497Z"
+  },
+  "sideEffects": {
+    "imageLayersPulled": true,
+    "imagesBuilt": false,
+    "containersRun": false,
+    "imagesDeployed": false
+  },
+  "images": [
+    {
+      "reference": "adminer:4@sha256:c1c24d89d06fcb8fc0fb5a049240dc292ff4a121ae05d7e74d64b58c421d2921",
+      "signature": {
+        "tool": "cosign tree",
+        "status": "NONE_PUBLISHED"
+      },
+      "provenance": {
+        "status": "PRESENT",
+        "signed": false,
+        "platforms": 8,
+        "builders": [
+          "https://github.com/docker-library"
+        ],
+        "sources": [
+          "https://github.com/TimWolla/docker-adminer.git#0c0fd187e8646ad61fe592a80d66abec2c1dc951:4"
+        ]
+      },
+      "scan": {
+        "os": {
+          "family": "alpine",
+          "name": "3.24.1",
+          "eosl": false
+        },
+        "counts": {
+          "CRITICAL": 1,
+          "HIGH": 26,
+          "MEDIUM": 23,
+          "LOW": 79,
+          "UNKNOWN": 2
+        },
+        "osFixableCritical": 1,
+        "osFixableHigh": 26,
+        "languageFindings": []
+      }
+    },
+    {
+      "reference": "node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202",
+      "signature": {
+        "tool": "cosign tree",
+        "status": "NONE_PUBLISHED"
+      },
+      "provenance": {
+        "status": "PRESENT",
+        "signed": false,
+        "platforms": 5,
+        "builders": [
+          "https://github.com/docker-library"
+        ],
+        "sources": [
+          "https://github.com/nodejs/docker-node.git#80f02a542da739e6a662451d1db66456a0dea253:22/alpine3.24"
+        ]
+      },
+      "scan": {
+        "os": {
+          "family": "alpine",
+          "name": "3.24.4",
+          "eosl": false
+        },
+        "counts": {
+          "CRITICAL": 0,
+          "HIGH": 10,
+          "MEDIUM": 13,
+          "LOW": 1,
+          "UNKNOWN": 0
+        },
+        "osFixableCritical": 0,
+        "osFixableHigh": 0,
+        "languageFindings": [
+          {
+            "id": "CVE-2026-9496",
+            "severity": "HIGH",
+            "package": "pacote@20.0.1",
+            "fixedVersion": "21.5.1",
+            "location": "usr/local/lib/node_modules/npm/node_modules/@npmcli/metavuln-calculator/node_modules/pacote/package.json"
+          },
+          {
+            "id": "CVE-2026-102276",
+            "severity": "HIGH",
+            "package": "brace-expansion@2.0.2",
+            "fixedVersion": "5.0.10, 3.0.7, 2.1.5, 1.1.19",
+            "location": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json"
+          },
+          {
+            "id": "CVE-2026-102278",
+            "severity": "HIGH",
+            "package": "brace-expansion@2.0.2",
+            "fixedVersion": "5.0.11, 3.0.8, 2.1.6, 1.1.20",
+            "location": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json"
+          },
+          {
+            "id": "CVE-2026-13149",
+            "severity": "HIGH",
+            "package": "brace-expansion@2.0.2",
+            "fixedVersion": "5.0.7, 1.1.16, 2.1.2",
+            "location": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json"
+          },
+          {
+            "id": "CVE-2026-14257",
+            "severity": "HIGH",
+            "package": "brace-expansion@2.0.2",
+            "fixedVersion": "5.0.8, 3.0.3, 2.1.3, 1.1.17",
+            "location": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json"
+          },
+          {
+            "id": "CVE-2026-69152",
+            "severity": "HIGH",
+            "package": "brace-expansion@2.0.2",
+            "fixedVersion": "1.1.18, 2.1.4, 3.0.6, 5.0.9",
+            "location": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json"
+          },
+          {
+            "id": "CVE-2026-69192",
+            "severity": "HIGH",
+            "package": "ip-address@10.1.0",
+            "fixedVersion": "10.3.1",
+            "location": "usr/local/lib/node_modules/npm/node_modules/ip-address/package.json"
+          },
+          {
+            "id": "CVE-2026-9496",
+            "severity": "HIGH",
+            "package": "pacote@19.0.2",
+            "fixedVersion": "21.5.1",
+            "location": "usr/local/lib/node_modules/npm/node_modules/pacote/package.json"
+          },
+          {
+            "id": "CVE-2026-33671",
+            "severity": "HIGH",
+            "package": "picomatch@4.0.3",
+            "fixedVersion": "4.0.4, 3.0.2, 2.3.2",
+            "location": "usr/local/lib/node_modules/npm/node_modules/picomatch/package.json"
+          },
+          {
+            "id": "CVE-2026-48815",
+            "severity": "HIGH",
+            "package": "sigstore@3.1.0",
+            "fixedVersion": "4.1.1",
+            "location": "usr/local/lib/node_modules/npm/node_modules/sigstore/package.json"
+          }
+        ]
+      }
+    },
+    {
+      "reference": "node:22-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d",
+      "signature": {
+        "tool": "cosign tree",
+        "status": "NONE_PUBLISHED"
+      },
+      "provenance": {
+        "status": "PRESENT",
+        "signed": false,
+        "platforms": 4,
+        "builders": [
+          "https://github.com/docker-library"
+        ],
+        "sources": [
+          "https://github.com/nodejs/docker-node.git#80f02a542da739e6a662451d1db66456a0dea253:22/bookworm-slim"
+        ]
+      },
+      "scan": {
+        "os": {
+          "family": "debian",
+          "name": "12.15",
+          "eosl": false
+        },
+        "counts": {
+          "CRITICAL": 1,
+          "HIGH": 44,
+          "MEDIUM": 107,
+          "LOW": 86,
+          "UNKNOWN": 0
+        },
+        "osFixableCritical": 0,
+        "osFixableHigh": 0,
+        "languageFindings": [
+          {
+            "id": "CVE-2026-9496",
+            "severity": "HIGH",
+            "package": "pacote@20.0.1",
+            "fixedVersion": "21.5.1",
+            "location": "usr/local/lib/node_modules/npm/node_modules/@npmcli/metavuln-calculator/node_modules/pacote/package.json"
+          },
+          {
+            "id": "CVE-2026-102276",
+            "severity": "HIGH",
+            "package": "brace-expansion@2.0.2",
+            "fixedVersion": "5.0.10, 3.0.7, 2.1.5, 1.1.19",
+            "location": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json"
+          },
+          {
+            "id": "CVE-2026-102278",
+            "severity": "HIGH",
+            "package": "brace-expansion@2.0.2",
+            "fixedVersion": "5.0.11, 3.0.8, 2.1.6, 1.1.20",
+            "location": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json"
+          },
+          {
+            "id": "CVE-2026-13149",
+            "severity": "HIGH",
+            "package": "brace-expansion@2.0.2",
+            "fixedVersion": "5.0.7, 1.1.16, 2.1.2",
+            "location": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json"
+          },
+          {
+            "id": "CVE-2026-14257",
+            "severity": "HIGH",
+            "package": "brace-expansion@2.0.2",
+            "fixedVersion": "5.0.8, 3.0.3, 2.1.3, 1.1.17",
+            "location": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json"
+          },
+          {
+            "id": "CVE-2026-69152",
+            "severity": "HIGH",
+            "package": "brace-expansion@2.0.2",
+            "fixedVersion": "1.1.18, 2.1.4, 3.0.6, 5.0.9",
+            "location": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json"
+          },
+          {
+            "id": "CVE-2026-69192",
+            "severity": "HIGH",
+            "package": "ip-address@10.1.0",
+            "fixedVersion": "10.3.1",
+            "location": "usr/local/lib/node_modules/npm/node_modules/ip-address/package.json"
+          },
+          {
+            "id": "CVE-2026-9496",
+            "severity": "HIGH",
+            "package": "pacote@19.0.2",
+            "fixedVersion": "21.5.1",
+            "location": "usr/local/lib/node_modules/npm/node_modules/pacote/package.json"
+          },
+          {
+            "id": "CVE-2026-33671",
+            "severity": "HIGH",
+            "package": "picomatch@4.0.3",
+            "fixedVersion": "4.0.4, 3.0.2, 2.3.2",
+            "location": "usr/local/lib/node_modules/npm/node_modules/picomatch/package.json"
+          },
+          {
+            "id": "CVE-2026-48815",
+            "severity": "HIGH",
+            "package": "sigstore@3.1.0",
+            "fixedVersion": "4.1.1",
+            "location": "usr/local/lib/node_modules/npm/node_modules/sigstore/package.json"
+          }
+        ]
+      }
+    },
+    {
+      "reference": "postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139",
+      "signature": {
+        "tool": "cosign tree",
+        "status": "NONE_PUBLISHED"
+      },
+      "provenance": {
+        "status": "PRESENT",
+        "signed": false,
+        "platforms": 8,
+        "builders": [
+          "https://github.com/docker-library"
+        ],
+        "sources": [
+          "https://github.com/docker-library/postgres.git#9d15534160ade17f2b6c455a39ee967c49b1937d:16/alpine3.24"
+        ]
+      },
+      "scan": {
+        "os": {
+          "family": "alpine",
+          "name": "3.24.4",
+          "eosl": false
+        },
+        "counts": {
+          "CRITICAL": 1,
+          "HIGH": 25,
+          "MEDIUM": 32,
+          "LOW": 3,
+          "UNKNOWN": 1
+        },
+        "osFixableCritical": 0,
+        "osFixableHigh": 0,
+        "languageFindings": [
+          {
+            "id": "CVE-2025-61726",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.24.12, 1.25.6",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2025-61729",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.24.11, 1.25.5",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2025-68121",
+            "severity": "CRITICAL",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.24.13, 1.25.7, 1.26.0-rc.3",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-111943",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.26.10, 1.27.3",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-25679",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.8, 1.26.1",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-27145",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.11, 1.26.4",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-32280",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.9, 1.26.2",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-32281",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.9, 1.26.2",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-32283",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.9, 1.26.2",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-33811",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.10, 1.26.3",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-33814",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.10, 1.26.3",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-33818",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.13, 1.26.6, 1.27.0-rc.3",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-39820",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.10, 1.26.3",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-39821",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.13, 1.26.6, 1.27.0-rc.3",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-39822",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.12, 1.26.5, 1.27.0-rc.2",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-39836",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.10, 1.26.3",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-42499",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.10, 1.26.3",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-42504",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.11, 1.26.4",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-56853",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.13, 1.26.6, 1.27.0-rc.3",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-56858",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.13, 1.26.6, 1.27.0-rc.3",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-56859",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.13, 1.26.6, 1.27.0-rc.3",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-56860",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.13, 1.26.6, 1.27.0-rc.3",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-56862",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.25.13, 1.26.6, 1.27.0-rc.3",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-78667",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.26.9, 1.27.2",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-78669",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.26.9, 1.27.2",
+            "location": "usr/local/bin/gosu"
+          },
+          {
+            "id": "CVE-2026-97031",
+            "severity": "HIGH",
+            "package": "stdlib@v1.24.6",
+            "fixedVersion": "1.26.9, 1.27.2",
+            "location": "usr/local/bin/gosu"
+          }
+        ]
+      }
+    },
+    {
+      "reference": "redis:7-alpine@sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b",
+      "signature": {
+        "tool": "cosign tree",
+        "status": "NONE_PUBLISHED"
+      },
+      "provenance": {
+        "status": "PRESENT",
+        "signed": false,
+        "platforms": 8,
+        "builders": [
+          "https://github.com/docker-library"
+        ],
+        "sources": [
+          "https://github.com/redis/docker-library-redis.git#786872f8c248c1f0990f93244cbcb3949329016d:alpine"
+        ]
+      },
+      "scan": {
+        "os": {
+          "family": "alpine",
+          "name": "3.21.10",
+          "eosl": false
+        },
+        "counts": {
+          "CRITICAL": 0,
+          "HIGH": 0,
+          "MEDIUM": 1,
+          "LOW": 0,
+          "UNKNOWN": 0
+        },
+        "osFixableCritical": 0,
+        "osFixableHigh": 0,
+        "languageFindings": []
+      }
+    }
+  ]
+}

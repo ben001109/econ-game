@@ -1,0 +1,71 @@
+{
+  "remediationId": "security-b6-node22-newrelic",
+  "status": "implemented-pending-independent-review",
+  "scope": {
+    "included": [
+      "Node 22 runtime declarations (.nvmrc, CI indirection, Node Dockerfiles, Compose development images, existing SDK engine)",
+      "New Relic manifests and lockfiles for API, Bot, and Worker"
+    ],
+    "excluded": [
+      "B4 checker and evidence",
+      "B5 evidence and verifier",
+      "Python, Bun, OCI image digests, schema or migration work, and cloud deployment"
+    ]
+  },
+  "risk": {
+    "node20": "Node 20 is end-of-life and is replaced by Node 22 declarations.",
+    "newRelic": {
+      "advisory": "GHSA-8988-4f7v-96qf",
+      "affectedRangeObservedByAudit": "newrelic 12.20.0 - 14.1.0",
+      "selectedVersion": "14.3.7",
+      "selectionEvidence": "Each service package-lock records newrelic 14.3.7 with engines.node >=22 and engines.npm >=6.0.0."
+    }
+  },
+  "actions": [
+    "Set .nvmrc to 22; CI and promotion workflows continue to consume that single declaration.",
+    "Set all Node Dockerfile build/runtime stages and Compose Node development images to Node 22.",
+    "Raise the existing SDK package engine declaration to >=22.",
+    "Resolve API, Bot, and Worker New Relic dependency manifests and lockfiles to 14.3.7 with targeted package-lock-only installs; install scripts and audit fixes were disabled.",
+    "Move prior ignored Bot and Worker dist directories to same-filesystem B6 backup paths before fresh official Node 22 builds; no backup was deleted or overwritten."
+  ],
+  "audit": {
+    "before": {
+      "api": { "total": 12, "high": 2, "moderate": 10 },
+      "bot": { "total": 10, "high": 0, "moderate": 10 },
+      "worker": { "total": 10, "high": 0, "moderate": 10 }
+    },
+    "after": {
+      "api": {
+        "total": 2,
+        "high": 2,
+        "moderate": 0,
+        "remainingOutOfScope": ["fastify", "find-my-way"]
+      },
+      "bot": { "total": 0, "high": 0, "moderate": 0 },
+      "worker": { "total": 0, "high": 0, "moderate": 0 }
+    },
+    "newRelicAdvisoriesAfter": "none reported by npm audit for all three services"
+  },
+  "validation": {
+    "runtime": { "node": "v22.23.1", "npm": "10.9.8" },
+    "typecheck": { "api": "passed", "bot": "passed", "worker": "passed" },
+    "build": { "api": "passed", "bot": "passed after fresh dist rebuild", "worker": "passed after fresh dist rebuild" },
+    "test": { "api": "passed (152 tests)", "bot": "passed (7 tests)", "worker": "passed (10 tests)" },
+    "structural": "No Node 20 declaration remained in the scoped Node runtime files; CI and promotion workflows use .nvmrc.",
+    "distRecovery": {
+      "method": "same-filesystem move",
+      "botBackup": "services/bot/dist.b6-backup-20260816T153023Z",
+      "workerBackup": "services/worker/dist.b6-backup-20260816T153023Z",
+      "freshOutputs": { "botFiles": 25, "workerFiles": 11 },
+      "backupOutputs": { "botFiles": 26, "workerFiles": 11 },
+      "backupTracking": "The retained backup directories are intentionally untracked and are not covered by the dist ignore rule; no .gitignore change or cleanup is part of B6."
+    }
+  },
+  "integration": {
+    "sharedTreeDependency": "B5 must be reconciled in the shared tree after the shared-tree Git baseline is fully recovered.",
+    "preexistingChanges": "This remediation was applied over existing unstaged changes. B6 scope delta must be reviewed against its recorded pre-write file hashes, not against HEAD alone."
+  },
+  "residualRisk": [
+    "API retains two audited Fastify/find-my-way advisories outside B6 scope."
+  ]
+}
